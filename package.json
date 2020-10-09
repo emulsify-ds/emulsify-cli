@@ -1,0 +1,41 @@
+{
+  "name": "@emulsify/cli",
+  "version": "0.0.0-development",
+  "description": "Command line interface for Emulsify",
+  "main": "index.js",
+  "repository": "git@github.com:emulsify-ds/emulsify-cli.git",
+  "author": "Patrick Coffey <patrickcoffey48@gmail.com>",
+  "license": "GPL-2.0",
+  "private": false,
+  "scripts": {
+    "build": "tsc --build tsconfig.dist.json",
+    "format": "prettier --write './src/**/*.{js,ts}' && yarn lint --fix",
+    "husky:commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
+    "husky:pre-commit": "yarn lint-staged",
+    "husky:pre-push": "yarn lint-staged && yarn test",
+    "lint": "eslint --ext .js,.ts .",
+    "test": "jest --coverage --silent",
+    "type": "tsc --noEmit",
+    "twatch": "jest --no-coverage --watch --verbose"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^11.0.0",
+    "@commitlint/config-conventional": "^11.0.0",
+    "@semantic-release/github": "^7.1.1",
+    "@types/jest": "^26.0.14",
+    "@types/node": "^14.11.8",
+    "@typescript-eslint/eslint-plugin": "^4.4.0",
+    "@typescript-eslint/parser": "^4.4.0",
+    "eslint": "^7.11.0",
+    "eslint-config-prettier": "^6.12.0",
+    "eslint-plugin-prettier": "^3.1.4",
+    "eslint-plugin-security": "^1.4.0",
+    "husky": "^4.3.0",
+    "jest": "^26.5.2",
+    "lint-staged": "^10.4.0",
+    "prettier": "^2.1.2",
+    "semantic-release": "^17.1.2",
+    "ts-jest": "^26.4.1",
+    "typescript": "^4.0.3"
+  }
+}
