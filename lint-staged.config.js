@@ -1,3 +1,3 @@
 module.exports = {
-  '*.{js,ts}': ['yarn lint', 'yarn format'],
+  '*.{js,ts}': ['npm run lint', 'npm run format'],
 };

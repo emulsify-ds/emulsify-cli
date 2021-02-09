@@ -1,7 +1,7 @@
 module.exports = {
   hooks: {
-    'pre-commit': 'yarn husky:pre-commit',
-    'commit-msg': 'yarn husky:commit-msg',
-    'pre-push': 'yarn husky:pre-push',
+    'pre-commit': 'npm run husky:pre-commit',
+    'commit-msg': 'npm run husky:commit-msg',
+    'pre-push': 'npm run husky:pre-push',
   },
 };
