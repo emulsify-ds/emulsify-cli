@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc --build tsconfig.dist.json",
     "format": "prettier --write './src/**/*.{js,ts}' && npm run lint --fix",
-    "husky:commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
+    "husky:commit-msg": "commitlint --edit $1",
     "husky:pre-commit": "lint-staged",
     "husky:pre-push": "lint-staged && npm run test",
     "lint": "eslint --ext .js,.ts .",
