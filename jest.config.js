@@ -10,6 +10,8 @@ module.exports = {
       statements: 100,
     },
   },
-  collectCoverageFrom: ['<rootDir>/src/**'],
-  coveragePathIgnorePatterns: ['<rootDir>/node_modules/'],
+  coveragePathIgnorePatterns: [
+    '<rootDir>/node_modules/',
+    '<rootDir>/src/index.ts',
+  ],
 };
