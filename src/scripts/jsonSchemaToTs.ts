@@ -16,9 +16,12 @@ export default async function main(schemas: string[]): Promise<void[]> {
 
   return await Promise.all(
     schemas.map((name) =>
-      compileFromFile(join(schemaDir, `${name}.json`)).then((ts) =>
-        writeFileSync(join(typesDir, `_${name}.d.ts`), ts)
-      )
+      compileFromFile(join(schemaDir, `${name}.json`), {
+        cwd: process.cwd(),
+        style: {
+          singleQuote: true,
+        },
+      }).then((ts) => writeFileSync(join(typesDir, `_${name}.d.ts`), ts))
     )
   );
 }

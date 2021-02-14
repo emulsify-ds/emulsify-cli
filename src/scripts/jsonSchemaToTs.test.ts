@@ -25,7 +25,11 @@ describe('jsonSchemaToTs', () => {
     expect.assertions(2);
     await main(['system']);
     expect(compileFromFile).toHaveBeenCalledWith(
-      join(schemaDir, 'system.json')
+      join(schemaDir, 'system.json'),
+      {
+        cwd: expect.any(String) as jest.Expect,
+        style: { singleQuote: true },
+      }
     );
     expect(writeFileSync).toHaveBeenCalledWith(
       join(typesDir, '_system.d.ts'),
