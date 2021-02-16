@@ -19,4 +19,12 @@ module.exports = {
     project: './tsconfig.eslint.json',
   },
   plugins: ['@typescript-eslint', 'security'],
+  rules: {
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '_',
+      },
+    ],
+  },
 };
