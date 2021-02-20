@@ -1,11 +1,11 @@
 import type { EmulsifyStarter } from '@emulsify-cli/internal';
 
 /**
- * Returns a list of all Emulsify base projects, such as Drupal themes.
+ * Returns a list of all Emulsify starter projects, such as Drupal themes.
  *
- * @returns array of EmulsifyBase objects.
+ * @returns array of EmulsifyStarter objects.
  */
-export default function getAvailableBases(): EmulsifyStarter[] {
+export default function getAvailableStarters(): EmulsifyStarter[] {
   return [
     {
       platform: 'drupal',
