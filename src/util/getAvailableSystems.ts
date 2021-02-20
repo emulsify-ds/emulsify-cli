@@ -10,9 +10,13 @@ import type { EmulsifySystemReference } from '@emulsify-cli/internal';
  * @todo integrate with npm.
  */
 /* eslint-disable-next-line @typescript-eslint/require-await */
-export default async (): Promise<EmulsifySystemReference[]> => [
-  {
-    name: 'compound',
-    repository: 'git@github.com:emulsify-ds/compound.git',
-  },
-];
+export default async function getAvailableSystems(): Promise<
+  EmulsifySystemReference[]
+> {
+  return [
+    {
+      name: 'compound',
+      repository: 'git@github.com:emulsify-ds/compound.git',
+    },
+  ];
+}
