@@ -1,12 +1,12 @@
-jest.mock('git-clone', () => jest.fn());
 jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/platform/getPlatformInfo', () => jest.fn());
+jest.mock('../util/cloneRepository', () => jest.fn());
 
 import fs from 'fs';
-import clone from 'git-clone';
 import log from '../lib/log';
 import init from './init';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
+import cloneRepository from '../util/cloneRepository';
 
 const root = '/home/uname/Projects/cornflake';
 
@@ -18,9 +18,7 @@ const getPlatformInfoMock = (getPlatformInfo as jest.Mock).mockReturnValue({
   platformMajorVersion: 9,
 });
 const logMock = log as jest.Mock;
-const cloneMock = (clone as jest.Mock).mockImplementation(
-  (_1, _2, _3, cb: () => void) => cb()
-);
+const cloneMock = cloneRepository as jest.Mock;
 
 describe('init', () => {
   beforeEach(() => {
@@ -31,11 +29,12 @@ describe('init', () => {
   it('can detect the platform, and use information about the platform to autodetect the target directory and Emulsify starter', async () => {
     expect.assertions(1);
     await init('cornflake');
-    expect(cloneMock).toHaveBeenCalledWith(
+    expect(
+      cloneMock
+    ).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-drupal.git',
       '/home/uname/Projects/cornflake/themes/cornflake',
-      { checkout: '2.x', shallow: true },
-      expect.any(Function)
+      { checkout: '2.x', shallow: true }
     );
   });
 
@@ -45,11 +44,12 @@ describe('init', () => {
       starter: 'https://github.com/cornflake-ds/cornflake-drupal.git',
       checkout: '5.6x',
     });
-    expect(cloneMock).toHaveBeenCalledWith(
+    expect(
+      cloneMock
+    ).toHaveBeenCalledWith(
       'https://github.com/cornflake-ds/cornflake-drupal.git',
       '/home/uname/Projects/cornflake/themes/subDir/cornflake',
-      { checkout: '5.6x', shallow: true },
-      expect.any(Function)
+      { checkout: '5.6x', shallow: true }
     );
     expect(logMock).toHaveBeenCalledWith(
       'success',
@@ -58,9 +58,7 @@ describe('init', () => {
   });
 
   it('logs a helpful error if the given Emulsify starter is not clone-able', async () => {
-    cloneMock.mockImplementationOnce((_1, _2, _3, cb: (e: Error) => void) =>
-      cb(new Error('Does not exist!'))
-    );
+    cloneMock.mockRejectedValue(new Error('Does not exist!'));
     await init('cornflake');
     expect(logMock).toHaveBeenCalledWith(
       'error',

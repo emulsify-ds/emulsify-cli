@@ -1,31 +1,12 @@
-import clone, { GitCloneOptions } from 'git-clone';
 import R from 'ramda';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
+import cloneRepository from '../util/cloneRepository';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
 import getAvailableStarters from '../util/getAvailableStarters';
 import log from '../lib/log';
 import { EXIT_ERROR } from '../lib/constants';
-
-/**
- * Helper method that wraps git-clone in async/await
- */
-const cloneRepo = async (
-  repo: string,
-  targetPath: string,
-  options: GitCloneOptions | void
-): Promise<void> => {
-  return new Promise<void>((resolve, reject) => {
-    clone(repo, targetPath, options, (e) => {
-      if (e) {
-        reject(e);
-      } else {
-        resolve();
-      }
-    });
-  });
-};
 
 /**
  * Handler for the initalization command.
@@ -81,7 +62,7 @@ export default async function init(
   }
 
   try {
-    await cloneRepo(repository, target, {
+    await cloneRepository(repository, target, {
       checkout,
       shallow: true,
     });
