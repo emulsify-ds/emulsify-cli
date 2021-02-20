@@ -7,7 +7,7 @@ jest
   .mockReturnValue('/home/uname/Projects/cornflake/themes/someTheme');
 const existsSync = jest.spyOn(fs, 'existsSync');
 
-describe('findFile', () => {
+describe('findFileInCurrentPath', () => {
   it('can traverse up a directory until it finds the specified file', () => {
     expect.assertions(1);
     existsSync

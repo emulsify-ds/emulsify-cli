@@ -10,7 +10,7 @@ import R from 'ramda';
  *
  * @returns string containing the path to the file, or undefined if the file is not found.
  */
-export default function findFile(fileName: string): string | void {
+export default function findFileInCurrentPath(fileName: string): string | void {
   const directoryContainsFile = (path: string): boolean =>
     existsSync(join(path, fileName));
   const reachedCwdRoot = (path: string): boolean => path === sep;
