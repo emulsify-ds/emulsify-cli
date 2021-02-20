@@ -13,7 +13,9 @@ import { EXIT_ERROR } from '../lib/constants';
  *
  * @param name name of the project being initialized.
  * @param targetDirectory relative path to the directory in which the project must be initialized.
- * @param options commander options object containing an optional starter key that specifies which Emulsify starter to use during initialization.
+ * @param options commander options object.
+ * @param options.starter path to at git repository containing an Emulsify starter, such as the Emulsify Drupal theme.
+ * @param options.checkout commit, branch, or tag to checkout after cloning the starter repository.
  */
 export default async function init(
   name: string,
