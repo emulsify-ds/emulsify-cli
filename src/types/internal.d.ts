@@ -30,7 +30,7 @@ declare module '@emulsify-cli/internal' {
   /**
    * Represents a base Emulsify project, such as a drupal theme.
    */
-  export type EmulsifyBase = {
+  export type EmulsifyStarter = {
     platform: Platform;
     platformMajorVersion: number;
     /**
