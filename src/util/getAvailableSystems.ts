@@ -1,4 +1,4 @@
-import type { EmulsifySystemReference } from '@emulsify-cli/config';
+import type { EmulsifySystemReference } from '@emulsify-cli/internal';
 
 /**
  * Returns a list of available Emulsify Systems.

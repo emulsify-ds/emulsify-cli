@@ -4,6 +4,9 @@ jest.spyOn(global.console, 'log').mockImplementation(R.identity);
 jest.spyOn(global.console, 'info').mockImplementation(R.identity);
 jest.spyOn(global.console, 'error').mockImplementation(R.identity);
 jest.spyOn(global.console, 'warn').mockImplementation(R.identity);
+jest
+  .spyOn(global.process, 'exit')
+  .mockImplementation(R.identity as () => never);
 
 import log from './log';
 
@@ -28,7 +31,7 @@ describe('log', () => {
       .toMatchInlineSnapshot(`
       Array [
         Array [
-          "[37m[41m[1merror message[22m[49m[39m",
+          "[31m[1merror message[22m[39m",
         ],
       ]
     `);
@@ -54,6 +57,18 @@ describe('log', () => {
       Array [
         Array [
           "[32msuccess message[39m",
+        ],
+      ]
+    `);
+  });
+
+  it('exits with the given code if one is provided', () => {
+    log('error', 'big oof', 1);
+    expect(((global.process.exit as unknown) as jest.Mock).mock.calls)
+      .toMatchInlineSnapshot(`
+      Array [
+        Array [
+          1,
         ],
       ]
     `);

@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "chalk": "^4.1.0",
-    "commander": "^7.0.0"
+    "commander": "^7.0.0",
+    "git-clone": "^0.1.0"
   }
 }
