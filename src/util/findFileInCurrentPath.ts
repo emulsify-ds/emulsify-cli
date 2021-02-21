@@ -4,7 +4,7 @@ import R from 'ramda';
 
 /**
  * Helper method that finds the given file by name in the current directory,
- * or in nay parent directories of the current directory.
+ * or in any parent directories of the current directory.
  *
  * @param fileName name of the file to search for in the current directory, or it's parent directories.
  *
