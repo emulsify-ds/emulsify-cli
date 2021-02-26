@@ -8,8 +8,10 @@ const readFileSync = jest.spyOn(fs, 'readFileSync');
 (readFileSync as jest.Mock).mockReturnValue(
   JSON.stringify({
     extra: {
-      'installer-paths': {
-        core: ['type:drupal-core'],
+      'drupal-scaffold': {
+        locations: {
+          'web-root': 'web/',
+        },
       },
     },
   })
@@ -24,8 +26,9 @@ describe('getDrupalInfo', () => {
     expect(getDrupalInfo()).toEqual({
       name: 'drupal',
       platformMajorVersion: 9,
-      emulsifyParentDirectory: '/home/uname/Projects/cornflake/themes',
-      root: '/home/uname/Projects/cornflake',
+      emulsifyParentDirectory:
+        '/home/uname/Projects/cornflake/web/themes/custom',
+      root: '/home/uname/Projects/cornflake/web/',
     });
   });
 

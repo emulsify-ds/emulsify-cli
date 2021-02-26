@@ -21,12 +21,16 @@ export default function getDrupalInfo(): PlatformInstanceInfo | void {
 
   try {
     const json = JSON.parse(readFileSync(path, 'utf8')) as ComposerJson;
-    if (json.extra?.['installer-paths']?.core?.includes('type:drupal-core')) {
-      const root = dirname(path);
+    if (json.extra?.['drupal-scaffold']?.locations?.['web-root']) {
+      const root = join(
+        dirname(path),
+        json.extra['drupal-scaffold'].locations['web-root']
+      );
+
       return {
         root,
         name: 'drupal',
-        emulsifyParentDirectory: join(root, 'themes'),
+        emulsifyParentDirectory: join(root, 'themes', 'custom'),
         // @TODO: parse composer lock file and determine drupal core version.
         platformMajorVersion: 9,
       };

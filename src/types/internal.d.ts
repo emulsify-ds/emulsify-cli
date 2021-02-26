@@ -59,8 +59,10 @@ declare module '@emulsify-cli/internal' {
    */
   export type ComposerJson = {
     extra: {
-      'installer-paths'?: {
-        core?: string[];
+      'drupal-scaffold'?: {
+        locations?: {
+          'web-root'?: string;
+        };
       };
     };
   };
