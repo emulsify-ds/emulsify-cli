@@ -1,5 +1,11 @@
 jest.mock('git-clone', () => jest.fn());
+jest.mock('fs', () => ({
+  promises: {
+    rmdir: jest.fn(),
+  },
+}));
 
+import { promises as fs } from 'fs';
 import clone from 'git-clone';
 import cloneRepository from './cloneRepository';
 
@@ -22,6 +28,19 @@ describe('cloneRepository', () => {
       targetPath,
       options,
       expect.any(Function)
+    );
+  });
+
+  it('can remove the .git directory within a newly cloned repository if instructed', async () => {
+    expect.assertions(1);
+    await cloneRepository(repo, targetPath, {
+      removeGitAfterClone: true,
+    });
+    expect(
+      fs.rmdir
+    ).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/themes/cornflake/.git',
+      { recursive: true }
     );
   });
 

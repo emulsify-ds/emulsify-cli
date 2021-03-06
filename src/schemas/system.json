@@ -52,11 +52,11 @@
             "components": {
               "$ref": "src/schemas/variant.json#/definitions/components"
             },
-            "requiredComponents": {
-              "$ref": "src/schemas/variant.json#/definitions/requiredComponents"
+            "directories": {
+              "$ref": "src/schemas/variant.json#/definitions/directories"
             },
-            "globalDirectories": {
-              "$ref": "src/schemas/variant.json#/definitions/globalDirectories"
+            "files": {
+              "$ref": "src/schemas/variant.json#/definitions/files"
             }
           },
           "additionalProperties": false,

@@ -66,25 +66,50 @@ export interface EmulsifySystem {
            * Text describing the intended purpose of the component
            */
           description: string;
+          /**
+           * Boolean indicating whether or not the component is required
+           */
+          required?: boolean;
         }[];
         /**
-         * Array containing the names of all required components
+         * Array containing objects that define general directories. These directories should contain files and assets that do not belong in a structure folder (such as font files)
          */
-        requiredComponents: string[];
-        /**
-         * Array containing objects that define each global directory. These directories should files and assets that do not belong in a structure folder (such as font files)
-         */
-        globalDirectories?: {
+        directories?: {
           /**
-           * Name of the global directory/folder
+           * Name of the directory/folder
            */
           name: string;
           /**
            * Relative path to the directory that will be exported
            */
-          directory: string;
+          path?: string;
+          /**
+           * Relative path (from the Emulsify project root) to the destination folder
+           */
+          destinationPath?: string;
           /**
            * Text describing the intended purpose of the folder
+           */
+          description: string;
+        }[];
+        /**
+         * Array containing objects that define general files.
+         */
+        files?: {
+          /**
+           * Name of the file
+           */
+          name: string;
+          /**
+           * Relative path to the file that will be exported
+           */
+          path?: string;
+          /**
+           * Relative path (from the Emulsify project root) to the destination file
+           */
+          destinationPath?: string;
+          /**
+           * Text describing the intended purpose of the file
            */
           description: string;
         }[];

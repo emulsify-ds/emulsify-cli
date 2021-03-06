@@ -4,4 +4,5 @@
 declare module '@emulsify-cli/config' {
   export * from 'src/types/_system';
   export * from 'src/types/_variant';
+  export * from 'src/types/_emulsifyProjectConfig';
 }

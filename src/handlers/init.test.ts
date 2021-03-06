@@ -1,12 +1,14 @@
 jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/platform/getPlatformInfo', () => jest.fn());
 jest.mock('../util/cloneRepository', () => jest.fn());
+jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 
 import fs from 'fs';
 import log from '../lib/log';
 import init from './init';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
 import cloneRepository from '../util/cloneRepository';
+import writeToJsonFile from '../util/fs/writeToJsonFile';
 
 const root = '/home/uname/Projects/cornflake';
 
@@ -19,6 +21,7 @@ const getPlatformInfoMock = (getPlatformInfo as jest.Mock).mockReturnValue({
 });
 const logMock = log as jest.Mock;
 const cloneMock = cloneRepository as jest.Mock;
+const writeJsonFileMock = writeToJsonFile as jest.Mock;
 
 describe('init', () => {
   beforeEach(() => {
@@ -27,14 +30,22 @@ describe('init', () => {
   });
 
   it('can detect the platform, and use information about the platform to autodetect the target directory and Emulsify starter', async () => {
-    expect.assertions(1);
+    expect.assertions(2);
     await init('cornflake');
     expect(
       cloneMock
     ).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-drupal.git',
       '/home/uname/Projects/cornflake/themes/cornflake',
-      { checkout: '2.x', shallow: true }
+      { checkout: '2.x', shallow: true, removeGitAfterClone: true }
+    );
+    expect(writeJsonFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/themes/cornflake/emulsify.config.json',
+      {
+        starter: {
+          repository: 'https://github.com/emulsify-ds/emulsify-drupal.git',
+        },
+      }
     );
   });
 
@@ -49,7 +60,7 @@ describe('init', () => {
     ).toHaveBeenCalledWith(
       'https://github.com/cornflake-ds/cornflake-drupal.git',
       '/home/uname/Projects/cornflake/themes/subDir/cornflake',
-      { checkout: '5.6x', shallow: true }
+      { checkout: '5.6x', shallow: true, removeGitAfterClone: true }
     );
     expect(logMock).toHaveBeenCalledWith(
       'success',

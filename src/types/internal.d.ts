@@ -52,6 +52,7 @@ declare module '@emulsify-cli/internal' {
      * Path to the git repository containing the system.
      */
     repository: string;
+    platforms: Platform[];
   };
 
   /**

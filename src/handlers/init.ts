@@ -2,9 +2,12 @@ import R from 'ramda';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
+import type { EmulsifyProjectConfiguration } from '@emulsify-cli/config';
+import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants';
 import cloneRepository from '../util/cloneRepository';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
 import getAvailableStarters from '../util/getAvailableStarters';
+import writeToJsonFile from '../util/fs/writeToJsonFile';
 import log from '../lib/log';
 import { EXIT_ERROR } from '../lib/constants';
 
@@ -26,7 +29,7 @@ export default async function init(
   }
 ): Promise<void> {
   const { name: platformName, emulsifyParentDirectory } =
-    getPlatformInfo() || {};
+    (await getPlatformInfo()) || {};
 
   const starters = getAvailableStarters();
   const starter = starters.find(R.propEq('platform')(platformName));
@@ -64,10 +67,21 @@ export default async function init(
   }
 
   try {
+    // Clone the Emulsify starter into the target directory.
     await cloneRepository(repository, target, {
       checkout,
       shallow: true,
+      removeGitAfterClone: true,
     });
+
+    // Construct an Emulsify configuration object.
+    await writeToJsonFile<EmulsifyProjectConfiguration>(
+      join(target, EMULSIFY_PROJECT_CONFIG_FILE),
+      {
+        starter: { repository },
+      }
+    );
+
     log('success', `Created an Emulsify project in ${target}. Enjoy!`);
   } catch (e) {
     log('error', `Unable to pull down ${repository}: ${String(e)}`, EXIT_ERROR);
