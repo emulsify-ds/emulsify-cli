@@ -1,9 +1,3 @@
-jest.mock('fs', () => ({
-  promises: {
-    readFile: jest.fn(),
-  },
-}));
-
 import { promises as fs } from 'fs';
 import loadJsonFile from './loadJsonFile';
 

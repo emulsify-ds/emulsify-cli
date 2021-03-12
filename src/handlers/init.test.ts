@@ -1,18 +1,19 @@
 jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/platform/getPlatformInfo', () => jest.fn());
-jest.mock('../util/cloneRepository', () => jest.fn());
 jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 
 import fs from 'fs';
+import git from 'simple-git';
 import log from '../lib/log';
 import init from './init';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
-import cloneRepository from '../util/cloneRepository';
 import writeToJsonFile from '../util/fs/writeToJsonFile';
 
 const root = '/home/uname/Projects/cornflake';
 
-const existsSyncMock = jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+const existsSyncMock = (fs.existsSync as jest.Mock).mockReturnValue(false);
+const rmdirMock = (fs.promises.rmdir as jest.Mock).mockReturnValue(true);
+const gitCloneMock = git().clone as jest.Mock;
 const getPlatformInfoMock = (getPlatformInfo as jest.Mock).mockReturnValue({
   root,
   name: 'drupal',
@@ -20,24 +21,29 @@ const getPlatformInfoMock = (getPlatformInfo as jest.Mock).mockReturnValue({
   platformMajorVersion: 9,
 });
 const logMock = log as jest.Mock;
-const cloneMock = cloneRepository as jest.Mock;
 const writeJsonFileMock = writeToJsonFile as jest.Mock;
 
 describe('init', () => {
   beforeEach(() => {
     logMock.mockClear();
-    cloneMock.mockClear();
+    gitCloneMock.mockClear();
   });
 
   it('can detect the platform, and use information about the platform to autodetect the target directory and Emulsify starter', async () => {
-    expect.assertions(2);
+    expect.assertions(3);
     await init('cornflake');
     expect(
-      cloneMock
+      gitCloneMock
     ).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-drupal.git',
       '/home/uname/Projects/cornflake/themes/cornflake',
-      { checkout: '2.x', shallow: true, removeGitAfterClone: true }
+      { '--branch': 'cli' }
+    );
+    expect(
+      rmdirMock
+    ).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/themes/cornflake/.git',
+      { recursive: true }
     );
     expect(writeJsonFileMock).toHaveBeenCalledWith(
       '/home/uname/Projects/cornflake/themes/cornflake/emulsify.config.json',
@@ -50,26 +56,45 @@ describe('init', () => {
   });
 
   it('can clone an Emulsify starter based on CLI input, and log a success message upon completion', async () => {
-    expect.assertions(2);
+    expect.assertions(3);
     await init('cornflake', `${root}/themes/subDir`, {
       starter: 'https://github.com/cornflake-ds/cornflake-drupal.git',
       checkout: '5.6x',
     });
     expect(
-      cloneMock
+      gitCloneMock
     ).toHaveBeenCalledWith(
       'https://github.com/cornflake-ds/cornflake-drupal.git',
       '/home/uname/Projects/cornflake/themes/subDir/cornflake',
-      { checkout: '5.6x', shallow: true, removeGitAfterClone: true }
+      { '--branch': '5.6x' }
     );
     expect(logMock).toHaveBeenCalledWith(
       'success',
-      'Created an Emulsify project in /home/uname/Projects/cornflake/themes/subDir/cornflake. Enjoy!'
+      'Created an Emulsify project in /home/uname/Projects/cornflake/themes/subDir/cornflake.'
+    );
+    expect(logMock).toHaveBeenCalledWith(
+      'info',
+      `Emulsify does not come with components by default.\nPlease use "emulsify system install" to select a design system you'd like to use.\nDoing so will install the system's default components, and allow you to install any other components made available by the design system.\nTo see a list of out-of-the-box design systems, run: "emulsify system ls"`
+    );
+  });
+
+  it('can clone an Emulsify starter without a provided checkout', async () => {
+    expect.assertions(1);
+    getPlatformInfoMock.mockReturnValueOnce(undefined);
+    await init('cornflake', `${root}/themes/subDir`, {
+      starter: 'https://github.com/cornflake-ds/cornflake-drupal.git',
+    });
+    expect(gitCloneMock).toHaveBeenCalledWith(
+      'https://github.com/cornflake-ds/cornflake-drupal.git',
+      '/home/uname/Projects/cornflake/themes/subDir/cornflake',
+      {}
     );
   });
 
   it('logs a helpful error if the given Emulsify starter is not clone-able', async () => {
-    cloneMock.mockRejectedValue(new Error('Does not exist!'));
+    gitCloneMock.mockImplementationOnce(() => {
+      throw new Error('Does not exist!');
+    });
     await init('cornflake');
     expect(logMock).toHaveBeenCalledWith(
       'error',

@@ -2,6 +2,7 @@
 import { program } from 'commander';
 import init from './handlers/init';
 import systemList from './handlers/systemList';
+import systemInstall from './handlers/systemInstall';
 
 // Main program commands.
 program
@@ -35,11 +36,7 @@ system
   )
   .action(systemList);
 system
-  .command('install')
-  .option(
-    '-n --name <name>',
-    'Name of the out-of-the-box system you would like to install'
-  )
+  .command('install [name]')
   .option(
     '-r --repository <repository>',
     'Git repository containing the system you would like to install'
@@ -53,7 +50,11 @@ system
     'Name of the variant you would like to use. If this is not provided, the Emulsify CLI will attempt to detect a variant based on the type project you are within'
   )
   .description(
-    'Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as compound), or a link to a git repository containing the system you want to install'
-  );
+    'Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as compound), or a link to a git repository containing the system you want to install',
+    {
+      name: 'Name of the out-of-the-box system you would like to install',
+    }
+  )
+  .action(systemInstall);
 
 void program.parseAsync(process.argv);

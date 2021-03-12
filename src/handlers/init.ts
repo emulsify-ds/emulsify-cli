@@ -1,15 +1,18 @@
 import R from 'ramda';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, promises as fs } from 'fs';
+import simpleGit from 'simple-git';
 
 import type { EmulsifyProjectConfiguration } from '@emulsify-cli/config';
+import type { InitHandlerOptions } from '@emulsify-cli/handlers';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants';
-import cloneRepository from '../util/cloneRepository';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
 import getAvailableStarters from '../util/getAvailableStarters';
 import writeToJsonFile from '../util/fs/writeToJsonFile';
 import log from '../lib/log';
 import { EXIT_ERROR } from '../lib/constants';
+
+const git = simpleGit();
 
 /**
  * Handler for the initalization command.
@@ -23,10 +26,7 @@ import { EXIT_ERROR } from '../lib/constants';
 export default async function init(
   name: string,
   targetDirectory?: string,
-  options?: {
-    starter?: string | void;
-    checkout?: string | void;
-  }
+  options?: InitHandlerOptions
 ): Promise<void> {
   const { name: platformName, emulsifyParentDirectory } =
     (await getPlatformInfo()) || {};
@@ -67,12 +67,20 @@ export default async function init(
   }
 
   try {
-    // Clone the Emulsify starter into the target directory.
-    await cloneRepository(repository, target, {
-      checkout,
-      shallow: true,
-      removeGitAfterClone: true,
-    });
+    // Clone the Emulsify starter into the target directory, and checkout
+    // the correct tag/branch/commit.
+    await git.clone(
+      repository,
+      target,
+      checkout
+        ? {
+            '--branch': checkout,
+          }
+        : {}
+    );
+
+    // Remove the .git directory, as this is a starter kit.
+    await fs.rmdir(join(target, '.git'), { recursive: true });
 
     // Construct an Emulsify configuration object.
     await writeToJsonFile<EmulsifyProjectConfiguration>(
@@ -82,7 +90,11 @@ export default async function init(
       }
     );
 
-    log('success', `Created an Emulsify project in ${target}. Enjoy!`);
+    log('success', `Created an Emulsify project in ${target}.`);
+    log(
+      'info',
+      `Emulsify does not come with components by default.\nPlease use "emulsify system install" to select a design system you'd like to use.\nDoing so will install the system's default components, and allow you to install any other components made available by the design system.\nTo see a list of out-of-the-box design systems, run: "emulsify system ls"`
+    );
   } catch (e) {
     log('error', `Unable to pull down ${repository}: ${String(e)}`, EXIT_ERROR);
   }

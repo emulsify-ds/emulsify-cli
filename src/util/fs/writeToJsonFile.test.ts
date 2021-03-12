@@ -1,9 +1,3 @@
-jest.mock('fs', () => ({
-  promises: {
-    writeFile: jest.fn(),
-  },
-}));
-
 import { promises as fs } from 'fs';
 import writeToJsonFile from './writeToJsonFile';
 
