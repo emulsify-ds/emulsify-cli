@@ -6,7 +6,7 @@
   "definitions": {
     "platform": {
       "type": "string",
-      "description": "Name of the platform for which the variant is intended, such as WordPress, or Drupal9",
+      "description": "Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9",
       "enum": ["drupal"]
     },
     "structureImplementations": {

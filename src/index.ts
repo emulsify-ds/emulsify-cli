@@ -15,6 +15,10 @@ program
     '-c --checkout <commit/branch/tag>',
     'Commit, branch or tag of the base repository that should be checked out'
   )
+  .option(
+    '-p --platform <drupal/wordpress/etc>',
+    'Name of the platform Emulsify is being within. In some cases, Emulsify is able to automatically detect this. If it is not, Emulsify will prompt you to specify.'
+  )
   .description('Initialize an Emulsify project', {
     name: 'Name of the Emulsify project you are initializing',
     path:
@@ -44,10 +48,6 @@ system
   .option(
     '-c --checkout <commit/branch/tag>',
     'Commit, branch or tag of the base repository that should be checked out. MUST be provided if you are passing along a repository (-r or --repository). Tags or commit hashes are strongly preferable, because you want to ensure that you are using the same version of the system every time you install components, etc'
-  )
-  .option(
-    '-v --variant <name>',
-    'Name of the variant you would like to use. If this is not provided, the Emulsify CLI will attempt to detect a variant based on the type project you are within'
   )
   .description(
     'Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as compound), or a link to a git repository containing the system you want to install',

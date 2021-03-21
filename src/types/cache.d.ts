@@ -3,4 +3,5 @@
  */
 declare module '@emulsify-cli/cache' {
   export type CacheBucket = 'systems' | 'variants';
+  export type CacheItemPath = string[];
 }

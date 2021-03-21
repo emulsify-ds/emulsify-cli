@@ -28,9 +28,22 @@ export default async function init(
   targetDirectory?: string,
   options?: InitHandlerOptions
 ): Promise<void> {
-  const { name: platformName, emulsifyParentDirectory } =
+  // Load information about the project and platform.
+  const { name: autoPlatformName, emulsifyParentDirectory } =
     (await getPlatformInfo()) || {};
 
+  // If no platform name is given, and none can be detected, exit and error.
+  const platformName = options?.platform || autoPlatformName;
+  if (!platformName) {
+    return log(
+      'error',
+      'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
+      EXIT_ERROR
+    );
+  }
+
+  // Collection information about the starter kit, such as the target directory,
+  // starter repository, and checkout version.
   const starters = getAvailableStarters();
   const starter = starters.find(R.propEq('platform')(platformName));
 
@@ -86,6 +99,9 @@ export default async function init(
     await writeToJsonFile<EmulsifyProjectConfiguration>(
       join(target, EMULSIFY_PROJECT_CONFIG_FILE),
       {
+        project: {
+          platform: platformName,
+        },
         starter: { repository },
       }
     );

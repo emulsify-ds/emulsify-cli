@@ -46,8 +46,11 @@ describe('init', () => {
       { recursive: true }
     );
     expect(writeJsonFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/themes/cornflake/emulsify.config.json',
+      '/home/uname/Projects/cornflake/themes/cornflake/project.emulsify.json',
       {
+        project: {
+          platform: 'drupal',
+        },
         starter: {
           repository: 'https://github.com/emulsify-ds/emulsify-drupal.git',
         },
@@ -83,11 +86,25 @@ describe('init', () => {
     getPlatformInfoMock.mockReturnValueOnce(undefined);
     await init('cornflake', `${root}/themes/subDir`, {
       starter: 'https://github.com/cornflake-ds/cornflake-drupal.git',
+      platform: 'drupal',
     });
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/cornflake-ds/cornflake-drupal.git',
       '/home/uname/Projects/cornflake/themes/subDir/cornflake',
-      {}
+      {
+        '--branch': 'cli',
+      }
+    );
+  });
+
+  it('logs an error and exits if no valid platform name is detectable', async () => {
+    expect.assertions(1);
+    getPlatformInfoMock.mockReturnValueOnce(undefined);
+    await init('cornflake');
+    expect(logMock).toHaveBeenCalledWith(
+      'error',
+      'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
+      1
     );
   });
 
@@ -105,7 +122,9 @@ describe('init', () => {
 
   it('logs an error and exits if no target is found or specified', async () => {
     expect.assertions(1);
-    getPlatformInfoMock.mockReturnValueOnce(undefined);
+    getPlatformInfoMock.mockReturnValueOnce({
+      name: 'drupal',
+    });
     await init('cornflake');
     expect(logMock).toHaveBeenCalledWith(
       'error',
@@ -116,7 +135,9 @@ describe('init', () => {
 
   it('logs an error and exits if no repository is found or specified', async () => {
     expect.assertions(1);
-    getPlatformInfoMock.mockReturnValueOnce(undefined);
+    getPlatformInfoMock.mockReturnValueOnce({
+      name: 'invalid',
+    });
     await init('cornflake', root);
     expect(logMock).toHaveBeenCalledWith(
       'error',

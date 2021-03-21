@@ -5,11 +5,12 @@ declare module '@emulsify-cli/handlers' {
   export type InitHandlerOptions = {
     starter?: string | void;
     checkout?: string | void;
+    platform?: string | void;
   };
 
   export type InstallSystemHandlerOptions = {
-    repository?: string;
-    checkout?: string;
-    variant?: string;
+    repository?: string | void;
+    checkout?: string | void;
+    variant?: string | void;
   };
 }

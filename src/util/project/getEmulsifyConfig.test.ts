@@ -6,7 +6,7 @@ import loadJsonFile from '../fs/loadJsonFile';
 import getEmulsifyConfig from './getEmulsifyConfig';
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/projects/emulsify.config.json'
+  '/projects/project.emulsify.json'
 );
 (loadJsonFile as jest.Mock).mockResolvedValue({
   emulsify: 'config',

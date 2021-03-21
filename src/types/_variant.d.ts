@@ -6,7 +6,7 @@
  */
 
 /**
- * Name of the platform for which the variant is intended, such as WordPress, or Drupal9
+ * Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9
  */
 export type Platform = 'drupal';
 /**

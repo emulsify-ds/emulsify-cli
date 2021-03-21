@@ -14,5 +14,10 @@ jest.mock('fs', () => ({
     readFile: jest.fn(),
     rmdir: jest.fn(),
     mkdir: jest.fn(),
+    copyFile: jest.fn(),
   },
+}));
+
+jest.mock('fs-extra', () => ({
+  copy: jest.fn(),
 }));

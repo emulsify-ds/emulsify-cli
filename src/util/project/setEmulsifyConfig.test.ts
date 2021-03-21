@@ -12,7 +12,7 @@ import setEmulsifyConfig from './setEmulsifyConfig';
 
 (writeToJsonFile as jest.Mock).mockResolvedValue(undefined);
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/path/emulsify.config.json'
+  '/path/project.emulsify.json'
 );
 const getConfigMock = (getEmulsifyConfig as jest.Mock).mockResolvedValue({
   originalConfig: 'value',
@@ -33,10 +33,13 @@ describe('setEmulsifyConfig', () => {
     ).resolves.toBe(undefined);
     expect(findFileMock).toHaveBeenCalledWith(EMULSIFY_PROJECT_CONFIG_FILE);
     expect(getConfigMock).toHaveBeenCalled();
-    expect(writeToJsonFile).toHaveBeenCalledWith('/path/emulsify.config.json', {
-      originalConfig: 'value',
-      toOverride: { config: 'new value' },
-    });
+    expect(writeToJsonFile).toHaveBeenCalledWith(
+      '/path/project.emulsify.json',
+      {
+        originalConfig: 'value',
+        toOverride: { config: 'new value' },
+      }
+    );
   });
 
   it('throws an error if no Emulsify configuration file is found', async () => {

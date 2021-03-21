@@ -10,9 +10,11 @@
     "emulsify": "dist/index.js"
   },
   "scripts": {
-    "build": "npm run build-schema-types && tsc --build tsconfig.dist.json",
+    "build": "npm run build-schema-types && npm run build-ts",
+    "build-ts": "tsc --build tsconfig.dist.json",
     "build-schema-types": "ts-node ./src/scripts/jsonSchemaToTs.ts",
     "watch": "nodemon --watch src --ext ts,json --ignore src/types --exec npm run build",
+    "watch-ts": "nodemon --watch src --ext ts,json --ignore src/types --exec npm run build-ts",
     "format": "prettier --write './src/**/*.{js,ts}' && npm run lint --fix",
     "husky:commit-msg": "commitlint --edit $1",
     "husky:pre-commit": "lint-staged",
@@ -29,6 +31,7 @@
     "@semantic-release/github": "^7.2.0",
     "@types/chalk": "^2.2.0",
     "@types/commander": "^2.12.2",
+    "@types/fs-extra": "^9.0.8",
     "@types/jest": "^26.0.20",
     "@types/node": "^14.14.25",
     "@types/ramda": "^0.27.38",
@@ -54,6 +57,7 @@
     "ajv": "^7.1.1",
     "chalk": "^4.1.0",
     "commander": "^7.0.0",
+    "fs-extra": "^9.1.0",
     "simple-git": "^2.36.1"
   }
 }

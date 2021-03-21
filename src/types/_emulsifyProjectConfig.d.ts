@@ -7,6 +7,15 @@
 
 export interface EmulsifyProjectConfiguration {
   /**
+   * Contains information about the Emulsify project.
+   */
+  project: {
+    /**
+     * Name of the platform Emulsify is being used within.
+     */
+    platform: string;
+  };
+  /**
    * Contains information about the Emulsify starter this project is based upon
    */
   starter: {
@@ -26,6 +35,23 @@ export interface EmulsifyProjectConfiguration {
     /**
      * Commit, branch, or tag of the system this project is utilizing
      */
-    checkout: string;
+    checkout?: string;
+  };
+  /**
+   * Contains information about the Emulsify system this project is utilizing
+   */
+  variant?: {
+    /**
+     * Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9
+     */
+    platform: 'drupal';
+    /**
+     * Git repository containing the system this project is utilizing
+     */
+    repository?: string;
+    /**
+     * Commit, branch, or tag of the system this project is utilizing
+     */
+    checkout?: string;
   };
 }

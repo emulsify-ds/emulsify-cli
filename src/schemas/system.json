@@ -39,49 +39,34 @@
       }
     },
     "variants": {
-      "anyOf": [
-        {
-          "type": "object",
-          "properties": {
-            "platform": {
-              "$ref": "src/schemas/variant.json#/definitions/platform"
+      "type": "array",
+      "description": "Array containing objects that describe the variants available within the system",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "platform": {
+                "$ref": "src/schemas/variant.json#/definitions/platform"
+              },
+              "structureImplementations": {
+                "$ref": "src/schemas/variant.json#/definitions/structureImplementations"
+              },
+              "components": {
+                "$ref": "src/schemas/variant.json#/definitions/components"
+              },
+              "directories": {
+                "$ref": "src/schemas/variant.json#/definitions/directories"
+              },
+              "files": {
+                "$ref": "src/schemas/variant.json#/definitions/files"
+              }
             },
-            "structureImplementations": {
-              "$ref": "src/schemas/variant.json#/definitions/structureImplementations"
-            },
-            "components": {
-              "$ref": "src/schemas/variant.json#/definitions/components"
-            },
-            "directories": {
-              "$ref": "src/schemas/variant.json#/definitions/directories"
-            },
-            "files": {
-              "$ref": "src/schemas/variant.json#/definitions/files"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "platform",
-            "structureImplementations",
-            "components",
-            "requiredComponents"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "platform": {
-              "$ref": "src/schemas/variant.json#/definitions/platform"
-            },
-            "repository": {
-              "type": "string",
-              "description": "Git URL to the repository containing the variant"
-            }
-          },
-          "additionalProperties": false,
-          "required": ["platform", "repository"]
-        }
-      ]
+            "additionalProperties": false,
+            "required": ["platform", "structureImplementations", "components"]
+          }
+        ]
+      }
     }
   },
   "additionalProperties": false,
