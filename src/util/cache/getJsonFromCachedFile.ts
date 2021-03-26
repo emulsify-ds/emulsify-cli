@@ -8,5 +8,7 @@ export default async function getJsonFromCachedFile<Output>(
   itemPath: CacheItemPath,
   fileName: string
 ): Promise<Output | void> {
-  return loadJsonFile<Output>(getCachedItemPath(bucket, itemPath, fileName));
+  return loadJsonFile<Output>(
+    getCachedItemPath(bucket, [...itemPath, fileName])
+  );
 }

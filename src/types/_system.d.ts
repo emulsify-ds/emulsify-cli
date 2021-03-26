@@ -84,11 +84,11 @@ export interface EmulsifySystem {
       /**
        * Relative path to the directory that will be exported
        */
-      path?: string;
+      path: string;
       /**
        * Relative path (from the Emulsify project root) to the destination folder
        */
-      destinationPath?: string;
+      destinationPath: string;
       /**
        * Text describing the intended purpose of the folder
        */
@@ -105,11 +105,11 @@ export interface EmulsifySystem {
       /**
        * Relative path to the file that will be exported
        */
-      path?: string;
+      path: string;
       /**
        * Relative path (from the Emulsify project root) to the destination file
        */
-      destinationPath?: string;
+      destinationPath: string;
       /**
        * Text describing the intended purpose of the file
        */

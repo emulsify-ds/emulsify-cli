@@ -9,6 +9,7 @@ import getAvailableSystems from '../util/system/getAvailableSystems';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
 import cloneIntoCache from '../util/cache/cloneIntoCache';
 import installComponentFromCache from '../util/project/installComponentFromCache';
+import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
 import setEmulsifyConfig from '../util/project/setEmulsifyConfig';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
@@ -70,6 +71,14 @@ export default async function systemInstall(
     return log(
       'error',
       'No Emulsify project detected. You must run this command within an existing Emulsify project. For more information about creating Emulsify projects, run "emulsify init --help"',
+      EXIT_ERROR
+    );
+  }
+
+  if (projectConfig.system) {
+    return log(
+      'error',
+      'You have already selected a system within this Emulsify project.',
       EXIT_ERROR
     );
   }
@@ -146,16 +155,33 @@ export default async function systemInstall(
   } catch (e) {
     return log(
       'error',
-      `Unable to update your Emulsify project configuration.`,
+      'Unable to update your Emulsify project configuration.',
       EXIT_ERROR
     );
   }
 
-  // Install all required components.
-  const requiredComponents = variantConf.components.filter(
-    ({ required }) => required === true
-  );
-  for (const component of requiredComponents) {
-    await installComponentFromCache(systemConf, variantConf, component.name);
+  try {
+    // Install all required components.
+    const requiredComponents = variantConf.components.filter(
+      ({ required }) => required === true
+    );
+    for (const component of requiredComponents) {
+      await installComponentFromCache(systemConf, variantConf, component.name);
+    }
+
+    // Install all global files and folders.
+    await installGeneralAssetsFromCache(systemConf, variantConf);
+  } catch (e) {
+    return log(
+      'error',
+      `Unable to install system assets and/or required components: ${e}`,
+      EXIT_ERROR
+    );
   }
+
+  return log(
+    'success',
+    `Successfully installed the ${systemConf.name} system using the ${variantConf.platform} variant.`,
+    EXIT_ERROR
+  );
 }

@@ -2,9 +2,16 @@ import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
 import { join, dirname } from 'path';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import getEmulsifyConfig from '../project/getEmulsifyConfig';
 import copyItemFromCache from '../cache/copyItemFromCache';
 
+/**
+ * Installs a specified component within the Emulsify project the user is currently within.
+ *
+ * @param system EmulsifySystem object depicting the system from which the component should be installed.
+ * @param variant EmulsifyVariant object containing information about the component, where it lives, and how it should be installed.
+ * @param componentName string name of the component that should be installed.
+ * @returns
+ */
 export default async function installComponentFromCache(
   system: EmulsifySystem,
   variant: EmulsifyVariant,
@@ -13,10 +20,9 @@ export default async function installComponentFromCache(
   // Gather information about the current Emulsify project. If none exists,
   // throw an error.
   const path = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
-  const projectConfig = await getEmulsifyConfig();
-  if (!path || !projectConfig) {
+  if (!path) {
     throw new Error(
-      'Unable to find an Emulsify project to install the component into'
+      'Unable to find an Emulsify project to install the component into.'
     );
   }
 
@@ -47,8 +53,7 @@ export default async function installComponentFromCache(
   const destination = join(dirname(path), structure.directory, component.name);
   return copyItemFromCache(
     'systems',
-    [system.name, structure.directory],
-    component.name,
+    [system.name, structure.directory, component.name],
     destination
   );
 }

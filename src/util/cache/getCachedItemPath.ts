@@ -14,8 +14,7 @@ import { CACHE_DIR } from '../../lib/constants';
  */
 export default function getCachedItemPath(
   bucket: CacheBucket,
-  itemPath: CacheItemPath,
-  item: string
+  itemPath: CacheItemPath
 ): string {
-  return join(CACHE_DIR, bucket, ...itemPath, item);
+  return join(CACHE_DIR, bucket, ...itemPath);
 }

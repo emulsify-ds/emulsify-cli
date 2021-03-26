@@ -3,6 +3,8 @@ import { program } from 'commander';
 import init from './handlers/init';
 import systemList from './handlers/systemList';
 import systemInstall from './handlers/systemInstall';
+import componentList from './handlers/componentList';
+import componentInstall from './handlers/componentInstall';
 
 // Main program commands.
 program
@@ -56,5 +58,26 @@ system
     }
   )
   .action(systemInstall);
+
+// Component sub-commands.
+const component = program
+  .command('component')
+  .description(
+    'Parent command that contains sub-commands pertaining to components'
+  );
+component
+  .command('list')
+  .alias('ls')
+  .description(
+    'Lists all of the components that are available for installation within your project based on the system and variant you selected'
+  )
+  .action(componentList);
+component
+  .command('install [name]')
+  .alias('i')
+  .description(
+    "Install a component from within the current project's system and variant"
+  )
+  .action(componentInstall);
 
 void program.parseAsync(process.argv);
