@@ -6,7 +6,8 @@ describe('getAvailableSystems', () => {
     await expect(getAvailableSystems()).resolves.toEqual([
       {
         name: 'compound',
-        repository: 'git@github.com:emulsify-ds/compound.git',
+        repository: 'https://github.com/emulsify-ds/compound.git',
+        platforms: ['drupal'],
       },
     ]);
   });

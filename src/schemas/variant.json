@@ -6,7 +6,7 @@
   "definitions": {
     "platform": {
       "type": "string",
-      "description": "Name of the platform for which the variant is intended, such as WordPress, or Drupal9",
+      "description": "Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9",
       "enum": ["drupal"]
     },
     "structureImplementations": {
@@ -45,32 +45,33 @@
           "description": {
             "type": "string",
             "description": "Text describing the intended purpose of the component"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Boolean indicating whether or not the component is required"
           }
         },
         "additionalProperties": false,
         "required": ["name", "structure", "description"]
       }
     },
-    "requiredComponents": {
+    "directories": {
       "type": "array",
-      "description": "Array containing the names of all required components",
-      "items": {
-        "type": "string"
-      }
-    },
-    "globalDirectories": {
-      "type": "array",
-      "description": "Array containing objects that define each global directory. These directories should files and assets that do not belong in a structure folder (such as font files)",
+      "description": "Array containing objects that define general directories. These directories should contain files and assets that do not belong in a structure folder (such as font files)",
       "items": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
-            "description": "Name of the global directory/folder"
+            "description": "Name of the directory/folder"
           },
-          "directory": {
+          "path": {
             "type": "string",
             "description": "Relative path to the directory that will be exported"
+          },
+          "destinationPath": {
+            "type": "string",
+            "description": "Relative path (from the Emulsify project root) to the destination folder"
           },
           "description": {
             "type": "string",
@@ -78,7 +79,34 @@
           }
         },
         "additionalProperties": false,
-        "required": ["name", "directory", "description"]
+        "required": ["name", "path", "destinationPath", "description"]
+      }
+    },
+    "files": {
+      "type": "array",
+      "description": "Array containing objects that define general files.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the file"
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative path to the file that will be exported"
+          },
+          "destinationPath": {
+            "type": "string",
+            "description": "Relative path (from the Emulsify project root) to the destination file"
+          },
+          "description": {
+            "type": "string",
+            "description": "Text describing the intended purpose of the file"
+          }
+        },
+        "additionalProperties": false,
+        "required": ["name", "path", "destinationPath", "description"]
       }
     }
   },
@@ -92,11 +120,11 @@
     "components": {
       "$ref": "#/definitions/components"
     },
-    "requiredComponents": {
-      "$ref": "#/definitions/requiredComponents"
+    "directories": {
+      "$ref": "#/definitions/directories"
     },
-    "globalDirectories": {
-      "$ref": "#/definitions/globalDirectories"
+    "files": {
+      "$ref": "#/definitions/files"
     }
   },
   "additionalProperties": false,

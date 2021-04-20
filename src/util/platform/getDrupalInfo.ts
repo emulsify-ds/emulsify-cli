@@ -2,26 +2,23 @@ import type {
   ComposerJson,
   PlatformInstanceInfo,
 } from '@emulsify-cli/internal';
-import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
-import findFileInCurrentPath from '../findFileInCurrentPath';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath';
+import loadJsonFile from '../fs/loadJsonFile';
 
 /**
  * Looks for a Drupal project within the cwd, and returns information about the
  * platform (such as name, root path, and version).
  */
-export default function getDrupalInfo(): PlatformInstanceInfo | void {
-  const path = findFileInCurrentPath('composer.json');
-
-  // If no composer.json file exists within the current path, the program is not
-  // being run from within a Drupal project.
-  if (!path) {
-    return undefined;
-  }
-
+export default async function getDrupalInfo(): Promise<PlatformInstanceInfo | void> {
   try {
-    const json = JSON.parse(readFileSync(path, 'utf8')) as ComposerJson;
-    if (json.extra?.['drupal-scaffold']?.locations?.['web-root']) {
+    const path = findFileInCurrentPath('composer.json');
+    if (!path) {
+      return undefined;
+    }
+
+    const json = await loadJsonFile<ComposerJson>(path);
+    if (json && json.extra?.['drupal-scaffold']?.locations?.['web-root']) {
       const root = join(
         dirname(path),
         json.extra['drupal-scaffold'].locations['web-root']

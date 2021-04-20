@@ -1,6 +1,24 @@
-import { EXIT_ERROR } from './constants';
+import {
+  EXIT_ERROR,
+  UTIL_DIR,
+  CACHE_DIR,
+  EMULSIFY_PROJECT_CONFIG_FILE,
+} from './constants';
 
-const map = [['EXIT_ERROR', EXIT_ERROR, 1]];
+jest.mock('os', () => ({
+  homedir: () => '/home/username',
+}));
+
+const map = [
+  ['EXIT_ERROR', EXIT_ERROR, 1],
+  ['UTIL_DIR', UTIL_DIR, '/home/username/.emulsify'],
+  ['CACHE_DIR', CACHE_DIR, '/home/username/.emulsify/cache'],
+  [
+    'EMULSIFY_PROJECT_CONFIG_FILE',
+    EMULSIFY_PROJECT_CONFIG_FILE,
+    'project.emulsify.json',
+  ],
+];
 
 describe('constats', () => {
   describe.each(map)(

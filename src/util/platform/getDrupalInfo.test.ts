@@ -1,29 +1,27 @@
-jest.mock('../findFileInCurrentPath', () => jest.fn());
+jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
+jest.mock('../fs/loadJsonFile', () => jest.fn());
 
-import fs from 'fs';
-import findFileInCurrentPath from '../findFileInCurrentPath';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath';
+import loadJsonFile from '../fs/loadJsonFile';
 import getDrupalInfo from './getDrupalInfo';
 
-const readFileSync = jest.spyOn(fs, 'readFileSync');
-(readFileSync as jest.Mock).mockReturnValue(
-  JSON.stringify({
-    extra: {
-      'drupal-scaffold': {
-        locations: {
-          'web-root': 'web/',
-        },
+const loadJsonMock = (loadJsonFile as jest.Mock).mockResolvedValue({
+  extra: {
+    'drupal-scaffold': {
+      locations: {
+        'web-root': 'web/',
       },
     },
-  })
-);
-(findFileInCurrentPath as jest.Mock).mockReturnValue(
+  },
+});
+const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/home/uname/Projects/cornflake/composer.json'
 );
 
 describe('getDrupalInfo', () => {
-  it('returns PlatformInstanceInfo if a composer.json file is found, and contains drupal-core within its extras object', () => {
+  it('returns PlatformInstanceInfo if a composer.json file is found, and contains drupal-core within its extras object', async () => {
     expect.assertions(1);
-    expect(getDrupalInfo()).toEqual({
+    await expect(getDrupalInfo()).resolves.toEqual({
       name: 'drupal',
       platformMajorVersion: 9,
       emulsifyParentDirectory:
@@ -32,32 +30,26 @@ describe('getDrupalInfo', () => {
     });
   });
 
-  it('returns void if the composer.json file does not contain the expected values', () => {
+  it('returns void if the composer.json file does not contain the expected values', async () => {
     expect.assertions(1);
-    (readFileSync as jest.Mock).mockReturnValueOnce('{}');
-    expect(getDrupalInfo()).toBe(undefined);
+    loadJsonMock.mockResolvedValueOnce({});
+    await expect(getDrupalInfo()).resolves.toBe(undefined);
   });
 
-  it('returns void if the file does not contain valid JSON (without throwing)', () => {
+  it('returns void if the composer.json file that was found cannot be read (without throwing)', async () => {
     expect.assertions(1);
-    (readFileSync as jest.Mock).mockReturnValueOnce('not-valid-json');
-    expect(getDrupalInfo()).toBe(undefined);
-  });
-
-  it('returns void if the composer.json file that was found cannot be read (without throwing)', () => {
-    expect.assertions(1);
-    (readFileSync as jest.Mock).mockImplementationOnce(() => {
+    loadJsonMock.mockImplementationOnce(() => {
       throw new Error(
         'Big oof, the composer.json file that was found cannot be loaded.'
       );
     });
 
-    expect(getDrupalInfo()).toBe(undefined);
+    await expect(getDrupalInfo()).resolves.toBe(undefined);
   });
 
-  it('returns void if no composer.json file is found', () => {
+  it('returns void if no composer.json file is found', async () => {
     expect.assertions(1);
-    (findFileInCurrentPath as jest.Mock).mockReturnValueOnce(undefined);
-    expect(getDrupalInfo()).toBe(undefined);
+    findFileMock.mockReturnValueOnce(undefined);
+    await expect(getDrupalInfo()).resolves.toBe(undefined);
   });
 });

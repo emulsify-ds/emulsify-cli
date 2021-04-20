@@ -28,4 +28,4 @@ export default async function main(schemas: string[]): Promise<void[]> {
 
 // Ignoring the require-await for now. This is a script that will be run with ts-node.
 /* eslint-disable-next-line @typescript-eslint/no-floating-promises */
-main(['system', 'variant']);
+main(['system', 'variant', 'emulsifyProjectConfig']);

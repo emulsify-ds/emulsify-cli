@@ -26,5 +26,6 @@ module.exports = {
         argsIgnorePattern: '_',
       },
     ],
+    'security/detect-non-literal-fs-filename': 0,
   },
 };

@@ -52,6 +52,11 @@ declare module '@emulsify-cli/internal' {
      * Path to the git repository containing the system.
      */
     repository: string;
+    /**
+     * Git revision/branch/tag that should be checked out.
+     */
+    checkout?: string | void;
+    platforms: Platform[];
   };
 
   /**

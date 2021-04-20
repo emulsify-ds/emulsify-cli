@@ -1,6 +1,3 @@
-jest.mock('fs', () => ({
-  writeFileSync: jest.fn(),
-}));
 jest.mock('json-schema-to-typescript', () => ({
   /* eslint-disable-next-line @typescript-eslint/require-await */
   compileFromFile: jest.fn().mockImplementation(async () => 'the typescript'),
