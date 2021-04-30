@@ -1,13 +1,21 @@
 jest.mock('../../lib/constants', () => ({
   CACHE_DIR: 'home/uname/.emulsify/cache',
 }));
+jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
+
 import cloneIntoCache from './cloneIntoCache';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath';
+
 import fs from 'fs';
 import git from 'simple-git';
 
 const existsSyncMock = fs.existsSync as jest.Mock;
 const mkdirMock = fs.promises.mkdir as jest.Mock;
 const gitCloneMock = git().clone as jest.Mock;
+
+(findFileInCurrentPath as jest.Mock).mockReturnValue(
+  '/home/uname/projects/emulsify'
+);
 
 describe('cloneIntoCache', () => {
   beforeEach(() => {
@@ -33,7 +41,7 @@ describe('cloneIntoCache', () => {
     existsSyncMock.mockReturnValueOnce(false).mockReturnValueOnce(false);
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
     expect(mkdirMock).toHaveBeenCalledWith(
-      'home/uname/.emulsify/cache/systems',
+      'home/uname/.emulsify/cache/systems/f556ea98d7e82a3bb86892c77634c0b3',
       {
         recursive: true,
       }
@@ -46,7 +54,7 @@ describe('cloneIntoCache', () => {
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
     expect(gitCloneMock).toHaveBeenCalledWith(
       'repo-path',
-      'home/uname/.emulsify/cache/systems/cornflake',
+      'home/uname/.emulsify/cache/systems/f556ea98d7e82a3bb86892c77634c0b3/cornflake',
       { '--branch': 'branch-name' }
     );
   });
@@ -57,7 +65,7 @@ describe('cloneIntoCache', () => {
     await cloneIntoCache('systems', ['cornflake'])({ repository: 'repo-path' });
     expect(gitCloneMock).toHaveBeenCalledWith(
       'repo-path',
-      'home/uname/.emulsify/cache/systems/cornflake',
+      'home/uname/.emulsify/cache/systems/f556ea98d7e82a3bb86892c77634c0b3/cornflake',
       {}
     );
   });
