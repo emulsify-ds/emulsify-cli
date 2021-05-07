@@ -12,6 +12,8 @@ import git from 'simple-git';
 const existsSyncMock = fs.existsSync as jest.Mock;
 const mkdirMock = fs.promises.mkdir as jest.Mock;
 const gitCloneMock = git().clone as jest.Mock;
+const gitFetchMock = git().fetch as jest.Mock;
+const gitCheckoutMock = git().checkout as jest.Mock;
 
 (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/home/uname/projects/emulsify'
@@ -21,6 +23,8 @@ describe('cloneIntoCache', () => {
   beforeEach(() => {
     existsSyncMock.mockClear();
     gitCloneMock.mockClear();
+    gitFetchMock.mockClear();
+    gitCheckoutMock.mockClear();
   });
 
   const cloneOptions = {
@@ -28,11 +32,25 @@ describe('cloneIntoCache', () => {
     checkout: 'branch-name',
   };
 
-  it('can return early if the cache item already exists', async () => {
-    expect.assertions(2);
+  it('can ensure that the correct branch is checked out, and return early if the cache item already exists', async () => {
+    expect.assertions(4);
     existsSyncMock.mockReturnValueOnce(true);
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
     expect(existsSyncMock).toHaveBeenCalledTimes(1);
+    expect(gitFetchMock).toHaveBeenCalledTimes(1);
+    expect(gitCheckoutMock).toHaveBeenCalledWith('branch-name');
+    expect(gitCloneMock).not.toHaveBeenCalled();
+  });
+
+  it('does not ensure the correct branch is checked out if the checkout variable is void', async () => {
+    expect.assertions(3);
+    existsSyncMock.mockReturnValueOnce(true);
+    await cloneIntoCache('systems', ['cornflake'])({
+      ...cloneOptions,
+      checkout: undefined,
+    });
+    expect(gitFetchMock).not.toHaveBeenCalledTimes(1);
+    expect(gitCheckoutMock).not.toHaveBeenCalledWith('branch-name');
     expect(gitCloneMock).not.toHaveBeenCalled();
   });
 

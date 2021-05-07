@@ -7,8 +7,6 @@ import { dirname } from 'path';
 
 import getCachedItemPath from './getCachedItemPath';
 
-const git = simpleGit();
-
 /**
  * Clones a repository into the cache (util) directory, if it does not already exist.
  *
@@ -24,9 +22,16 @@ export default function cloneIntoCache(
   return async ({ repository, checkout }: GitCloneOptions): Promise<void> => {
     const destination = getCachedItemPath(bucket, itemPath);
     const parentDir = dirname(destination);
+    let git = simpleGit();
 
-    // If the item is already in cache, return void. No work needed.
+    // If the item is already in cache, make sure it has the correct branch/tag/commit
+    // checked out and exit.
     if (existsSync(destination)) {
+      if (checkout) {
+        git = simpleGit(destination);
+        await git.fetch();
+        await git.checkout(checkout);
+      }
       return;
     }
 
