@@ -27,5 +27,6 @@ module.exports = {
       },
     ],
     'security/detect-non-literal-fs-filename': 0,
+    '@typescript-eslint/unbound-method': 0,
   },
 };
