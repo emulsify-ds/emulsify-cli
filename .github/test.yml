@@ -1,0 +1,22 @@
+name: Test
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Install Node.js
+        uses: actions/setup-node@v2-beta
+        with:
+          node-version: 14.15
+      - name: Install
+        run: npm install
+      - name: Test
+        run: npm run test
