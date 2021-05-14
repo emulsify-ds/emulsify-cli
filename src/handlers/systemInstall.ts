@@ -142,8 +142,8 @@ export default async function systemInstall(
 
   // Update emulsify project config.
   try {
-    //  If no checkout was passed along, and the default checkout was used, fetch
-    // it using simple-git's branch script.
+    // If no checkout was passed along, and the default checkout was used, fetch it
+    // it can be stored in the project config.
     let checkout = repo.checkout;
     if (!checkout) {
       checkout = await getCachedItemCheckout('systems', [repo.name]);
