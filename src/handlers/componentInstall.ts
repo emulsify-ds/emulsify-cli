@@ -47,7 +47,6 @@ export default async function componentInstall(name: string): Promise<void> {
   try {
     await cloneIntoCache('systems', [systemName])(emulsifyConfig.system);
   } catch (e) {
-    console.log(e);
     return log(
       'error',
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
