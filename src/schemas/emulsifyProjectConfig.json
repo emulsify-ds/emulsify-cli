@@ -42,7 +42,7 @@
         }
       },
       "additionalProperties": false,
-      "required": ["repository"]
+      "required": ["repository", "checkout"]
     },
     "variant": {
       "type": "object",

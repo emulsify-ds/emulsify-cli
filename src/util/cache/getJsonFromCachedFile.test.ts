@@ -1,3 +1,9 @@
+jest.mock('./getCachedItemPath', () =>
+  jest.fn(
+    () =>
+      '/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json'
+  )
+);
 jest.mock('../../lib/constants', () => ({
   CACHE_DIR: 'home/uname/.emulsify/cache',
 }));
@@ -19,7 +25,7 @@ describe('getJsonFromCachedFile', () => {
       the: 'json',
     });
     expect(loadJsonMock).toHaveBeenCalledWith(
-      'home/uname/.emulsify/cache/systems/compound/system.emulsify.json'
+      '/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json'
     );
   });
 

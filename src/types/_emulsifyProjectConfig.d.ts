@@ -35,7 +35,7 @@ export interface EmulsifyProjectConfiguration {
     /**
      * Commit, branch, or tag of the system this project is utilizing
      */
-    checkout?: string;
+    checkout: string;
   };
   /**
    * Contains information about the Emulsify system this project is utilizing

@@ -3,11 +3,9 @@ import type { GitCloneOptions } from '@emulsify-cli/git';
 
 import simpleGit from 'simple-git';
 import { existsSync, promises as fs } from 'fs';
-import { dirname, join } from 'path';
+import { dirname } from 'path';
 
-import { CACHE_DIR } from '../../lib/constants';
-
-const git = simpleGit();
+import getCachedItemPath from './getCachedItemPath';
 
 /**
  * Clones a repository into the cache (util) directory, if it does not already exist.
@@ -18,17 +16,22 @@ const git = simpleGit();
  * @returns void, or throws an error if the repository could not be cloned.
  */
 export default function cloneIntoCache(
-  type: CacheBucket,
+  bucket: CacheBucket,
   itemPath: CacheItemPath
 ) {
   return async ({ repository, checkout }: GitCloneOptions): Promise<void> => {
-    // @TODO: Eventually, this needs to support being able to clone different copies of the
-    // same system for different projects.
-    const destination = join(CACHE_DIR, type, ...itemPath);
+    const destination = getCachedItemPath(bucket, itemPath);
     const parentDir = dirname(destination);
+    let git = simpleGit();
 
-    // If the item is already in cache, return void. No work needed.
+    // If the item is already in cache, make sure it has the correct branch/tag/commit
+    // checked out and exit.
     if (existsSync(destination)) {
+      if (checkout) {
+        git = simpleGit(destination);
+        await git.fetch();
+        await git.checkout(checkout);
+      }
       return;
     }
 

@@ -3,6 +3,7 @@ import catchLater from './catchLater';
 describe('catchLater', () => {
   it('can prevent unhandled promise rejections when caught asynchronously', async () => {
     const promise = catchLater(
+      /* eslint-disable-next-line @typescript-eslint/require-await */
       (async () => {
         throw new Error('pancakes');
       })()
@@ -13,7 +14,7 @@ describe('catchLater', () => {
     try {
       await promise;
     } catch (e) {
-      expect(e.message).toBe('pancakes');
+      expect(e).toEqual(Error('pancakes'));
     }
   });
 });
