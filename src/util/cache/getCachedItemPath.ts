@@ -1,7 +1,9 @@
 import type { CacheBucket, CacheItemPath } from '@emulsify-cli/cache';
 
 import { join } from 'path';
-import { CACHE_DIR } from '../../lib/constants';
+import { createHash } from 'crypto';
+import { CACHE_DIR, EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath';
 
 /**
  * Accepts a cache bucket, item path, and item name, and returns the full
@@ -16,5 +18,16 @@ export default function getCachedItemPath(
   bucket: CacheBucket,
   itemPath: CacheItemPath
 ): string {
-  return join(CACHE_DIR, bucket, ...itemPath);
+  const projectPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
+
+  if (!projectPath) {
+    throw new Error(`Unable to find ${EMULSIFY_PROJECT_CONFIG_FILE}`);
+  }
+
+  return join(
+    CACHE_DIR,
+    bucket,
+    createHash('md5').update(projectPath).digest('hex'),
+    ...itemPath
+  );
 }

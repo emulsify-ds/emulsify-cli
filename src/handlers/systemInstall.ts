@@ -8,6 +8,7 @@ import log from '../lib/log';
 import getAvailableSystems from '../util/system/getAvailableSystems';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
 import cloneIntoCache from '../util/cache/cloneIntoCache';
+import getCachedItemCheckout from '../util/cache/getCachedItemCheckout';
 import installComponentFromCache from '../util/project/installComponentFromCache';
 import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
@@ -63,7 +64,7 @@ export async function getSystemRepoInfo(
 export default async function systemInstall(
   name: string | void,
   options: InstallSystemHandlerOptions
-) {
+): Promise<void> {
   // @TODO: extract some of this into a common util.
   // Attempt to load emulsify config. If none is found, this is not an Emulsify project.
   const projectConfig = await getEmulsifyConfig();
@@ -141,10 +142,17 @@ export default async function systemInstall(
 
   // Update emulsify project config.
   try {
+    // If no checkout was passed along, and the default checkout was used, fetch it
+    // it can be stored in the project config.
+    let checkout = repo.checkout;
+    if (!checkout) {
+      checkout = await getCachedItemCheckout('systems', [repo.name]);
+    }
+
     await setEmulsifyConfig({
       system: {
         repository: repo.repository,
-        checkout: repo.checkout as string | undefined,
+        checkout,
       },
       // @TODO: Because we don't yet support referenced variants, for now we only
       // pass in the platform name.
@@ -174,7 +182,9 @@ export default async function systemInstall(
   } catch (e) {
     return log(
       'error',
-      `Unable to install system assets and/or required components: ${e}`,
+      `Unable to install system assets and/or required components: ${R.toString(
+        e
+      )}`,
       EXIT_ERROR
     );
   }
