@@ -158,6 +158,7 @@ export default async function systemInstall(
       // pass in the platform name.
       variant: {
         platform: variantConf.platform,
+        structureImplementations: variantConf.structureImplementations,
       },
     });
   } catch (e) {

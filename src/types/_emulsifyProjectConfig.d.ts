@@ -46,6 +46,19 @@ export interface EmulsifyProjectConfiguration {
      */
     platform: 'drupal';
     /**
+     * Array containing an object for each structure specified in the system to which this variant belongs
+     */
+    structureImplementations: {
+      /**
+       * Name of the structure being implemented. MUST correspond with the name of a structure specified within the variant's system
+       */
+      name: string;
+      /**
+       * Relative path to the folder that will hold all of the assets, components, and files related to the structure
+       */
+      directory: string;
+    }[];
+    /**
      * Git repository containing the system this project is utilizing
      */
     repository?: string;

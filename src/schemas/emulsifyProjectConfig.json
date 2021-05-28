@@ -51,6 +51,9 @@
         "platform": {
           "$ref": "src/schemas/variant.json#/definitions/platform"
         },
+        "structureImplementations": {
+          "$ref": "src/schemas/variant.json#/definitions/structureImplementations"
+        },
         "repository": {
           "type": "string",
           "description": "Git repository containing the system this project is utilizing"
@@ -61,7 +64,7 @@
         }
       },
       "additionalProperties": false,
-      "required": ["platform"]
+      "required": ["platform", "structureImplementations"]
     }
   },
   "additionalProperties": false,
