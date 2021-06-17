@@ -24,3 +24,5 @@ jest.mock('fs', () => ({
 jest.mock('fs-extra', () => ({
   copy: jest.fn(),
 }));
+
+jest.mock('child_process');

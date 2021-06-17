@@ -1,6 +1,7 @@
 jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/platform/getPlatformInfo', () => jest.fn());
 jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
+jest.mock('../util/fs/executeScript', () => jest.fn());
 
 import fs from 'fs';
 import git from 'simple-git';
@@ -8,6 +9,7 @@ import log from '../lib/log';
 import init from './init';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
 import writeToJsonFile from '../util/fs/writeToJsonFile';
+import executeScript from '../util/fs/executeScript';
 
 const root = '/home/uname/Projects/cornflake';
 
@@ -50,6 +52,8 @@ describe('init', () => {
       {
         project: {
           platform: 'drupal',
+          machineName: 'cornflake',
+          name: 'cornflake',
         },
         starter: {
           repository: 'https://github.com/emulsify-ds/emulsify-drupal.git',
@@ -94,6 +98,15 @@ describe('init', () => {
       {
         '--branch': 'cli',
       }
+    );
+  });
+
+  it('executes the init script within the Emulsify starter, if it exists', async () => {
+    expect.assertions(1);
+    existsSyncMock.mockReturnValueOnce(false).mockReturnValueOnce(true);
+    await init('cornflake');
+    expect(executeScript).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/themes/cornflake/init.js'
     );
   });
 

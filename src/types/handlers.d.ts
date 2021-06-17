@@ -6,6 +6,7 @@ declare module '@emulsify-cli/handlers' {
     starter?: string | void;
     checkout?: string | void;
     platform?: string | void;
+    machineName?: string | void;
   };
 
   export type InstallSystemHandlerOptions = {
