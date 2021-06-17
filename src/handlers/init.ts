@@ -116,7 +116,7 @@ export default async function init(
       }
     );
 
-    // Execute the init script, one exists.
+    // Execute the init script, if one exists.
     const initPath = join(target, EMULSIFY_PROJECT_INIT_SCRIPT_FILE);
     if (existsSync(initPath)) {
       await executeScript(initPath);
