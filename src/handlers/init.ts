@@ -13,6 +13,7 @@ import getPlatformInfo from '../util/platform/getPlatformInfo';
 import getAvailableStarters from '../util/getAvailableStarters';
 import writeToJsonFile from '../util/fs/writeToJsonFile';
 import strToMachineName from '../util/strToMachineName';
+import installDependencies from '../util/project/installDependencies';
 import executeScript from '../util/fs/executeScript';
 import log from '../lib/log';
 import { EXIT_ERROR } from '../lib/constants';
@@ -115,6 +116,9 @@ export default async function init(
         starter: { repository },
       }
     );
+
+    // Install project dependencies.
+    await installDependencies(target);
 
     // Execute the init script, if one exists.
     const initPath = join(target, EMULSIFY_PROJECT_INIT_SCRIPT_FILE);

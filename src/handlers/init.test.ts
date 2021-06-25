@@ -2,6 +2,7 @@ jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/platform/getPlatformInfo', () => jest.fn());
 jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 jest.mock('../util/fs/executeScript', () => jest.fn());
+jest.mock('../util/project/installDependencies', () => jest.fn());
 
 import fs from 'fs';
 import git from 'simple-git';
@@ -10,6 +11,7 @@ import init from './init';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
 import writeToJsonFile from '../util/fs/writeToJsonFile';
 import executeScript from '../util/fs/executeScript';
+import installDependencies from '../util/project/installDependencies';
 
 const root = '/home/uname/Projects/cornflake';
 
@@ -98,6 +100,14 @@ describe('init', () => {
       {
         '--branch': 'cli',
       }
+    );
+  });
+
+  it('installs the project dependencies', async () => {
+    expect.assertions(1);
+    await init('cornflake');
+    expect(installDependencies).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/themes/cornflake'
     );
   });
 
