@@ -14,6 +14,14 @@ export interface EmulsifyProjectConfiguration {
      * Name of the platform Emulsify is being used within.
      */
     platform: string;
+    /**
+     * Name of the project, such as 'Carmen Sandiego'.
+     */
+    name: string;
+    /**
+     * Machine-friendly name of the project, such as 'carmen-sandiego'.
+     */
+    machineName: string;
   };
   /**
    * Contains information about the Emulsify starter this project is based upon
