@@ -7,7 +7,8 @@ import type { EmulsifyProjectConfiguration } from '@emulsify-cli/config';
 import type { InitHandlerOptions } from '@emulsify-cli/handlers';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
-  EMULSIFY_PROJECT_INIT_SCRIPT_FILE,
+  EMULSIFY_PROJECT_HOOK_INIT,
+  EMULSIFY_PROJECT_HOOK_FOLDER,
 } from '../lib/constants';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
 import getAvailableStarters from '../util/getAvailableStarters';
@@ -121,7 +122,11 @@ export default async function init(
     await installDependencies(target);
 
     // Execute the init script, if one exists.
-    const initPath = join(target, EMULSIFY_PROJECT_INIT_SCRIPT_FILE);
+    const initPath = join(
+      target,
+      EMULSIFY_PROJECT_HOOK_FOLDER,
+      EMULSIFY_PROJECT_HOOK_INIT
+    );
     if (existsSync(initPath)) {
       await executeScript(initPath);
     }

@@ -116,7 +116,7 @@ describe('init', () => {
     existsSyncMock.mockReturnValueOnce(false).mockReturnValueOnce(true);
     await init('cornflake');
     expect(executeScript).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/themes/cornflake/init.js'
+      '/home/uname/Projects/cornflake/themes/cornflake/.cli/init.js'
     );
   });
 
