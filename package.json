@@ -12,6 +12,9 @@
   "bin": {
     "emulsify": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "npm run build-schema-types && npm run build-ts",
     "build-ts": "tsc --build tsconfig.dist.json",
