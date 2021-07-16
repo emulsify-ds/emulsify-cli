@@ -8,6 +8,14 @@ Array [
 ]
 `;
 
+exports[`log can log info messages 1`] = `
+Array [
+  Array [
+    "[36minformation[39m",
+  ],
+]
+`;
+
 exports[`log can log warning messages 1`] = `
 Array [
   Array [

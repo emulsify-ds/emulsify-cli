@@ -14,14 +14,7 @@ describe('log', () => {
   it('can log info messages', () => {
     expect.assertions(1);
     log('info', 'information');
-    expect((global.console.info as jest.Mock).mock.calls)
-      .toMatchInlineSnapshot(`
-      Array [
-        Array [
-          "[36minformation[39m",
-        ],
-      ]
-    `);
+    expect((global.console.info as jest.Mock).mock.calls).toMatchSnapshot();
   });
 
   it('can log error messages', () => {
