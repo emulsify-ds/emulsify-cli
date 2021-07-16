@@ -6,6 +6,9 @@
   "author": "Patrick Coffey <patrickcoffey48@gmail.com>",
   "license": "GPL-2.0",
   "private": false,
+  "engines": {
+    "node": ">=14.15"
+  },
   "bin": {
     "emulsify": "dist/index.js"
   },
