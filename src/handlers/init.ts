@@ -5,10 +5,17 @@ import simpleGit from 'simple-git';
 
 import type { EmulsifyProjectConfiguration } from '@emulsify-cli/config';
 import type { InitHandlerOptions } from '@emulsify-cli/handlers';
-import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants';
+import {
+  EMULSIFY_PROJECT_CONFIG_FILE,
+  EMULSIFY_PROJECT_HOOK_INIT,
+  EMULSIFY_PROJECT_HOOK_FOLDER,
+} from '../lib/constants';
 import getPlatformInfo from '../util/platform/getPlatformInfo';
 import getAvailableStarters from '../util/getAvailableStarters';
 import writeToJsonFile from '../util/fs/writeToJsonFile';
+import strToMachineName from '../util/strToMachineName';
+import installDependencies from '../util/project/installDependencies';
+import executeScript from '../util/fs/executeScript';
 import log from '../lib/log';
 import { EXIT_ERROR } from '../lib/constants';
 
@@ -42,13 +49,16 @@ export default async function init(
     );
   }
 
+  // Choose a folder name. If no machineName is given, create one using the project name.
+  const machineName = options?.machineName || strToMachineName(name);
+
   // Collection information about the starter kit, such as the target directory,
   // starter repository, and checkout version.
   const starters = getAvailableStarters();
   const starter = starters.find(R.propEq('platform')(platformName));
 
   const targetParent = targetDirectory || emulsifyParentDirectory;
-  const target = targetParent ? join(targetParent, name) : undefined;
+  const target = targetParent ? join(targetParent, machineName) : undefined;
 
   const repository = options?.starter || starter?.repository;
   const checkout = options?.checkout || starter?.checkout;
@@ -101,10 +111,25 @@ export default async function init(
       {
         project: {
           platform: platformName,
+          name,
+          machineName,
         },
         starter: { repository },
       }
     );
+
+    // Install project dependencies.
+    await installDependencies(target);
+
+    // Execute the init script, if one exists.
+    const initPath = join(
+      target,
+      EMULSIFY_PROJECT_HOOK_FOLDER,
+      EMULSIFY_PROJECT_HOOK_INIT
+    );
+    if (existsSync(initPath)) {
+      await executeScript(initPath);
+    }
 
     log('success', `Created an Emulsify project in ${target}.`);
     log(

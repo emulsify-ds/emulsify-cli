@@ -11,10 +11,18 @@
         "platform": {
           "type": "string",
           "description": "Name of the platform Emulsify is being used within."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the project, such as 'Carmen Sandiego'."
+        },
+        "machineName": {
+          "type": "string",
+          "description": "Machine-friendly name of the project, such as 'carmen-sandiego'."
         }
       },
       "additionalProperties": false,
-      "required": ["platform"]
+      "required": ["platform", "name", "machineName"]
     },
     "starter": {
       "type": "object",
