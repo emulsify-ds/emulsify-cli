@@ -27,50 +27,25 @@ describe('log', () => {
   it('can log error messages', () => {
     expect.assertions(1);
     log('error', 'error message');
-    expect((global.console.error as jest.Mock).mock.calls)
-      .toMatchInlineSnapshot(`
-      Array [
-        Array [
-          "[31m[1merror message[22m[39m",
-        ],
-      ]
-    `);
+    expect((global.console.error as jest.Mock).mock.calls).toMatchSnapshot();
   });
 
   it('can log warning messages', () => {
     expect.assertions(1);
     log('warn', 'warn message');
-    expect((global.console.warn as jest.Mock).mock.calls)
-      .toMatchInlineSnapshot(`
-      Array [
-        Array [
-          "[33m[1mwarn message[22m[39m",
-        ],
-      ]
-    `);
+    expect((global.console.warn as jest.Mock).mock.calls).toMatchSnapshot();
   });
 
   it('can write other types of messages', () => {
     expect.assertions(1);
     log('success', 'success message');
-    expect((global.console.log as jest.Mock).mock.calls).toMatchInlineSnapshot(`
-      Array [
-        Array [
-          "[32msuccess message[39m",
-        ],
-      ]
-    `);
+    expect((global.console.log as jest.Mock).mock.calls).toMatchSnapshot();
   });
 
   it('exits with the given code if one is provided', () => {
     log('error', 'big oof', 1);
-    expect(((global.process.exit as unknown) as jest.Mock).mock.calls)
-      .toMatchInlineSnapshot(`
-      Array [
-        Array [
-          1,
-        ],
-      ]
-    `);
+    expect(
+      ((global.process.exit as unknown) as jest.Mock).mock.calls
+    ).toMatchSnapshot();
   });
 });
