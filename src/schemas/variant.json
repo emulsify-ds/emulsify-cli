@@ -1,0 +1,137 @@
+{
+  "$id": "variant",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Emulsify Variant",
+  "type": "object",
+  "definitions": {
+    "platform": {
+      "type": "string",
+      "description": "Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9",
+      "enum": ["drupal"]
+    },
+    "structureImplementations": {
+      "type": "array",
+      "description": "Array containing an object for each structure specified in the system to which this variant belongs",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the structure being implemented. MUST correspond with the name of a structure specified within the variant's system"
+          },
+          "directory": {
+            "type": "string",
+            "description": "Relative path to the folder that will hold all of the assets, components, and files related to the structure"
+          }
+        },
+        "additionalProperties": false,
+        "required": ["name", "directory"]
+      }
+    },
+    "components": {
+      "type": "array",
+      "description": "Array containing objects that describe each component available within the variant",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the component. MUST correspond with the folder name containing the component"
+          },
+          "structure": {
+            "type": "string",
+            "description": "Name of the structure to which the component belongs. This, along with the name, will determine which folder the component will live in"
+          },
+          "description": {
+            "type": "string",
+            "description": "Text describing the intended purpose of the component"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Boolean indicating whether or not the component is required"
+          }
+        },
+        "additionalProperties": false,
+        "required": ["name", "structure", "description"]
+      }
+    },
+    "directories": {
+      "type": "array",
+      "description": "Array containing objects that define general directories. These directories should contain files and assets that do not belong in a structure folder (such as font files)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the directory/folder"
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative path to the directory that will be exported"
+          },
+          "destinationPath": {
+            "type": "string",
+            "description": "Relative path (from the Emulsify project root) to the destination folder"
+          },
+          "description": {
+            "type": "string",
+            "description": "Text describing the intended purpose of the folder"
+          }
+        },
+        "additionalProperties": false,
+        "required": ["name", "path", "destinationPath", "description"]
+      }
+    },
+    "files": {
+      "type": "array",
+      "description": "Array containing objects that define general files.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the file"
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative path to the file that will be exported"
+          },
+          "destinationPath": {
+            "type": "string",
+            "description": "Relative path (from the Emulsify project root) to the destination file"
+          },
+          "description": {
+            "type": "string",
+            "description": "Text describing the intended purpose of the file"
+          }
+        },
+        "additionalProperties": false,
+        "required": ["name", "path", "destinationPath", "description"]
+      }
+    }
+  },
+  "properties": {
+    "platform": {
+      "$ref": "#/definitions/platform"
+    },
+    "structureImplementations": {
+      "$ref": "#/definitions/structureImplementations"
+    },
+    "components": {
+      "$ref": "#/definitions/components"
+    },
+    "directories": {
+      "$ref": "#/definitions/directories"
+    },
+    "files": {
+      "$ref": "#/definitions/files"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "platform",
+    "structureImplementations",
+    "components",
+    "requiredComponents"
+  ]
+}

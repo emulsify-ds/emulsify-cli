@@ -1,0 +1,80 @@
+{
+  "$id": "emulsify.config",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Emulsify Project Configuration",
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "object",
+      "description": "Contains information about the Emulsify project.",
+      "properties": {
+        "platform": {
+          "type": "string",
+          "description": "Name of the platform Emulsify is being used within."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the project, such as 'Carmen Sandiego'."
+        },
+        "machineName": {
+          "type": "string",
+          "description": "Machine-friendly name of the project, such as 'carmen-sandiego'."
+        }
+      },
+      "additionalProperties": false,
+      "required": ["platform", "name", "machineName"]
+    },
+    "starter": {
+      "type": "object",
+      "description": "Contains information about the Emulsify starter this project is based upon",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Git repository containing the starter this project is based upon"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["repository"]
+    },
+    "system": {
+      "type": "object",
+      "description": "Contains information about the Emulsify system this project is utilizing",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Git repository containing the system this project is utilizing"
+        },
+        "checkout": {
+          "type": "string",
+          "description": "Commit, branch, or tag of the system this project is utilizing"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["repository", "checkout"]
+    },
+    "variant": {
+      "type": "object",
+      "description": "Contains information about the Emulsify system this project is utilizing",
+      "properties": {
+        "platform": {
+          "$ref": "src/schemas/variant.json#/definitions/platform"
+        },
+        "structureImplementations": {
+          "$ref": "src/schemas/variant.json#/definitions/structureImplementations"
+        },
+        "repository": {
+          "type": "string",
+          "description": "Git repository containing the system this project is utilizing"
+        },
+        "checkout": {
+          "type": "string",
+          "description": "Commit, branch, or tag of the system this project is utilizing"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["platform", "structureImplementations"]
+    }
+  },
+  "additionalProperties": false,
+  "required": ["project", "starter"]
+}

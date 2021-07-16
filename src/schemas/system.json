@@ -1,0 +1,74 @@
+{
+  "$id": "system",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Emulsify System",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Name of the Emulsify system"
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to external resources for the system. Should be a link to documentation, a styleguide, or an example implementation."
+    },
+    "repository": {
+      "type": "string",
+      "format": "uri",
+      "description": "Git URL to the repository containing the system"
+    },
+    "structure": {
+      "type": "array",
+      "description": "Objects that describe the structure of the system. Each structural item depicts a category within the system, such as a component folder, and MUST be implemented within each of the system's variants",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Machine-friendly name of the structure"
+          },
+          "description": {
+            "type": "string",
+            "description": "Text describing the intended purpose of the structural item"
+          }
+        },
+        "additionalProperties": false,
+        "required": ["name", "description"]
+      }
+    },
+    "variants": {
+      "type": "array",
+      "description": "Array containing objects that describe the variants available within the system",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "platform": {
+                "$ref": "src/schemas/variant.json#/definitions/platform"
+              },
+              "structureImplementations": {
+                "$ref": "src/schemas/variant.json#/definitions/structureImplementations"
+              },
+              "components": {
+                "$ref": "src/schemas/variant.json#/definitions/components"
+              },
+              "directories": {
+                "$ref": "src/schemas/variant.json#/definitions/directories"
+              },
+              "files": {
+                "$ref": "src/schemas/variant.json#/definitions/files"
+              }
+            },
+            "additionalProperties": false,
+            "required": ["platform", "structureImplementations", "components"]
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": ["name", "homepage", "repository", "structure"]
+}
