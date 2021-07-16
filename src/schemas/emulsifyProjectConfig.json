@@ -11,10 +11,18 @@
         "platform": {
           "type": "string",
           "description": "Name of the platform Emulsify is being used within."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the project, such as 'Carmen Sandiego'."
+        },
+        "machineName": {
+          "type": "string",
+          "description": "Machine-friendly name of the project, such as 'carmen-sandiego'."
         }
       },
       "additionalProperties": false,
-      "required": ["platform"]
+      "required": ["platform", "name", "machineName"]
     },
     "starter": {
       "type": "object",
@@ -42,7 +50,7 @@
         }
       },
       "additionalProperties": false,
-      "required": ["repository"]
+      "required": ["repository", "checkout"]
     },
     "variant": {
       "type": "object",
@@ -50,6 +58,9 @@
       "properties": {
         "platform": {
           "$ref": "src/schemas/variant.json#/definitions/platform"
+        },
+        "structureImplementations": {
+          "$ref": "src/schemas/variant.json#/definitions/structureImplementations"
         },
         "repository": {
           "type": "string",
@@ -61,7 +72,7 @@
         }
       },
       "additionalProperties": false,
-      "required": ["platform"]
+      "required": ["platform", "structureImplementations"]
     }
   },
   "additionalProperties": false,

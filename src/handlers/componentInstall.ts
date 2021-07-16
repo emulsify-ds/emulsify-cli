@@ -9,6 +9,7 @@ import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
 import installComponentFromCache from '../util/project/installComponentFromCache';
+import cloneIntoCache from '../util/cache/cloneIntoCache';
 
 /**
  * Handler for the `component install` command.
@@ -38,6 +39,17 @@ export default async function componentInstall(name: string): Promise<void> {
     return log(
       'error',
       `The system specified in your project configuration is not valid. Please make sure your ${EMULSIFY_PROJECT_CONFIG_FILE} file contains a system.repository value that is a valid git url`,
+      EXIT_ERROR
+    );
+  }
+
+  // Make sure the given system is installed and has the correct branch/commit/tag checked out.
+  try {
+    await cloneIntoCache('systems', [systemName])(emulsifyConfig.system);
+  } catch (e) {
+    return log(
+      'error',
+      'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
       EXIT_ERROR
     );
   }

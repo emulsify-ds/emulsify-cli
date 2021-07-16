@@ -14,6 +14,14 @@ export interface EmulsifyProjectConfiguration {
      * Name of the platform Emulsify is being used within.
      */
     platform: string;
+    /**
+     * Name of the project, such as 'Carmen Sandiego'.
+     */
+    name: string;
+    /**
+     * Machine-friendly name of the project, such as 'carmen-sandiego'.
+     */
+    machineName: string;
   };
   /**
    * Contains information about the Emulsify starter this project is based upon
@@ -35,7 +43,7 @@ export interface EmulsifyProjectConfiguration {
     /**
      * Commit, branch, or tag of the system this project is utilizing
      */
-    checkout?: string;
+    checkout: string;
   };
   /**
    * Contains information about the Emulsify system this project is utilizing
@@ -45,6 +53,19 @@ export interface EmulsifyProjectConfiguration {
      * Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9
      */
     platform: 'drupal';
+    /**
+     * Array containing an object for each structure specified in the system to which this variant belongs
+     */
+    structureImplementations: {
+      /**
+       * Name of the structure being implemented. MUST correspond with the name of a structure specified within the variant's system
+       */
+      name: string;
+      /**
+       * Relative path to the folder that will hold all of the assets, components, and files related to the structure
+       */
+      directory: string;
+    }[];
     /**
      * Git repository containing the system this project is utilizing
      */

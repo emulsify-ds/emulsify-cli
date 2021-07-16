@@ -9,9 +9,12 @@ import installGeneralAssetsFromCache from './installGeneralAssetsFromCache';
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/home/uname/Projects/cornflake/web/themes/custom/cornflake/project.emulsify.json'
 );
-(copyItemFromCache as jest.Mock).mockResolvedValue(true);
+const copyItemMock = (copyItemFromCache as jest.Mock).mockResolvedValue(true);
 
 describe('installGeneralAssetsFromCache', () => {
+  beforeEach(() => {
+    copyItemMock.mockClear();
+  });
   const system = {
     name: 'compound',
   } as EmulsifySystem;
@@ -45,17 +48,23 @@ describe('installGeneralAssetsFromCache', () => {
   it('copies all general files and directories into the Emulsify project', async () => {
     expect.assertions(2);
     await installGeneralAssetsFromCache(system, variant);
-    expect(copyItemFromCache).toHaveBeenNthCalledWith(
+    expect(copyItemMock).toHaveBeenNthCalledWith(
       1,
       'systems',
       ['compound', './components/00-base/00-defaults'],
       '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/00-base/00-defaults'
     );
-    expect(copyItemFromCache).toHaveBeenNthCalledWith(
+    expect(copyItemMock).toHaveBeenNthCalledWith(
       2,
       'systems',
       ['compound', './components/style.scss'],
       '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/style.scss'
     );
+  });
+
+  it('defaults directories/variants to empty arrays', async () => {
+    expect.assertions(1);
+    await installGeneralAssetsFromCache(system, {} as EmulsifyVariant);
+    expect(copyItemMock).not.toHaveBeenCalled();
   });
 });

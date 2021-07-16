@@ -1,6 +1,9 @@
 jest.mock('simple-git', () => {
   const mockGit = {
     clone: jest.fn(),
+    branch: jest.fn(),
+    checkout: jest.fn(),
+    fetch: jest.fn(),
   };
 
   return jest.fn(() => mockGit);
@@ -21,3 +24,5 @@ jest.mock('fs', () => ({
 jest.mock('fs-extra', () => ({
   copy: jest.fn(),
 }));
+
+jest.mock('child_process');
