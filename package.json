@@ -15,6 +15,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "npm run build-schema-types && npm run build-ts",
     "build-ts": "tsc --build tsconfig.dist.json",
