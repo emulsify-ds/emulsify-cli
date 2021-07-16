@@ -92,14 +92,12 @@ describe('init', () => {
     getPlatformInfoMock.mockReturnValueOnce(undefined);
     await init('cornflake', `${root}/themes/subDir`, {
       starter: 'https://github.com/cornflake-ds/cornflake-drupal.git',
-      platform: 'drupal',
+      platform: 'wordpress',
     });
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/cornflake-ds/cornflake-drupal.git',
       '/home/uname/Projects/cornflake/themes/subDir/cornflake',
-      {
-        '--branch': 'cli',
-      }
+      {}
     );
   });
 
