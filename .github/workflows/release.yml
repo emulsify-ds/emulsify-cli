@@ -16,6 +16,8 @@ jobs:
           node-version: 14.15
       - name: Install
         run: npm install
+      - name: Build
+        run: npm build
       - name: Release
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
