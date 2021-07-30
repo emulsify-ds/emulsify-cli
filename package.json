@@ -32,7 +32,7 @@
     "test": "jest --coverage --silent",
     "type": "tsc --noEmit",
     "twatch": "jest --no-coverage --watch --verbose",
-    "postinstall": "husky install",
+    "prepare": "husky install",
     "semantic-release": "semantic-release"
   },
   "devDependencies": {
