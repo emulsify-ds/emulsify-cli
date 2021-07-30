@@ -32,8 +32,9 @@
     "test": "jest --coverage --silent",
     "type": "tsc --noEmit",
     "twatch": "jest --no-coverage --watch --verbose",
+    "semantic-release": "semantic-release",
     "prepare": "husky install",
-    "semantic-release": "semantic-release"
+    "postbuild": "cp package.json dist/package.json && cd dist && npm install --only=production"
   },
   "devDependencies": {
     "@commitlint/cli": "^11.0.0",
