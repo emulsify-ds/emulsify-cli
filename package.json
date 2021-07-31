@@ -34,7 +34,7 @@
     "twatch": "jest --no-coverage --watch --verbose",
     "semantic-release": "semantic-release",
     "prepare": "husky install",
-    "postbuild": "cp package.json dist/package.json && cd dist && npm install --only=production"
+    "postbuild": "cp package.json dist/package.json && cd dist && npm install --only=production --ignore-scripts"
   },
   "devDependencies": {
     "@commitlint/cli": "^11.0.0",
