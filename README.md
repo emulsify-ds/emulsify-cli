@@ -2,7 +2,25 @@
 
 Command line interface for Emulsify.
 
+## Installation
+
+This project is deployed to [npm](https://www.npmjs.com/package/@emulsify/cli). In order to use this CLI, install it as a global dependency:
+
+```bash
+npm install -g @emulsify/cli
+```
+
 ## Development
+
+Emulsify-cli is developed using TypeScript. You can find all of the source files in the `src` directory, which is organized in the following manner:
+
+- `src/index.ts` - uses Commander to compose the CLI.
+- `src/handlers` - contains all functions that handle CLI commands, such as `emulsify init`.
+- `src/lib` - general definitions and logging tools.
+- `src/schemas` - contains JSON-Schema files that describe project, system, and variant configuration. These schema files are used to generate TypeScript types.
+- `src/scripts` - holds utility scripts for the project.
+- `src/types` - type modules live here, auto-generated ones are prefixed with an underscore (`_`).
+- `src/util` - contains utility functions that are used in handlers to do various things, such as caching systems.
 
 ### Setup
 
