@@ -20,7 +20,7 @@ You will see the terms "Projects", "Systems" and "Variants" used throughout this
 
 The cli exposes an init command that allows developers to easily create an Emulsify project.
 
-When the init command is run, it will attempt to detect the platform you're using, and use that to choose a starter (such as [emulsify-drupal](https://github.com/emulsify-ds/emulsify-drupal). However, you can use the command options to specify any platform, starter, and starter version/branch/tag. If the cli cannot determine the platform you're using, it will instruct you to provide those details yourself.
+When the init command is run, it will attempt to detect the platform you're using, and use that to choose a starter (such as [emulsify-drupal](https://github.com/emulsify-ds/emulsify-drupal)). However, you can use the command options to specify any platform, starter, and starter version/branch/tag. If the cli cannot determine the platform you're using, it will instruct you to provide those details yourself.
 
 ```bash
 emulsify init --help
