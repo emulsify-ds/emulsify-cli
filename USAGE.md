@@ -55,4 +55,128 @@ emuslify init "Theme Name"
 emulsify init "Theme Name" ./web/themes/custom/theme-name --starter https://github.com/emulsify-ds/emulsify-drupal.git --checkout 2.x --platform drupal
 ```
 
-## System
+### System
+
+Once you have initialized a project, you can use system commands available within the cli to list the out-of-the-box systems, and install a system into your current project.
+
+```bash
+emulsify system --help
+Usage: emulsify system [options] [command]
+
+Parent command that contains sub-commands pertaining to systems
+
+Options:
+  -h, --help                display help for command
+
+Commands:
+  list|ls                   Lists all of the available systems that Emulsify supports out-of-the-box
+  install [options] [name]  Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as
+                            compound), or a link to a git repository containing the system you want to install
+  help [command]            display help for command
+
+```
+
+The `emulsify system list|ls` command lists all of the out-of-the-box systems Emulsify supports at the moment.
+
+Example usage:
+
+```bash
+emulsify system list
+compound - https://github.com/emulsify-ds/compound.git
+```
+
+The `emulsify system install` command, when run within an Emulsify project, will install a system within the given project. You can pass the name of an out-of-the-box system, like `compound`, or you can pass a repository, and commit/branch/tag of any system you'd like to use.
+
+```bash
+emulsify system install --help
+Usage: emulsify system install [options] [name]
+
+Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as compound), or a link to a git repository containing the system you want to install
+
+Arguments:
+  name                               Name of the out-of-the-box system you would like to install
+
+Options:
+  -r --repository <repository>       Git repository containing the system you would like to install
+  -c --checkout <commit/branch/tag>  Commit, branch or tag of the base repository that should be checked out. MUST be provided if you are passing along
+                                     a repository (-r or --repository). Tags or commit hashes are strongly preferable, because you want to ensure that
+                                     you are using the same version of the system every time you install components, etc
+  -h, --help                         display help for command
+```
+
+Example usage:
+
+```bash
+cd ~/projects/my-drupal-codebase/web/themes/custom/my-theme
+emulsify system install compound
+ > Successfully installed the compound system using the drupal variant.
+
+
+# If you are pasing in your own repo/checkout
+emulsify system install --repository https://github.com/your-org/your-custom-system.git --checkout 3.x
+```
+
+### Components
+
+In your project, once you have selected a system, you may use the `components` commands within the cli to find, and install components that are available within your system.
+
+```bash
+emulsify component --help
+Usage: emulsify component [options] [command]
+
+Parent command that contains sub-commands pertaining to components
+
+Options:
+  -h, --help        display help for command
+
+Commands:
+  list|ls           Lists all of the components that are available for installation within your project based on the system and variant you selected
+  install|i [name]  Install a component from within the current project's system and variant
+  help [command]    display help for command
+
+```
+
+The `emulsify component list|ls` will return a list of components available within the system you selected for your project.
+
+Example usage:
+
+```bash
+cd ~/projects/my-drupal-codebase/web/themes/custom/my-theme
+emulsify component list
+
+base -> 01-colors
+base -> 02-motion
+base -> 03-site
+atoms -> buttons
+atoms -> forms
+atoms -> images
+atoms -> links
+atoms -> lists
+atoms -> tables
+atoms -> text
+atoms -> video
+molecules -> card
+molecules -> cta
+molecules -> menus
+molecules -> pager
+molecules -> status
+molecules -> tabs
+organisms -> grid
+organisms -> site
+templates -> placeholder
+pages -> content-types
+pages -> landing-pages
+
+```
+
+Once you've found a component you want to install, you can use the `emulsify component install` command to fetch it into your project.
+
+Example usage:
+
+```bash
+cd ~/projects/my-drupal-codebase/web/themes/custom/my-theme
+emulsify component install card
+ > Success! The card component has been added to your project.
+```
+
+That's pretty much it. Have fun, and please feel free to open issues if you discover a bug, or have an improvement to suggest!
