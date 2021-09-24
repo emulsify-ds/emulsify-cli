@@ -131,7 +131,7 @@ Options:
 
 Commands:
   list|ls           Lists all of the components that are available for installation within your project based on the system and variant you selected
-  install|i [name]  Install a component from within the current project's system and variant
+  install|i [name] [options] Install a component from within the current project's system and variant
   help [command]    display help for command
 
 ```
@@ -176,6 +176,16 @@ Example usage:
 ```bash
 cd ~/projects/my-drupal-codebase/web/themes/custom/my-theme
 emulsify component install card
+ > Success! The card component has been added to your project.
+```
+
+If you attempt to install a component that already exists within your project, you the installation process will throw an error. However, if you wish to overwrite the existing component, pass the `--force` flag.
+
+```bash
+emulsify component install card
+ > Error: The component "card" already exists, and force was not passed (--force).
+
+emulsify component install card --force
  > Success! The card component has been added to your project.
 ```
 
