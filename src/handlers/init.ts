@@ -2,6 +2,7 @@ import R from 'ramda';
 import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import simpleGit from 'simple-git';
+import { cyan } from 'chalk';
 
 import type { EmulsifyProjectConfiguration } from '@emulsify-cli/config';
 import type { InitHandlerOptions } from '@emulsify-cli/handlers';
@@ -134,7 +135,27 @@ export default async function init(
     log('success', `Created an Emulsify project in ${target}.`);
     log(
       'info',
-      `Emulsify does not come with components by default.\nPlease use "emulsify system install" to select a design system you'd like to use.\nDoing so will install the system's default components, and allow you to install any other components made available by the design system.\nTo see a list of out-of-the-box design systems, run: "emulsify system ls"`
+      `Make sure you install the modules your Emulsify-based theme requires in order to function.`
+    );
+    log(
+      'verbose',
+      `
+      - composer require drupal/components
+      - composer require drupal/emulsify_twig
+      - drush en components emulsify_twig -y
+    `
+    );
+    log(
+      'info',
+      `Once the requirements have been installed, you will need to select a system to use, as Emulsify does not come with components by default.`
+    );
+    log(
+      'verbose',
+      `
+      ${cyan('List systems')}: emulsify system list
+      ${cyan('Install a system')}: emulsify system install "system-name"
+      ${cyan('Install default system')}: emulsify system install compound
+    `
     );
   } catch (e) {
     log('error', `Unable to pull down ${repository}: ${String(e)}`, EXIT_ERROR);
