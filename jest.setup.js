@@ -4,6 +4,7 @@ jest.mock('simple-git', () => {
     branch: jest.fn(),
     checkout: jest.fn(),
     fetch: jest.fn(),
+    pull: jest.fn(),
   };
 
   return jest.fn(() => mockGit);
