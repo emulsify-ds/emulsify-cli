@@ -14,4 +14,8 @@ declare module '@emulsify-cli/handlers' {
     checkout?: string | void;
     variant?: string | void;
   };
+
+  export type InstallComponentHandlerOptions = {
+    force?: boolean;
+  };
 }
