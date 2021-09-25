@@ -14,6 +14,7 @@ const mkdirMock = fs.promises.mkdir as jest.Mock;
 const gitCloneMock = git().clone as jest.Mock;
 const gitFetchMock = git().fetch as jest.Mock;
 const gitCheckoutMock = git().checkout as jest.Mock;
+const gitPullMock = git().pull as jest.Mock;
 
 (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/home/uname/projects/emulsify'
@@ -25,6 +26,7 @@ describe('cloneIntoCache', () => {
     gitCloneMock.mockClear();
     gitFetchMock.mockClear();
     gitCheckoutMock.mockClear();
+    gitPullMock.mockClear();
   });
 
   const cloneOptions = {
@@ -33,11 +35,12 @@ describe('cloneIntoCache', () => {
   };
 
   it('can ensure that the correct branch is checked out, and return early if the cache item already exists', async () => {
-    expect.assertions(4);
+    expect.assertions(5);
     existsSyncMock.mockReturnValueOnce(true);
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
     expect(existsSyncMock).toHaveBeenCalledTimes(1);
     expect(gitFetchMock).toHaveBeenCalledTimes(1);
+    expect(gitPullMock).toHaveBeenCalledTimes(1);
     expect(gitCheckoutMock).toHaveBeenCalledWith('branch-name');
     expect(gitCloneMock).not.toHaveBeenCalled();
   });

@@ -65,7 +65,7 @@ describe('init', () => {
   });
 
   it('can clone an Emulsify starter based on CLI input, and log a success message upon completion', async () => {
-    expect.assertions(3);
+    expect.assertions(2);
     await init('cornflake', `${root}/themes/subDir`, {
       starter: 'https://github.com/cornflake-ds/cornflake-drupal.git',
       checkout: '5.6x',
@@ -77,14 +77,7 @@ describe('init', () => {
       '/home/uname/Projects/cornflake/themes/subDir/cornflake',
       { '--branch': '5.6x' }
     );
-    expect(logMock).toHaveBeenCalledWith(
-      'success',
-      'Created an Emulsify project in /home/uname/Projects/cornflake/themes/subDir/cornflake.'
-    );
-    expect(logMock).toHaveBeenCalledWith(
-      'info',
-      `Emulsify does not come with components by default.\nPlease use "emulsify system install" to select a design system you'd like to use.\nDoing so will install the system's default components, and allow you to install any other components made available by the design system.\nTo see a list of out-of-the-box design systems, run: "emulsify system ls"`
-    );
+    expect(logMock).toHaveBeenCalledTimes(5);
   });
 
   it('can clone an Emulsify starter without a provided checkout', async () => {

@@ -5,6 +5,7 @@ import {
   EMULSIFY_PROJECT_CONFIG_FILE,
 } from '../lib/constants';
 import type { EmulsifySystem } from '@emulsify-cli/config';
+import type { InstallComponentHandlerOptions } from '@emulsify-cli/handlers';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
@@ -14,7 +15,10 @@ import cloneIntoCache from '../util/cache/cloneIntoCache';
 /**
  * Handler for the `component install` command.
  */
-export default async function componentInstall(name: string): Promise<void> {
+export default async function componentInstall(
+  name: string,
+  { force }: InstallComponentHandlerOptions
+): Promise<void> {
   const emulsifyConfig = await getEmulsifyConfig();
   if (!emulsifyConfig) {
     return log(
@@ -86,9 +90,13 @@ export default async function componentInstall(name: string): Promise<void> {
     );
   }
 
-  await installComponentFromCache(systemConf, variantConf, name);
-  return log(
-    'success',
-    `Success! The ${name} component has been added to your project.`
-  );
+  try {
+    await installComponentFromCache(systemConf, variantConf, name, force);
+    return log(
+      'success',
+      `Success! The ${name} component has been added to your project.`
+    );
+  } catch (e) {
+    return log('error', (e as Error).toString());
+  }
 }

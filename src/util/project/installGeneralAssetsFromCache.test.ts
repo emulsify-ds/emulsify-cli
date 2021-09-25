@@ -52,13 +52,15 @@ describe('installGeneralAssetsFromCache', () => {
       1,
       'systems',
       ['compound', './components/00-base/00-defaults'],
-      '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/00-base/00-defaults'
+      '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/00-base/00-defaults',
+      true
     );
     expect(copyItemMock).toHaveBeenNthCalledWith(
       2,
       'systems',
       ['compound', './components/style.scss'],
-      '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/style.scss'
+      '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/style.scss',
+      true
     );
   });
 
