@@ -31,6 +31,7 @@ export default function cloneIntoCache(
         git = simpleGit(destination);
         await git.fetch();
         await git.checkout(checkout);
+        await git.pull();
       }
       return;
     }

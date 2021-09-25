@@ -31,7 +31,12 @@ export default async function installGeneralAssetsFromCache(
     const destination = join(dirname(path), asset.destinationPath);
     promises.push(
       catchLater(
-        copyItemFromCache('systems', [system.name, asset.path], destination)
+        copyItemFromCache(
+          'systems',
+          [system.name, asset.path],
+          destination,
+          true
+        )
       )
     );
   }

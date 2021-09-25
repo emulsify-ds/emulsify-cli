@@ -1,6 +1,7 @@
 jest.mock('../cache/copyItemFromCache', () => jest.fn());
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
+import { pathExists } from 'fs-extra';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
 import copyItemFromCache from '../cache/copyItemFromCache';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath';
@@ -9,6 +10,7 @@ import installComponentFromCache from './installComponentFromCache';
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/home/uname/Projects/cornflake/web/themes/custom/cornflake/project.emulsify.json'
 );
+const pathExistsMock = (pathExists as jest.Mock).mockResolvedValue(false);
 
 describe('installComponentFromCache', () => {
   const system = {
@@ -69,13 +71,24 @@ describe('installComponentFromCache', () => {
     );
   });
 
+  it('throws an error if the component is already installed, and force is false', async () => {
+    expect.assertions(1);
+    pathExistsMock.mockResolvedValueOnce(true);
+    await expect(
+      installComponentFromCache(system, variant, 'link', false)
+    ).rejects.toThrow(
+      'The component "link" already exists, and force was not passed (--force).'
+    );
+  });
+
   it('copies the component from the cached item into the correct destination', async () => {
     expect.assertions(1);
     await installComponentFromCache(system, variant, 'link');
     expect(copyItemFromCache as jest.Mock).toHaveBeenCalledWith(
       'systems',
       ['compound', './components/00-base', 'link'],
-      '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/00-base/link'
+      '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/00-base/link',
+      false
     );
   });
 });

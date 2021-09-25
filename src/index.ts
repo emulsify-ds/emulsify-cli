@@ -79,6 +79,10 @@ component
   .action(componentList);
 component
   .command('install [name]')
+  .option(
+    '-f --force',
+    'Use this to overwrite a component that is already installed'
+  )
   .alias('i')
   .description(
     "Install a component from within the current project's system and variant"
