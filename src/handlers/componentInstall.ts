@@ -11,13 +11,14 @@ import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
 import installComponentFromCache from '../util/project/installComponentFromCache';
 import cloneIntoCache from '../util/cache/cloneIntoCache';
+import catchLater from '../util/catchLater';
 
 /**
  * Handler for the `component install` command.
  */
 export default async function componentInstall(
   name: string,
-  { force }: InstallComponentHandlerOptions
+  { force, all }: InstallComponentHandlerOptions
 ): Promise<void> {
   const emulsifyConfig = await getEmulsifyConfig();
   if (!emulsifyConfig) {
@@ -66,9 +67,6 @@ export default async function componentInstall(
   );
 
   // If no systemConf is present, error with a helpful message.
-  // @TODO: We definitely need a mechanism to pull in the system, cache it, and make sure it's
-  // checked out version is correct. This should likely be done with a HOF that can be applied
-  // to any command handler: R.compose(withCachedSystem, withEmulsifySystemRequirement)(componentInstall).
   if (!systemConf) {
     return log(
       'error',
@@ -90,13 +88,50 @@ export default async function componentInstall(
     );
   }
 
-  try {
-    await installComponentFromCache(systemConf, variantConf, name, force);
+  if (!name && !all) {
     return log(
-      'success',
-      `Success! The ${name} component has been added to your project.`
+      'error',
+      'Please specify a component to install, or pass --all to install all available components.'
     );
-  } catch (e) {
-    return log('error', (e as Error).toString());
+  }
+
+  // If all components are to be installed, spawn promises for installing all available components.
+  const components: [string, Promise<void>][] = [];
+  if (all) {
+    components.push(
+      ...variantConf.components.map((component): [string, Promise<void>] => [
+        component.name,
+        catchLater(
+          installComponentFromCache(
+            systemConf,
+            variantConf,
+            component.name,
+            // Force install all components.
+            true
+          )
+        ),
+      ])
+    );
+  }
+  // If there is only one component to install, add one single promise for the single component.
+  else {
+    components.push([
+      name,
+      catchLater(
+        installComponentFromCache(systemConf, variantConf, name, force)
+      ),
+    ]);
+  }
+
+  for (const [cname, promise] of components) {
+    try {
+      await promise;
+      log(
+        'success',
+        `Success! The ${cname} component has been added to your project.`
+      );
+    } catch (e) {
+      log('error', `Unable to install ${cname}: ${(e as Error).toString()}`);
+    }
   }
 }
