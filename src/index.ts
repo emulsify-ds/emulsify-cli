@@ -83,6 +83,10 @@ component
     '-f --force',
     'Use this to overwrite a component that is already installed'
   )
+  .option(
+    '-a --all',
+    'Use this to install all available components, rather than specifying a single component to install'
+  )
   .alias('i')
   .description(
     "Install a component from within the current project's system and variant"

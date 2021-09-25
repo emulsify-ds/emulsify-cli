@@ -136,6 +136,8 @@ Commands:
 
 ```
 
+#### Listing components
+
 The `emulsify component list|ls` will return a list of components available within the system you selected for your project.
 
 Example usage:
@@ -169,6 +171,8 @@ pages -> landing-pages
 
 ```
 
+#### Installing components
+
 Once you've found a component you want to install, you can use the `emulsify component install` command to fetch it into your project.
 
 Example usage:
@@ -179,7 +183,11 @@ emulsify component install card
  > Success! The card component has been added to your project.
 ```
 
+#### Force installing components
+
 If you attempt to install a component that already exists within your project, you the installation process will throw an error. However, if you wish to overwrite the existing component, pass the `--force` flag.
+
+Example usage:
 
 ```bash
 emulsify component install card
@@ -187,6 +195,18 @@ emulsify component install card
 
 emulsify component install card --force
  > Success! The card component has been added to your project.
+```
+
+#### Installing all available components
+
+If you would like to simply install all components available withing the system you've selected, use the `--all` flag.
+
+Example usage:
+
+```bash
+emulsify component install --all
+ > Success! The 01-colors component has been added to your project.
+ > ...
 ```
 
 That's pretty much it. Have fun, and please feel free to open issues if you discover a bug, or have an improvement to suggest!
