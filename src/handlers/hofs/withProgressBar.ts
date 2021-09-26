@@ -1,7 +1,9 @@
 import ProgressBar from 'progress';
 
+// In this case, we actually do not care what the args are, so any is fine.
 export type HandlerWithProgress = (
   progress: InstanceType<typeof ProgressBar>
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 ) => (...args: any[]) => Promise<void> | void;
 
 /**
