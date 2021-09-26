@@ -31,6 +31,7 @@ Emulsify-cli is developed using TypeScript. You can find all of the source files
 - Install the version of node as specified in this project's `.nvmrc` file. If you are using nvm, simply run `nvm use`.
 - Clone this repository into a directory of your choosing.
 - In the directory, run `npm install`.
+- Build the project: `npm run build`, or watch: `npm run watch`.
 - To test the CLI, run: `npm link`.
 
 ### Scripts
