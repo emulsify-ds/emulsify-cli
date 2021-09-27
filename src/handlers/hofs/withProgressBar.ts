@@ -8,8 +8,8 @@ export type HandlerWithProgress = (
 
 /**
  * HOF that passes a progress bar into a given handler fn.
- * @param handler
- * @returns
+ * @param handler fn that, when called, returns a fn that will be executed by commander.
+ * @returns the function that handler returns.
  */
 export default function withProgressBar(
   handler: HandlerWithProgress
