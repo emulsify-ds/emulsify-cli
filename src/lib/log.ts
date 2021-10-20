@@ -5,6 +5,7 @@
 
 import { Chalk, dim, cyan, yellow, green, red } from 'chalk';
 import R from 'ramda';
+import consolaGlobalInstance, { Consola } from 'consola';
 
 export type LogMethod =
   | 'info'
@@ -26,7 +27,7 @@ const logMethodColorMap: {
 };
 
 const withColor = (
-  logger: Console['log'] | Console['info'] | Console['error']
+  logger: Consola['log'] | Consola['info'] | Consola['error']
 ) => (method: LogMethod, message: string): void =>
   /* eslint-disable-next-line security/detect-object-injection */
   logger(logMethodColorMap[method](message));
@@ -53,10 +54,10 @@ export default function log(
 
   // emit log message based off of method.
   R.cond([
-    [logMethodEq('error'), withColor(console.error)],
-    [logMethodEq('info'), withColor(console.info)],
-    [logMethodEq('warn'), withColor(console.warn)],
-    [R.T, withColor(console.log)],
+    [logMethodEq('error'), withColor(consolaGlobalInstance.error)],
+    [logMethodEq('info'), withColor(consolaGlobalInstance.info)],
+    [logMethodEq('warn'), withColor(consolaGlobalInstance.warn)],
+    [R.T, withColor(consolaGlobalInstance.log)],
   ])(method, message);
 
   if (exitCode) {

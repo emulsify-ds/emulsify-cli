@@ -47,7 +47,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     if (!platformName) {
       return log(
         'error',
-        'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
+        `\nUnable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.`,
         EXIT_ERROR
       );
     }
@@ -73,7 +73,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     if (!target) {
       return log(
         'error',
-        'Unable to find a directory to put Emulsify in. Please specify a directory using the "path" argument: emulsify init myTheme ./themes',
+        `\nUnable to find a directory to put Emulsify in. Please specify a directory using the "path" argument: emulsify init myTheme ./themes`,
         EXIT_ERROR
       );
     }
@@ -81,7 +81,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     if (!repository) {
       return log(
         'error',
-        `Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter ${
+        `\nUnable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter ${
           getAvailableStarters()[0].repository
         }`,
         EXIT_ERROR
@@ -91,7 +91,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     if (existsSync(target)) {
       return log(
         'error',
-        `The intended target is already occupied: ${target}`,
+        `\nThe intended target is already occupied: ${target}`,
         EXIT_ERROR
       );
     }
