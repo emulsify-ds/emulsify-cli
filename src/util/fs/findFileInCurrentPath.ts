@@ -22,7 +22,7 @@ export default function findFileInCurrentPath(fileName: string): string | void {
   )(process.cwd());
 
   if (!reachedCwdRoot(path)) {
-    return R.memoizeWith(join(path, fileName));;
+    return R.memoizeWith(join(path, fileName));
   }
 
   return undefined;
