@@ -10,7 +10,9 @@ import R from 'ramda';
  *
  * @returns string containing the path to the file, or undefined if the file is not found.
  */
-const findFileInCurrentPath = R.memoizeWith(R.identity, fileName) => {
+const findFileInCurrentPath = R.memoizeWith(R.identity, (fileName: string):
+  | string
+  | void => {
   const directoryContainsFile = (path: string): boolean =>
     existsSync(join(path, fileName));
   const reachedCwdRoot = (path: string): boolean => path === sep;
@@ -26,6 +28,6 @@ const findFileInCurrentPath = R.memoizeWith(R.identity, fileName) => {
   }
 
   return undefined;
-}
+});
 
 export default findFileInCurrentPath;
