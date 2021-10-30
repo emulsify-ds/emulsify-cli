@@ -49,7 +49,7 @@ Example usage:
 
 ```bash
 cd ~/projects/my-drupal-codebase
-emuslify init "Theme Name"
+emulsify init "Theme Name"
 
 # If you are not relying on the cli to detect the platform, and use a starter:
 emulsify init "Theme Name" ./web/themes/custom/theme-name --starter https://github.com/emulsify-ds/emulsify-drupal.git --checkout 2.x --platform drupal
