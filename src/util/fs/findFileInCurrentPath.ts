@@ -10,9 +10,9 @@ import R from 'ramda';
  *
  * @returns string containing the path to the file, or undefined if the file is not found.
  */
-// @TODO: This fn should be memoized, with the key being fileName. Each time the cli is
-// invoked, this fn may be called multiple times with the same fileName, from within the same cwd.
-export default function findFileInCurrentPath(fileName: string): string | void {
+const findFileInCurrentPath = R.memoizeWith(R.identity, (fileName: string):
+  | string
+  | void => {
   const directoryContainsFile = (path: string): boolean =>
     existsSync(join(path, fileName));
   const reachedCwdRoot = (path: string): boolean => path === sep;
@@ -28,4 +28,5 @@ export default function findFileInCurrentPath(fileName: string): string | void {
   }
 
   return undefined;
-}
+});
+export default findFileInCurrentPath;
