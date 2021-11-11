@@ -2,7 +2,6 @@ import R from 'ramda';
 import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import simpleGit from 'simple-git';
-import { cyan } from 'chalk';
 import ProgressBar from 'progress';
 
 import type { EmulsifyProjectConfiguration } from '@emulsify-cli/config';
@@ -18,6 +17,7 @@ import writeToJsonFile from '../util/fs/writeToJsonFile';
 import strToMachineName from '../util/strToMachineName';
 import installDependencies from '../util/project/installDependencies';
 import executeScript from '../util/fs/executeScript';
+import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform';
 import log from '../lib/log';
 import { EXIT_ERROR } from '../lib/constants';
 
@@ -154,30 +154,9 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       });
 
       log('success', `Created an Emulsify project in ${target}.`);
-      log(
-        'info',
-        `Make sure you install the modules your Emulsify-based theme requires in order to function.`
-      );
-      log(
-        'verbose',
-        `
-      - composer require drupal/components
-      - composer require drupal/emulsify_twig
-      - drush en components emulsify_twig -y
-    `
-      );
-      log(
-        'info',
-        `Once the requirements have been installed, you will need to select a system to use, as Emulsify does not come with components by default.`
-      );
-      log(
-        'verbose',
-        `
-      ${cyan('List systems')}: emulsify system list
-      ${cyan('Install a system')}: emulsify system install "system-name"
-      ${cyan('Install default system')}: emulsify system install compound
-    `
-      );
+      getInitSuccessMessageForPlatform(
+        platformName
+      ).map(({ method, message }) => log(method, message));
     } catch (e) {
       log(
         'error',
