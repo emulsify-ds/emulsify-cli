@@ -3,7 +3,14 @@ import type { GitCloneOptions } from '@emulsify-cli/git';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 
 import R from 'ramda';
-import { EXIT_ERROR, EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants';
+import { join } from 'path';
+import { existsSync } from 'fs';
+import {
+  EXIT_ERROR,
+  EMULSIFY_SYSTEM_CONFIG_FILE,
+  EMULSIFY_PROJECT_HOOK_FOLDER,
+  EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
+} from '../lib/constants';
 import log from '../lib/log';
 import getAvailableSystems from '../util/system/getAvailableSystems';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
@@ -14,6 +21,8 @@ import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsF
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
 import setEmulsifyConfig from '../util/project/setEmulsifyConfig';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
+import findFileInCurrentPath from '../util/fs/findFileInCurrentPath';
+import executeScript from '../util/fs/executeScript';
 
 /**
  * Helper function that uses InstallSystemHandlerOptions input to determine what
@@ -185,6 +194,19 @@ export default async function systemInstall(
 
     // Install all global files and folders.
     await installGeneralAssetsFromCache(systemConf, variantConf);
+
+    // Execute system install hook.
+    const path = findFileInCurrentPath(EMULSIFY_SYSTEM_CONFIG_FILE);
+    const hookPath = path
+      ? join(
+          path,
+          EMULSIFY_PROJECT_HOOK_FOLDER,
+          EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL
+        )
+      : undefined;
+    if (hookPath && existsSync(hookPath)) {
+      await executeScript(hookPath);
+    }
   } catch (e) {
     return log(
       'error',
