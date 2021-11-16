@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { program } from 'commander';
+import withProgressBar from './handlers/hofs/withProgressBar';
 import init from './handlers/init';
 import systemList from './handlers/systemList';
 import systemInstall from './handlers/systemInstall';
@@ -31,7 +32,7 @@ program
     path:
       'Path to the folder in which you would like to to create your Emulsify project. For example, "./themes" will result in the Emulsify project being placed in ./themes/{name}',
   })
-  .action(init);
+  .action(withProgressBar(init));
 
 // System sub-commands.
 const system = program

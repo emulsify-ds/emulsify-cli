@@ -29,3 +29,4 @@ jest.mock('fs-extra', () => ({
 }));
 
 jest.mock('child_process');
+jest.mock('progress');
