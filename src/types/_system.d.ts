@@ -67,7 +67,7 @@ export interface EmulsifySystem {
       /**
        * Text describing the intended purpose of the component
        */
-      description: string;
+      description?: string;
       /**
        * Boolean indicating whether or not the component is required
        */
@@ -92,7 +92,7 @@ export interface EmulsifySystem {
       /**
        * Text describing the intended purpose of the folder
        */
-      description: string;
+      description?: string;
     }[];
     /**
      * Array containing objects that define general files.
@@ -113,7 +113,7 @@ export interface EmulsifySystem {
       /**
        * Text describing the intended purpose of the file
        */
-      description: string;
+      description?: string;
     }[];
   }[];
 }

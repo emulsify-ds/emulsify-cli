@@ -37,7 +37,7 @@ export type Components = {
   /**
    * Text describing the intended purpose of the component
    */
-  description: string;
+  description?: string;
   /**
    * Boolean indicating whether or not the component is required
    */
@@ -62,7 +62,7 @@ export type Directories = {
   /**
    * Text describing the intended purpose of the folder
    */
-  description: string;
+  description?: string;
 }[];
 /**
  * Array containing objects that define general files.
@@ -83,7 +83,7 @@ export type Files = {
   /**
    * Text describing the intended purpose of the file
    */
-  description: string;
+  description?: string;
 }[];
 
 export interface EmulsifyVariant {

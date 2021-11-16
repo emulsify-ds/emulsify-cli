@@ -57,10 +57,10 @@
       "description": "Contains information about the Emulsify system this project is utilizing",
       "properties": {
         "platform": {
-          "$ref": "src/schemas/variant.json#/definitions/platform"
+          "$ref": "variant.json#/definitions/platform"
         },
         "structureImplementations": {
-          "$ref": "src/schemas/variant.json#/definitions/structureImplementations"
+          "$ref": "variant.json#/definitions/structureImplementations"
         },
         "repository": {
           "type": "string",

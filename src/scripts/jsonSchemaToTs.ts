@@ -13,11 +13,13 @@ import { compileFromFile } from 'json-schema-to-typescript';
 export default async function main(schemas: string[]): Promise<void[]> {
   const schemaDir = resolve(__dirname, '..', 'schemas');
   const typesDir = resolve(__dirname, '..', 'types');
+  const path = `${process.cwd()}/src/schemas`;
+  console.log('PATH', path);
 
   return await Promise.all(
     schemas.map((name) =>
       compileFromFile(join(schemaDir, `${name}.json`), {
-        cwd: process.cwd(),
+        cwd: path,
         style: {
           singleQuote: true,
         },
