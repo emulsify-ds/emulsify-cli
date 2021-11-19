@@ -17,7 +17,7 @@ export default async function main(schemas: string[]): Promise<void[]> {
   return await Promise.all(
     schemas.map((name) =>
       compileFromFile(join(schemaDir, `${name}.json`), {
-        cwd: process.cwd(),
+        cwd: schemaDir,
         style: {
           singleQuote: true,
         },
