@@ -6,13 +6,13 @@ Command line interface for Emulsify.
 
 This project is deployed to [npm](https://www.npmjs.com/package/@emulsify/cli). In order to use this CLI, install it as a global dependency:
 
-## Usage
-
-For more information on how to use emulsify-cli, please see the [usage documentation](USAGE.md).
-
 ```bash
 npm install -g @emulsify/cli
 ```
+
+## Usage
+
+For more information on how to use emulsify-cli, please see the [usage documentation](USAGE.md).
 
 ## Development
 
