@@ -111,9 +111,6 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
           : {}
       );
 
-      // Remove the .git directory, as this is a starter kit.
-      await fs.rmdir(join(target, '.git'), { recursive: true });
-
       // Construct an Emulsify configuration object.
       await writeToJsonFile<EmulsifyProjectConfiguration>(
         join(target, EMULSIFY_PROJECT_CONFIG_FILE),
@@ -148,6 +145,11 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       if (existsSync(initPath)) {
         await executeScript(initPath);
       }
+
+      // Remove the .git directory, as this is a starter kit. This step
+      // should happen after dependencies are installed, and init scripts are
+      // executed, otherwise git-reliant dev deps in the starter may eror out.
+      await fs.rmdir(join(target, '.git'), { recursive: true });
 
       progress.tick(10, {
         message: 'init script executed, initialization complete',
