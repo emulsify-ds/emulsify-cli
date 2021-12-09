@@ -47,19 +47,19 @@
             "type": "object",
             "properties": {
               "platform": {
-                "$ref": "src/schemas/variant.json#/definitions/platform"
+                "$ref": "variant.json#/definitions/platform"
               },
               "structureImplementations": {
-                "$ref": "src/schemas/variant.json#/definitions/structureImplementations"
+                "$ref": "variant.json#/definitions/structureImplementations"
               },
               "components": {
-                "$ref": "src/schemas/variant.json#/definitions/components"
+                "$ref": "variant.json#/definitions/components"
               },
               "directories": {
-                "$ref": "src/schemas/variant.json#/definitions/directories"
+                "$ref": "variant.json#/definitions/directories"
               },
               "files": {
-                "$ref": "src/schemas/variant.json#/definitions/files"
+                "$ref": "variant.json#/definitions/files"
               }
             },
             "additionalProperties": false,

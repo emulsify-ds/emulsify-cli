@@ -2,7 +2,6 @@ import R from 'ramda';
 import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import simpleGit from 'simple-git';
-import { cyan } from 'chalk';
 import ProgressBar from 'progress';
 
 import type { EmulsifyProjectConfiguration } from '@emulsify-cli/config';
@@ -18,6 +17,7 @@ import writeToJsonFile from '../util/fs/writeToJsonFile';
 import strToMachineName from '../util/strToMachineName';
 import installDependencies from '../util/project/installDependencies';
 import executeScript from '../util/fs/executeScript';
+import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform';
 import log from '../lib/log';
 import { EXIT_ERROR } from '../lib/constants';
 
@@ -111,9 +111,6 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
           : {}
       );
 
-      // Remove the .git directory, as this is a starter kit.
-      await fs.rmdir(join(target, '.git'), { recursive: true });
-
       // Construct an Emulsify configuration object.
       await writeToJsonFile<EmulsifyProjectConfiguration>(
         join(target, EMULSIFY_PROJECT_CONFIG_FILE),
@@ -149,35 +146,19 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
         await executeScript(initPath);
       }
 
+      // Remove the .git directory, as this is a starter kit. This step
+      // should happen after dependencies are installed, and init scripts are
+      // executed, otherwise git-reliant dev deps in the starter may eror out.
+      await fs.rmdir(join(target, '.git'), { recursive: true });
+
       progress.tick(10, {
         message: 'init script executed, initialization complete',
       });
 
       log('success', `Created an Emulsify project in ${target}.`);
-      log(
-        'info',
-        `Make sure you install the modules your Emulsify-based theme requires in order to function.`
-      );
-      log(
-        'verbose',
-        `
-      - composer require drupal/components
-      - composer require drupal/emulsify_twig
-      - drush en components emulsify_twig -y
-    `
-      );
-      log(
-        'info',
-        `Once the requirements have been installed, you will need to select a system to use, as Emulsify does not come with components by default.`
-      );
-      log(
-        'verbose',
-        `
-      ${cyan('List systems')}: emulsify system list
-      ${cyan('Install a system')}: emulsify system install "system-name"
-      ${cyan('Install default system')}: emulsify system install compound
-    `
-      );
+      getInitSuccessMessageForPlatform(
+        platformName
+      ).map(({ method, message }) => log(method, message));
     } catch (e) {
       log(
         'error',

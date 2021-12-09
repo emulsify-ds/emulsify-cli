@@ -3,7 +3,16 @@ import type { GitCloneOptions } from '@emulsify-cli/git';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 
 import R from 'ramda';
-import { EXIT_ERROR, EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import { join } from 'path';
+import { existsSync } from 'fs';
+import {
+  EXIT_ERROR,
+  EMULSIFY_SYSTEM_CONFIG_FILE,
+  EMULSIFY_PROJECT_HOOK_FOLDER,
+  EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
+} from '../lib/constants';
 import log from '../lib/log';
 import getAvailableSystems from '../util/system/getAvailableSystems';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
@@ -14,6 +23,10 @@ import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsF
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
 import setEmulsifyConfig from '../util/project/setEmulsifyConfig';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
+import findFileInCurrentPath from '../util/fs/findFileInCurrentPath';
+import executeScript from '../util/fs/executeScript';
+import systemSchema from '../schemas/system.json';
+import variantSchema from '../schemas/variant.json';
 
 /**
  * Helper function that uses InstallSystemHandlerOptions input to determine what
@@ -117,6 +130,31 @@ export default async function systemInstall(
     );
   }
 
+  // Validate the system configuration file.
+  try {
+    const ajv = new Ajv();
+    // This is unfortunate...
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore The ajv-formats typing is bad :(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    addFormats(ajv, ['uri']);
+    ajv.addSchema(variantSchema, 'variant.json');
+    const validate = ajv.compile(systemSchema);
+
+    if (!validate(systemConf)) {
+      throw validate.errors;
+    }
+  } catch (e) {
+    // We're logging to the console here instead of our normal logging mechanism
+    // in order to have more readable output from the AJV validation.
+    console.error('System configuration errors:', e);
+    return log(
+      'error',
+      `The system install failed due to the validation errors reported above. Please fix the the errors in the "${systemConf.name}" configuration and try again.`,
+      EXIT_ERROR
+    );
+  }
+
   // Extract the variant name, and error if no variant is determinable.
   const variantName: string | void =
     options.variant || projectConfig.project.platform;
@@ -185,6 +223,19 @@ export default async function systemInstall(
 
     // Install all global files and folders.
     await installGeneralAssetsFromCache(systemConf, variantConf);
+
+    // Execute system install hook.
+    const path = findFileInCurrentPath(EMULSIFY_SYSTEM_CONFIG_FILE);
+    const hookPath = path
+      ? join(
+          path,
+          EMULSIFY_PROJECT_HOOK_FOLDER,
+          EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL
+        )
+      : undefined;
+    if (hookPath && existsSync(hookPath)) {
+      await executeScript(hookPath);
+    }
   } catch (e) {
     return log(
       'error',
