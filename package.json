@@ -37,7 +37,7 @@
     "postbuild": "cp package.json dist/package.json && cd dist && npm install --only=production --ignore-scripts"
   },
   "devDependencies": {
-    "@commitlint/cli": "^11.0.0",
+    "@commitlint/cli": "^15.0.0",
     "@commitlint/config-conventional": "^11.0.0",
     "@semantic-release/github": "^7.2.0",
     "@semantic-release/npm": "^7.1.3",
