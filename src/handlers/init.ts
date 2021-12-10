@@ -4,7 +4,10 @@ import { existsSync, promises as fs } from 'fs';
 import simpleGit from 'simple-git';
 import ProgressBar from 'progress';
 
-import type { EmulsifyProjectConfiguration } from '@emulsify-cli/config';
+import type {
+  EmulsifyProjectConfiguration,
+  Platform,
+} from '@emulsify-cli/config';
 import type { InitHandlerOptions } from '@emulsify-cli/handlers';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
@@ -43,7 +46,9 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       (await getPlatformInfo()) || {};
 
     // If no platform name is given, and none can be detected, exit and error.
-    const platformName = options?.platform || autoPlatformName;
+    const platformName = (options?.platform || autoPlatformName) as
+      | Platform
+      | undefined;
     if (!platformName) {
       return log(
         'error',
@@ -57,7 +62,8 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     });
 
     // Choose a folder name. If no machineName is given, create one using the project name.
-    const machineName = options?.machineName || strToMachineName(name);
+    const machineName =
+      options?.machineName || strToMachineName(name, platformName);
 
     // Collection information about the starter kit, such as the target directory,
     // starter repository, and checkout version.
