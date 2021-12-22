@@ -1,5 +1,6 @@
 import {
   EXIT_ERROR,
+  EXIT_SUCCESS,
   UTIL_DIR,
   CACHE_DIR,
   EMULSIFY_PROJECT_CONFIG_FILE,
@@ -11,6 +12,7 @@ jest.mock('os', () => ({
 
 const map = [
   ['EXIT_ERROR', EXIT_ERROR, 1],
+  ['EXIT_SUCCESS', EXIT_SUCCESS, 0],
   ['UTIL_DIR', UTIL_DIR, '/home/username/.emulsify'],
   ['CACHE_DIR', CACHE_DIR, '/home/username/.emulsify/cache'],
   [
