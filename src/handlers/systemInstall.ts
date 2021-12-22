@@ -9,6 +9,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import {
   EXIT_ERROR,
+  EXIT_SUCCESS,
   EMULSIFY_SYSTEM_CONFIG_FILE,
   EMULSIFY_PROJECT_HOOK_FOLDER,
   EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
@@ -249,6 +250,6 @@ export default async function systemInstall(
   return log(
     'success',
     `Successfully installed the ${systemConf.name} system using the ${variantConf.platform} variant.`,
-    EXIT_ERROR
+    EXIT_SUCCESS
   );
 }

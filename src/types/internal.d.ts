@@ -1,5 +1,5 @@
 /**
- * Module that exports common types related to emulsify-cli interals.
+ * Module that exports common types related to emulsify-cli internals.
  */
 declare module '@emulsify-cli/internal' {
   import { Platform } from '@emulsify-cli/config';
