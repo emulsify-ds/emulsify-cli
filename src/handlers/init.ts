@@ -27,7 +27,7 @@ import { EXIT_ERROR } from '../lib/constants';
 const git = simpleGit();
 
 /**
- * Handler for the initalization command.
+ * Handler for the initialization command.
  *
  * @param name name of the project being initialized.
  * @param targetDirectory relative path to the directory in which the project must be initialized.
@@ -154,7 +154,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
 
       // Remove the .git directory, as this is a starter kit. This step
       // should happen after dependencies are installed, and init scripts are
-      // executed, otherwise git-reliant dev deps in the starter may eror out.
+      // executed, otherwise git-reliant dev deps in the starter may error out.
       await fs.rmdir(join(target, '.git'), { recursive: true });
 
       progress.tick(10, {
