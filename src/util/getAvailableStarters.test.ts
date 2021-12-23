@@ -6,7 +6,7 @@ describe('getAvailableStarters', () => {
     expect(getAvailableStarters()).toMatchInlineSnapshot(`
       Array [
         Object {
-          "checkout": "cli",
+          "checkout": "master",
           "platform": "drupal",
           "platformMajorVersion": 9,
           "repository": "https://github.com/emulsify-ds/emulsify-drupal.git",
