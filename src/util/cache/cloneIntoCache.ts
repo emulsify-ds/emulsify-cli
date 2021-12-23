@@ -22,17 +22,9 @@ export default function cloneIntoCache(
   return async ({ repository, checkout }: GitCloneOptions): Promise<void> => {
     const destination = getCachedItemPath(bucket, itemPath);
     const parentDir = dirname(destination);
-    let git = simpleGit();
 
-    // If the item is already in cache, make sure it has the correct branch/tag/commit
-    // checked out and exit.
+    // If the item is already in cache, simply return.
     if (existsSync(destination)) {
-      if (checkout) {
-        git = simpleGit(destination);
-        await git.fetch();
-        await git.checkout(checkout);
-        await git.pull();
-      }
       return;
     }
 
@@ -41,6 +33,7 @@ export default function cloneIntoCache(
       await fs.mkdir(parentDir, { recursive: true });
     }
 
+    const git = simpleGit();
     await git.clone(
       repository,
       destination,
