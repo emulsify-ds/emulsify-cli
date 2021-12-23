@@ -44,3 +44,7 @@ Emulsify-cli is developed using TypeScript. You can find all of the source files
 - `npm run test`: runs Jest on the codebase. You can specify a path to a single test, and add any flags supported by Jest's CLI.
 - `npm run type`: uses typescript to check all type signatures.
 - `npm run twatch`: runs Jest without coverage, in verbose and watch mode. This is useful for running a single test during active development.
+
+## Deployment
+
+This project is automatically built and deployed to NPM via a GitHub Actions workflow. In order to deploy changes merged into the `develop` branch, simply merge `develop` into `main`, and call it a day.
