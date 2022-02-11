@@ -8,7 +8,7 @@ import getInitSuccessMessageForPlatform from './getInitSuccessMessageForPlatform
 describe('getInitSuccessMessageForPlatform', () => {
   it('can return init success log messages for a given platform', () => {
     expect.assertions(1);
-    expect(getInitSuccessMessageForPlatform('drupal')).toEqual([
+    expect(getInitSuccessMessageForPlatform('drupal', '/directory')).toEqual([
       {
         method: 'info',
         message: expect.any(String),
@@ -30,6 +30,6 @@ describe('getInitSuccessMessageForPlatform', () => {
 
   it('returns an empty array if the given platform does not correspond with any success messages', () => {
     expect.assertions(1);
-    expect(getInitSuccessMessageForPlatform('java')).toEqual([]);
+    expect(getInitSuccessMessageForPlatform('java', '/directory')).toEqual([]);
   });
 });
