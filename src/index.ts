@@ -27,10 +27,8 @@ program
     'Name of the platform Emulsify is being within. In some cases, Emulsify is able to automatically detect this. If it is not, Emulsify will prompt you to specify.'
   )
   .description('Initialize an Emulsify project', {
-    name:
-      'Name of the Emulsify project you are initializing. This should be a proper name, such as "Carmen Sandiego".',
-    path:
-      'Path to the folder in which you would like to to create your Emulsify project. For example, "./themes" will result in the Emulsify project being placed in ./themes/{name}',
+    name: 'Name of the Emulsify project you are initializing. This should be a proper name, such as "Carmen Sandiego".',
+    path: 'Path to the folder in which you would like to to create your Emulsify project. For example, "./themes" will result in the Emulsify project being placed in ./themes/{name}',
   })
   .action(withProgressBar(init));
 

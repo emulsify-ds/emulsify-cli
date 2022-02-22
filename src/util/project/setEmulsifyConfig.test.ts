@@ -25,11 +25,11 @@ describe('setEmulsifyConfig', () => {
   it('can load Emulsify configuration for the current project, and update it with the given obj', async () => {
     expect.assertions(4);
     await expect(
-      setEmulsifyConfig(({
+      setEmulsifyConfig({
         toOverride: {
           config: 'new value',
         },
-      } as unknown) as EmulsifyProjectConfiguration)
+      } as unknown as EmulsifyProjectConfiguration)
     ).resolves.toBe(undefined);
     expect(findFileMock).toHaveBeenCalledWith(EMULSIFY_PROJECT_CONFIG_FILE);
     expect(getConfigMock).toHaveBeenCalled();
@@ -46,7 +46,7 @@ describe('setEmulsifyConfig', () => {
     expect.assertions(1);
     findFileMock.mockReturnValueOnce(undefined);
     await expect(
-      setEmulsifyConfig(({} as unknown) as EmulsifyProjectConfiguration)
+      setEmulsifyConfig({} as unknown as EmulsifyProjectConfiguration)
     ).rejects.toThrow(
       Error(
         `Unable to set values for ${EMULSIFY_PROJECT_CONFIG_FILE} because you are not in an Emulsify project`
@@ -58,7 +58,7 @@ describe('setEmulsifyConfig', () => {
     expect.assertions(1);
     getConfigMock.mockReturnValueOnce(undefined);
     await expect(
-      setEmulsifyConfig(({} as unknown) as EmulsifyProjectConfiguration)
+      setEmulsifyConfig({} as unknown as EmulsifyProjectConfiguration)
     ).rejects.toThrow(
       Error(
         `Unable to set values for ${EMULSIFY_PROJECT_CONFIG_FILE} because you are not in an Emulsify project`
