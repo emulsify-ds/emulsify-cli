@@ -163,7 +163,8 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
 
       log('success', `Created an Emulsify project in ${target}.`);
       getInitSuccessMessageForPlatform(
-        platformName
+        platformName,
+        target
       ).map(({ method, message }) => log(method, message));
     } catch (e) {
       log(
