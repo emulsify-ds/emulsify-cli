@@ -26,16 +26,16 @@ const logMethodColorMap: {
   success: green,
 };
 
-const withColor = (
-  logger: Consola['log'] | Consola['info'] | Consola['error']
-) => (method: LogMethod, message: string): void =>
-  /* eslint-disable-next-line security/detect-object-injection */
-  logger(logMethodColorMap[method](message));
+const withColor =
+  (logger: Consola['log'] | Consola['info'] | Consola['error']) =>
+  (method: LogMethod, message: string): void =>
+    /* eslint-disable-next-line security/detect-object-injection */
+    logger(logMethodColorMap[method](message));
 
-const logMethodEq = (potentialMethod: LogMethod) => (
-  method: LogMethod,
-  _: string
-): boolean => potentialMethod === method;
+const logMethodEq =
+  (potentialMethod: LogMethod) =>
+  (method: LogMethod, _: string): boolean =>
+    potentialMethod === method;
 
 /**
  * Lib function that allows for info, error, warn, debug, verbose, and success messages

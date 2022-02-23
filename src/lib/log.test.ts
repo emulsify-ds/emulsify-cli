@@ -38,7 +38,7 @@ describe('log', () => {
 
   it('exits with the given code if one is provided', () => {
     log('error', 'big oof', 1);
-    expect((global.process.exit as unknown) as jest.Mock).toHaveBeenCalledTimes(
+    expect(global.process.exit as unknown as jest.Mock).toHaveBeenCalledTimes(
       1
     );
   });
