@@ -199,7 +199,7 @@ emulsify component install card --force
 
 #### Installing all available components
 
-If you would like to simply install all components available withing the system you've selected, use the `--all` flag.
+If you would like to simply install all components available within the system you've selected, use the `--all` flag.
 
 Example usage:
 

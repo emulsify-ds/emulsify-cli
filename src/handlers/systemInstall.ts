@@ -209,17 +209,30 @@ export default async function systemInstall(
   }
 
   try {
-    // Install all required components.
-    const requiredComponents = variantConf.components.filter(
+    // Install all required components or all available components.
+    const componentsList = variantConf.components;
+    const requiredComponents = componentsList.filter(
       ({ required }) => required === true
     );
-    for (const component of requiredComponents) {
-      await installComponentFromCache(
-        systemConf,
-        variantConf,
-        component.name,
-        true
-      );
+
+    if (options.all) {
+      for (const component of componentsList) {
+        await installComponentFromCache(
+          systemConf,
+          variantConf,
+          component.name,
+          true
+        );
+      }
+    } else {
+      for (const component of requiredComponents) {
+        await installComponentFromCache(
+          systemConf,
+          variantConf,
+          component.name,
+          true
+        );
+      }
     }
 
     // Install all global files and folders.
