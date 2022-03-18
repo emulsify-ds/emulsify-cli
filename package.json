@@ -69,7 +69,7 @@
     "ajv": "^7.2.4",
     "ajv-formats": "^2.1.1",
     "chalk": "^4.1.0",
-    "commander": "^7.0.0",
+    "commander": "^9.1.0",
     "consola": "^2.15.3",
     "fs-extra": "^10.0.0",
     "progress": "^2.0.3",
