@@ -59,7 +59,7 @@ system
   )
   .option(
     '-a --all',
-    'Use this to install all available components, rather than specifying a single component to install'
+    'Use this to install all available components within the specified system. Without this flag, only the required system components will be installed.'
   )
   .description(
     'Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as compound), or a link to a git repository containing the system you want to install',

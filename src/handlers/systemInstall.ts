@@ -215,24 +215,13 @@ export default async function systemInstall(
       ({ required }) => required === true
     );
 
-    if (options.all) {
-      for (const component of componentsList) {
-        await installComponentFromCache(
-          systemConf,
-          variantConf,
-          component.name,
-          true
-        );
-      }
-    } else {
-      for (const component of requiredComponents) {
-        await installComponentFromCache(
-          systemConf,
-          variantConf,
-          component.name,
-          true
-        );
-      }
+    for (const component of options.all ? componentsList : requiredComponents) {
+      await installComponentFromCache(
+        systemConf,
+        variantConf,
+        component.name,
+        true
+      );
     }
 
     // Install all global files and folders.
