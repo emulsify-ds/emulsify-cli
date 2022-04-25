@@ -101,6 +101,7 @@ Options:
   -c --checkout <commit/branch/tag>  Commit, branch or tag of the base repository that should be checked out. MUST be provided if you are passing along
                                      a repository (-r or --repository). Tags or commit hashes are strongly preferable, because you want to ensure that
                                      you are using the same version of the system every time you install components, etc
+  -a --all                           Use this to install all available components within the specified system. Without this flag, only the required system components will be installed.
   -h, --help                         display help for command
 ```
 
@@ -199,7 +200,7 @@ emulsify component install card --force
 
 #### Installing all available components
 
-If you would like to simply install all components available withing the system you've selected, use the `--all` flag.
+If you would like to simply install all components available within the system you've selected, use the `--all` flag.
 
 Example usage:
 

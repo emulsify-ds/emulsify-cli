@@ -38,7 +38,12 @@ export default function getInitSuccessMessageForPlatform(
         message: `
             ${cyan('List systems')}: emulsify system list
             ${cyan('Install a system')}: emulsify system install "system-name"
-            ${cyan('Install default system')}: emulsify system install compound
+            ${cyan(
+              'Install default system with default components'
+            )}: emulsify system install compound
+            ${cyan(
+              'Install default system with all components'
+            )}: emulsify system install compound --all
             `,
       },
     ];
