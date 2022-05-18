@@ -4,7 +4,7 @@ import {
   EMULSIFY_SYSTEM_CONFIG_FILE,
   EMULSIFY_PROJECT_CONFIG_FILE,
 } from '../lib/constants';
-import type { EmulsifySystem } from '@emulsify-cli/config';
+import type { EmulsifySystem, Components } from '@emulsify-cli/config';
 import type { InstallComponentHandlerOptions } from '@emulsify-cli/handlers';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
@@ -115,12 +115,23 @@ export default async function componentInstall(
   }
   // If there is only one component to install, add one single promise for the single component.
   else {
-    components.push([
-      name,
-      catchLater(
-        installComponentFromCache(systemConf, variantConf, name, force)
-      ),
-    ]);
+    const componentsWithDependencies = buildComponentDependencyList(
+      variantConf.components,
+      name
+    );
+    componentsWithDependencies.forEach((componentName) => {
+      components.push([
+        componentName,
+        catchLater(
+          installComponentFromCache(
+            systemConf,
+            variantConf,
+            componentName,
+            force
+          )
+        ),
+      ]);
+    });
   }
 
   for (const [cname, promise] of components) {
@@ -134,4 +145,27 @@ export default async function componentInstall(
       log('error', `Unable to install ${cname}: ${(e as Error).toString()}`);
     }
   }
+}
+
+function buildComponentDependencyList(components: Components, name: string) {
+  const rootComponent = components.filter(
+    (component) => component.name == name
+  );
+  if (rootComponent.length == 0) return [];
+  let finalList = [name];
+  if (rootComponent.length > 0) {
+    const list = rootComponent[0].dependency as string[];
+    if (list && list.length > 0) {
+      list.forEach((componentName: string) => {
+        finalList = [
+          ...new Set(
+            finalList.concat(
+              buildComponentDependencyList(components, componentName)
+            )
+          ),
+        ];
+      });
+    }
+  }
+  return finalList;
 }

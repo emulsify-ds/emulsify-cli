@@ -42,6 +42,14 @@ export type Components = {
    * Boolean indicating whether or not the component is required
    */
   required?: boolean;
+  /**
+   * Array containing list of all components from which depends current conponent
+   */
+  dependency?: string[];
+  /**
+   * List of all subtheme to which this component belonning to and should be installed as part of subtheme
+   */
+  subtheme?: string[];
 }[];
 /**
  * Array containing objects that define general directories. These directories should contain files and assets that do not belong in a structure folder (such as font files)

@@ -49,6 +49,20 @@
           "required": {
             "type": "boolean",
             "description": "Boolean indicating whether or not the component is required"
+          },
+          "dependency": {
+            "type": "array",
+            "description": "Array containing list of all components from which depends current conponent",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subtheme": {
+            "type": "array",
+            "description": "List of all subtheme to which this component belonning to and should be installed as part of subtheme",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false,
