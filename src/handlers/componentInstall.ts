@@ -4,12 +4,13 @@ import {
   EMULSIFY_SYSTEM_CONFIG_FILE,
   EMULSIFY_PROJECT_CONFIG_FILE,
 } from '../lib/constants';
-import type { EmulsifySystem, Components } from '@emulsify-cli/config';
+import type { EmulsifySystem } from '@emulsify-cli/config';
 import type { InstallComponentHandlerOptions } from '@emulsify-cli/handlers';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
 import installComponentFromCache from '../util/project/installComponentFromCache';
+import buildComponentDependencyList from '../util/project/buildComponentDependencyList';
 import cloneIntoCache from '../util/cache/cloneIntoCache';
 import catchLater from '../util/catchLater';
 
@@ -145,27 +146,4 @@ export default async function componentInstall(
       log('error', `Unable to install ${cname}: ${(e as Error).toString()}`);
     }
   }
-}
-
-function buildComponentDependencyList(components: Components, name: string) {
-  const rootComponent = components.filter(
-    (component) => component.name == name
-  );
-  if (rootComponent.length == 0) return [];
-  let finalList = [name];
-  if (rootComponent.length > 0) {
-    const list = rootComponent[0].dependency as string[];
-    if (list && list.length > 0) {
-      list.forEach((componentName: string) => {
-        finalList = [
-          ...new Set(
-            finalList.concat(
-              buildComponentDependencyList(components, componentName)
-            )
-          ),
-        ];
-      });
-    }
-  }
-  return finalList;
 }
