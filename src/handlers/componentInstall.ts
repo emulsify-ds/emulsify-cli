@@ -19,7 +19,7 @@ import catchLater from '../util/catchLater';
  */
 export default async function componentInstall(
   name: string,
-  { force, all }: InstallComponentHandlerOptions
+  { force, all, subtheme }: InstallComponentHandlerOptions
 ): Promise<void> {
   const emulsifyConfig = await getEmulsifyConfig();
   if (!emulsifyConfig) {
@@ -113,6 +113,26 @@ export default async function componentInstall(
         ),
       ])
     );
+  }
+  // Pull subtheme marked modules.
+  else if (subtheme && subtheme.length > 0) {
+    const componentsWithDependencies = variantConf.components.filter(
+      (component) => component.subtheme?.includes(subtheme)
+    );
+    buildComponentDependencyList(variantConf.components, name);
+    componentsWithDependencies.forEach((componentName) => {
+      components.push([
+        componentName,
+        catchLater(
+          installComponentFromCache(
+            systemConf,
+            variantConf,
+            componentName,
+            force
+          )
+        ),
+      ]);
+    });
   }
   // If there is only one component to install, add one single promise for the single component.
   else {

@@ -56,6 +56,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "subtheme": {
+            "type": "array",
+            "description": "List of all subtheme to which this component belonning to and should be installed as part of subtheme",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false,
