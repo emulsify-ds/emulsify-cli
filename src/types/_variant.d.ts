@@ -43,7 +43,7 @@ export type Components = {
    */
   required?: boolean;
   /**
-   * Array containing list of all components from which depends current conponent
+   * Array of all components that are dependencies of the current component
    */
   dependency?: string[];
 }[];
