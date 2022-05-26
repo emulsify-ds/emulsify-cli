@@ -10,6 +10,7 @@ import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
 import installComponentFromCache from '../util/project/installComponentFromCache';
+import buildComponentDependencyList from '../util/project/buildComponentDependencyList';
 import cloneIntoCache from '../util/cache/cloneIntoCache';
 import catchLater from '../util/catchLater';
 
@@ -115,12 +116,23 @@ export default async function componentInstall(
   }
   // If there is only one component to install, add one single promise for the single component.
   else {
-    components.push([
-      name,
-      catchLater(
-        installComponentFromCache(systemConf, variantConf, name, force)
-      ),
-    ]);
+    const componentsWithDependencies = buildComponentDependencyList(
+      variantConf.components,
+      name
+    );
+    componentsWithDependencies.forEach((componentName) => {
+      components.push([
+        componentName,
+        catchLater(
+          installComponentFromCache(
+            systemConf,
+            variantConf,
+            componentName,
+            force
+          )
+        ),
+      ]);
+    });
   }
 
   for (const [cname, promise] of components) {

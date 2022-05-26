@@ -49,6 +49,13 @@
           "required": {
             "type": "boolean",
             "description": "Boolean indicating whether or not the component is required"
+          },
+          "dependency": {
+            "type": "array",
+            "description": "Array containing list of all components from which depends current conponent",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false,
