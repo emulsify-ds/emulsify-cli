@@ -8,7 +8,8 @@ import { cyan } from 'chalk';
  * @returns array containing objects with a log method, and message.
  */
 export default function getInitSuccessMessageForPlatform(
-  platform: string
+  platform: string,
+  directory: string
 ): {
   method: LogMethod;
   message: string;
@@ -30,15 +31,19 @@ export default function getInitSuccessMessageForPlatform(
       },
       {
         method: 'info',
-        message:
-          'Once the requirements have been installed, you will need to select a system to use, as Emulsify does not come with components by default.',
+        message: `Once the requirements have been installed, you will need to select a component system to use, as Emulsify does not come with components by default. To do this, navigate to your theme directory (${directory}), and choose a command below.`,
       },
       {
         method: 'verbose',
         message: `
             ${cyan('List systems')}: emulsify system list
             ${cyan('Install a system')}: emulsify system install "system-name"
-            ${cyan('Install default system')}: emulsify system install compound
+            ${cyan(
+              'Install default system with default components'
+            )}: emulsify system install compound
+            ${cyan(
+              'Install default system with all components'
+            )}: emulsify system install compound --all
             `,
       },
     ];

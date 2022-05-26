@@ -13,6 +13,7 @@ declare module '@emulsify-cli/handlers' {
     repository?: string | void;
     checkout?: string | void;
     variant?: string | void;
+    all?: boolean;
   };
 
   export type InstallComponentHandlerOptions = {

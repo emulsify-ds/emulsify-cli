@@ -30,7 +30,7 @@ const writeJsonFileMock = writeToJsonFile as jest.Mock;
 const progressMock = {
   tick: jest.fn(),
 };
-const progress = (progressMock as unknown) as InstanceType<typeof ProgressBar>;
+const progress = progressMock as unknown as InstanceType<typeof ProgressBar>;
 
 describe('init', () => {
   beforeEach(() => {
@@ -42,16 +42,12 @@ describe('init', () => {
   it('can detect the platform, and use information about the platform to autodetect the target directory and Emulsify starter', async () => {
     expect.assertions(3);
     await init(progress)('cornflake');
-    expect(
-      gitCloneMock
-    ).toHaveBeenCalledWith(
+    expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-drupal.git',
       '/home/uname/Projects/cornflake/themes/cornflake',
       { '--branch': 'master' }
     );
-    expect(
-      rmdirMock
-    ).toHaveBeenCalledWith(
+    expect(rmdirMock).toHaveBeenCalledWith(
       '/home/uname/Projects/cornflake/themes/cornflake/.git',
       { recursive: true }
     );
@@ -97,9 +93,7 @@ describe('init', () => {
       starter: 'https://github.com/cornflake-ds/cornflake-drupal.git',
       checkout: '5.6x',
     });
-    expect(
-      gitCloneMock
-    ).toHaveBeenCalledWith(
+    expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/cornflake-ds/cornflake-drupal.git',
       '/home/uname/Projects/cornflake/themes/subDir/cornflake',
       { '--branch': '5.6x' }
