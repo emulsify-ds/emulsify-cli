@@ -91,7 +91,7 @@ component
     'Use this to install all available components, rather than specifying a single component to install'
   )
   .option(
-    '-s --subtheme',
+    '-s --subtheme <subtheme>',
     'This option use name as subtheme to pull group of components from full list of the components'
   )
   .alias('i')

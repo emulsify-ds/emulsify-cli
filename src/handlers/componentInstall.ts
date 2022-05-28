@@ -89,10 +89,10 @@ export default async function componentInstall(
     );
   }
 
-  if (!name && !all) {
+  if (!name && !all && !subtheme) {
     return log(
       'error',
-      'Please specify a component to install, or pass --all to install all available components.'
+      'Please specify a component to install, or subtheme name through option --subtheme, or pass --all to install all available components.'
     );
   }
 
@@ -115,11 +115,14 @@ export default async function componentInstall(
     );
   }
   // Pull subtheme marked modules.
-  else if (subtheme && subtheme.length > 0) {
-    const componentsWithDependencies = variantConf.components.filter(
-      (component) => component.subtheme?.includes(subtheme)
+  else if (subtheme) {
+    const parentComponents = variantConf.components
+      .filter((component) => component.subtheme?.includes(subtheme))
+      .map((component) => component.name);
+    const componentsWithDependencies = buildComponentDependencyList(
+      variantConf.components,
+      parentComponents
     );
-    buildComponentDependencyList(variantConf.components, name);
     componentsWithDependencies.forEach((componentName) => {
       components.push([
         componentName,
@@ -138,7 +141,7 @@ export default async function componentInstall(
   else {
     const componentsWithDependencies = buildComponentDependencyList(
       variantConf.components,
-      name
+      [name]
     );
     componentsWithDependencies.forEach((componentName) => {
       components.push([
