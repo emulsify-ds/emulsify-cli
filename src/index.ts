@@ -4,6 +4,7 @@ import withProgressBar from './handlers/hofs/withProgressBar';
 import init from './handlers/init';
 import systemList from './handlers/systemList';
 import systemInstall from './handlers/systemInstall';
+import systemImport from './handlers/systemImport';
 import componentList from './handlers/componentList';
 import componentInstall from './handlers/componentInstall';
 
@@ -66,6 +67,10 @@ system
     }
   )
   .action(systemInstall);
+system
+  .command('import')
+  .description('Import components listed in project configuration file')
+  .action(systemImport);
 
 // Component sub-commands.
 const component = program
