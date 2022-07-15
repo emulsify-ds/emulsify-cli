@@ -1,4 +1,8 @@
-import type { CacheBucket, CacheItemPath } from '@emulsify-cli/cache';
+import type {
+  CacheBucket,
+  CacheItemPath,
+  CacheCheckout,
+} from '@emulsify-cli/cache';
 
 import { join } from 'path';
 import { createHash } from 'crypto';
@@ -11,12 +15,13 @@ import findFileInCurrentPath from '../fs/findFileInCurrentPath';
  *
  * @param bucket name of the bucket containing the cached item.
  * @param itemPath array containing segments of the path to the cached item within the specified bucket.
- * @param item name of the cached item.
+ * @param checkout commit, branch, or tag of the system this project is utilizing.
  * @returns string containing the full path to the specified cached item.
  */
 export default function getCachedItemPath(
   bucket: CacheBucket,
-  itemPath: CacheItemPath
+  itemPath: CacheItemPath,
+  checkout: CacheCheckout
 ): string {
   const projectPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
 
@@ -27,7 +32,9 @@ export default function getCachedItemPath(
   return join(
     CACHE_DIR,
     bucket,
-    createHash('md5').update(projectPath).digest('hex'),
+    createHash('md5')
+      .update(`MBR${String(projectPath)}${String(checkout)}`)
+      .digest('hex'),
     ...itemPath
   );
 }

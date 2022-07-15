@@ -58,6 +58,7 @@ export default async function componentList(): Promise<void> {
   const systemConf: EmulsifySystem | void = await getJsonFromCachedFile(
     'systems',
     [systemName],
+    emulsifyConfig.system.checkout,
     EMULSIFY_SYSTEM_CONFIG_FILE
   );
 
