@@ -20,7 +20,12 @@ describe('getJsonFromCachedFile', () => {
   it('can load and parse the JSON from a file stored in cache', async () => {
     expect.assertions(2);
     await expect(
-      getJsonFromCachedFile('systems', ['compound'], 'system.emulsify.json')
+      getJsonFromCachedFile(
+        'systems',
+        ['compound'],
+        'branch-name',
+        'system.emulsify.json'
+      )
     ).resolves.toEqual({
       the: 'json',
     });
@@ -33,7 +38,12 @@ describe('getJsonFromCachedFile', () => {
     expect.assertions(1);
     loadJsonMock.mockResolvedValueOnce(undefined);
     await expect(
-      getJsonFromCachedFile('systems', ['compound'], 'system.emulsify.json')
+      getJsonFromCachedFile(
+        'systems',
+        ['compound'],
+        'branch-name',
+        'system.emulsify.json'
+      )
     ).resolves.toBe(undefined);
   });
 });
