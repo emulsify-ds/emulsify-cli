@@ -91,8 +91,8 @@ component
     'Use this to install all available components, rather than specifying a single component to install'
   )
   .option(
-    '-s --subtheme <subtheme>',
-    'This option use name as subtheme to pull group of components from full list of the components'
+    '-cs --component-set <setname>',
+    'Use this to Install a pre-defined set of related components from your component library'
   )
   .alias('i')
   .description(

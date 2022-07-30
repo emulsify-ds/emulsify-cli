@@ -77,9 +77,9 @@ export interface EmulsifySystem {
        */
       dependency?: string[];
       /**
-       * List of all subtheme to which this component belonning to and should be installed as part of subtheme
+       * List of all component library to which this component belonning to and should be installed as part of library
        */
-      subtheme?: string[];
+      componentSet?: string[];
     }[];
     /**
      * Array containing objects that define general directories. These directories should contain files and assets that do not belong in a structure folder (such as font files)

@@ -57,9 +57,9 @@
               "type": "string"
             }
           },
-          "subtheme": {
+          "componentSet": {
             "type": "array",
-            "description": "List of all subtheme to which this component belonning to and should be installed as part of subtheme",
+            "description": "List of all component library to which this component belonning to and should be installed as part of library",
             "items": {
               "type": "string"
             }

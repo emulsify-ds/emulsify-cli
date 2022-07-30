@@ -19,6 +19,6 @@ declare module '@emulsify-cli/handlers' {
   export type InstallComponentHandlerOptions = {
     force?: boolean;
     all?: boolean;
-    subtheme: string;
+    componentSet: string;
   };
 }

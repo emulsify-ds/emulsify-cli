@@ -19,7 +19,7 @@ import catchLater from '../util/catchLater';
  */
 export default async function componentInstall(
   name: string,
-  { force, all, subtheme }: InstallComponentHandlerOptions
+  { force, all, componentSet }: InstallComponentHandlerOptions
 ): Promise<void> {
   const emulsifyConfig = await getEmulsifyConfig();
   if (!emulsifyConfig) {
@@ -89,10 +89,10 @@ export default async function componentInstall(
     );
   }
 
-  if (!name && !all && !subtheme) {
+  if (!name && !all && !componentSet) {
     return log(
       'error',
-      'Please specify a component to install, or subtheme name through option --subtheme, or pass --all to install all available components.'
+      'Please specify a component to install, or library name through option --component-set, or pass --all to install all available components.'
     );
   }
 
@@ -114,10 +114,10 @@ export default async function componentInstall(
       ])
     );
   }
-  // Pull subtheme marked modules.
-  else if (subtheme) {
+  // Pull library marked modules.
+  else if (componentSet) {
     const parentComponents = variantConf.components
-      .filter((component) => component.subtheme?.includes(subtheme))
+      .filter((component) => component.componentSet?.includes(componentSet))
       .map((component) => component.name);
     const componentsWithDependencies = buildComponentDependencyList(
       variantConf.components,
