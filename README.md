@@ -50,3 +50,5 @@ Emulsify-cli is developed using TypeScript. You can find all of the source files
 ## Deployment
 
 This project is automatically built and deployed to NPM via a GitHub Actions workflow. In order to deploy changes merged into the `develop` branch, simply merge `develop` into `main`, and call it a day.
+
+### Contributors
