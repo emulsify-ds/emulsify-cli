@@ -52,3 +52,73 @@ Emulsify-cli is developed using TypeScript. You can find all of the source files
 This project is automatically built and deployed to NPM via a GitHub Actions workflow. In order to deploy changes merged into the `develop` branch, simply merge `develop` into `main`, and call it a day.
 
 ### Contributors
+
+<table>
+<tr>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/patrickocoffeyo>
+            <img src=https://avatars.githubusercontent.com/u/1107871?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Patrick Coffey/>
+            <br />
+            <sub style="font-size:14px"><b>Patrick Coffey</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/ModulesUnraveled>
+            <img src=https://avatars.githubusercontent.com/u/1663810?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Brian Lewis/>
+            <br />
+            <sub style="font-size:14px"><b>Brian Lewis</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/JeffTomlinson>
+            <img src=https://avatars.githubusercontent.com/u/2602202?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Jeff Tomlinson/>
+            <br />
+            <sub style="font-size:14px"><b>Jeff Tomlinson</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/callinmullaney>
+            <img src=https://avatars.githubusercontent.com/u/369018?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Callin Mullaney/>
+            <br />
+            <sub style="font-size:14px"><b>Callin Mullaney</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/fertant>
+            <img src=https://avatars.githubusercontent.com/u/3853492?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Andrii Shutov/>
+            <br />
+            <sub style="font-size:14px"><b>Andrii Shutov</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/amazingrando>
+            <img src=https://avatars.githubusercontent.com/u/409903?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Randy Oest/>
+            <br />
+            <sub style="font-size:14px"><b>Randy Oest</b></sub>
+        </a>
+    </td>
+</tr>
+<tr>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/ryanhagerty>
+            <img src=https://avatars.githubusercontent.com/u/8405274?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Ryan Hagerty/>
+            <br />
+            <sub style="font-size:14px"><b>Ryan Hagerty</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/mikeethedude>
+            <img src=https://avatars.githubusercontent.com/u/15275301?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=mikeethedude/>
+            <br />
+            <sub style="font-size:14px"><b>mikeethedude</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/iryston>
+            <img src=https://avatars.githubusercontent.com/u/1258460?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Igor R. Plity/>
+            <br />
+            <sub style="font-size:14px"><b>Igor R. Plity</b></sub>
+        </a>
+    </td>
+</tr>
+</table>
