@@ -29,8 +29,8 @@ describe('installGeneralAssetsFromCache', () => {
     files: [
       {
         name: 'style',
-        path: './components/style.scss',
-        destinationPath: './components/style.scss',
+        path: './components/global.scss',
+        destinationPath: './components/global.scss',
       },
     ],
   } as EmulsifyVariant;
@@ -58,8 +58,8 @@ describe('installGeneralAssetsFromCache', () => {
     expect(copyItemMock).toHaveBeenNthCalledWith(
       2,
       'systems',
-      ['compound', './components/style.scss'],
-      '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/style.scss',
+      ['compound', './components/global.scss'],
+      '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/global.scss',
       true
     );
   });
