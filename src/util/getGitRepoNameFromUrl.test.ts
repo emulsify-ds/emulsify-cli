@@ -17,11 +17,13 @@ describe('getGitRepoNameFromUrl', () => {
     ).toBe('emulsify-drupal');
   });
 
-  it('can return void if given an invalid git url', () => {
+  it('can throw an Error if given an invalid git url', () => {
     expect.assertions(2);
-    expect(getGitRepoNameFromUrl('')).toBe(undefined);
-    expect(
-      getGitRepoNameFromUrl('https://github.com/emulsify-ds/emulsify-drupal')
-    ).toBe(undefined);
+    expect(() => {
+      getGitRepoNameFromUrl('');
+    }).toThrow(Error);
+    expect(() => {
+      getGitRepoNameFromUrl('https://github.com/emulsify-ds/emulsify-drupal');
+    }).toThrow(Error);
   });
 });

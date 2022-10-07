@@ -43,13 +43,21 @@ export async function getSystemRepoInfo(
 ): Promise<(GitCloneOptions & { name: string }) | void> {
   // If a repository and checkout were specified, use that to return system information.
   if (repository && checkout) {
-    const repoName = getGitRepoNameFromUrl(repository);
-    if (repoName) {
-      return {
-        name: repoName,
-        repository,
-        checkout,
-      };
+    try {
+      const repoName = getGitRepoNameFromUrl(repository);
+      if (repoName) {
+        return {
+          name: repoName,
+          repository,
+          checkout,
+        };
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        return log('error', error.message, EXIT_ERROR);
+      } else {
+        throw error;
+      }
     }
   }
 
