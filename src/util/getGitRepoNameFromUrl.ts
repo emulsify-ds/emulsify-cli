@@ -14,7 +14,7 @@ export default function getGitRepoNameFromUrl(url: string): string | void {
 
   // If no .git extension is provided, then this is an invalid git url.
   if (!gitName.includes('.git')) {
-    return undefined;
+    throw new Error('The repository URL must end in .git.');
   }
   return R.head(gitName.split('.'));
 }
