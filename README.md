@@ -91,14 +91,21 @@ This project is automatically built and deployed to NPM via a GitHub Actions wor
         </a>
     </td>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/mikeethedude>
+            <img src=https://avatars.githubusercontent.com/u/15275301?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=mikeethedude/>
+            <br />
+            <sub style="font-size:14px"><b>mikeethedude</b></sub>
+        </a>
+    </td>
+</tr>
+<tr>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
         <a href=https://github.com/fertant>
             <img src=https://avatars.githubusercontent.com/u/3853492?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Andrii Shutov/>
             <br />
             <sub style="font-size:14px"><b>Andrii Shutov</b></sub>
         </a>
     </td>
-</tr>
-<tr>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
         <a href=https://github.com/ryanhagerty>
             <img src=https://avatars.githubusercontent.com/u/8405274?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Ryan Hagerty/>
@@ -107,10 +114,10 @@ This project is automatically built and deployed to NPM via a GitHub Actions wor
         </a>
     </td>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
-        <a href=https://github.com/mikeethedude>
-            <img src=https://avatars.githubusercontent.com/u/15275301?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=mikeethedude/>
+        <a href=https://github.com/nJim>
+            <img src=https://avatars.githubusercontent.com/u/9594124?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Jim Vomero/>
             <br />
-            <sub style="font-size:14px"><b>mikeethedude</b></sub>
+            <sub style="font-size:14px"><b>Jim Vomero</b></sub>
         </a>
     </td>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
