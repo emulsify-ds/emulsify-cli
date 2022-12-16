@@ -119,6 +119,7 @@ export default async function systemInstall(
   const systemConf: EmulsifySystem | void = await getJsonFromCachedFile(
     'systems',
     [repo.name],
+    repo.checkout,
     EMULSIFY_SYSTEM_CONFIG_FILE
   );
 

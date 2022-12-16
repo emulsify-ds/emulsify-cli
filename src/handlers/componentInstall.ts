@@ -64,6 +64,7 @@ export default async function componentInstall(
   const systemConf: EmulsifySystem | void = await getJsonFromCachedFile(
     'systems',
     [systemName],
+    emulsifyConfig.system.checkout,
     EMULSIFY_SYSTEM_CONFIG_FILE
   );
 

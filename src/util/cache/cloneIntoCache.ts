@@ -20,7 +20,7 @@ export default function cloneIntoCache(
   itemPath: CacheItemPath
 ) {
   return async ({ repository, checkout }: GitCloneOptions): Promise<void> => {
-    const destination = getCachedItemPath(bucket, itemPath);
+    const destination = getCachedItemPath(bucket, itemPath, checkout);
     const parentDir = dirname(destination);
 
     // If the item is already in cache, simply return.
