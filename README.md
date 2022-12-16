@@ -121,6 +121,13 @@ This project is automatically built and deployed to NPM via a GitHub Actions wor
         </a>
     </td>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/calebtr-metro>
+            <img src=https://avatars.githubusercontent.com/u/43386533?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Caleb Tucker-Raymond/>
+            <br />
+            <sub style="font-size:14px"><b>Caleb Tucker-Raymond</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
         <a href=https://github.com/iryston>
             <img src=https://avatars.githubusercontent.com/u/1258460?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Igor R. Plity/>
             <br />
