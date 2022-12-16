@@ -19,6 +19,7 @@ import getAvailableSystems from '../util/system/getAvailableSystems';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
 import cloneIntoCache from '../util/cache/cloneIntoCache';
 import getCachedItemCheckout from '../util/cache/getCachedItemCheckout';
+import getRepositoryLatestTag from '../util/getRepositoryLatestTag';
 import installComponentFromCache from '../util/project/installComponentFromCache';
 import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
@@ -109,10 +110,16 @@ export default async function systemInstall(
     );
   }
 
+  let checkout = repo.checkout;
+  // Attempt to get latest tag if no branch was supplied.
+  if (!checkout) {
+    checkout = await getRepositoryLatestTag(repo.repository);
+  }
+
   // Clone the system into the cache.
   await cloneIntoCache('systems', [repo.name])({
     repository: repo.repository,
-    checkout: repo.checkout,
+    checkout: checkout,
   });
 
   // Load the system configuration file.
