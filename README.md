@@ -1,5 +1,5 @@
 [![Emulsify Design System](https://user-images.githubusercontent.com/409903/170579210-327abcdd-2c98-4922-87bb-36446a4cc013.svg)](https://www.emulsify.info/)
-
+![npm](https://img.shields.io/npm/dm/@emulsify/cli?style=flat-square)
 # emulsify-cli
 
 Command line interface for Emulsify.
