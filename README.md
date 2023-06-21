@@ -14,7 +14,7 @@ npm install -g @emulsify/cli
 
 ## Usage
 
-For more information on how to use emulsify-cli, please see the [usage documentation](https://docs.emulsify.info/supporting-projects/emulsify-cli/emulsify-cli-usage).
+For more information on how to use emulsify-cli, please see the [usage documentation](https://www.emulsify.info/docs/supporting-projects/emulsify-cli/emulsify-cli-usage).
 
 ## Development
 
