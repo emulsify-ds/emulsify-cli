@@ -90,6 +90,10 @@ component
     '-a --all',
     'Use this to install all available components, rather than specifying a single component to install'
   )
+  .option(
+    '-cs --component-set <setname>',
+    'Use this to Install a pre-defined set of related components from your component library'
+  )
   .alias('i')
   .description(
     "Install a component from within the current project's system and variant"
