@@ -6,6 +6,7 @@ import systemList from './handlers/systemList';
 import systemInstall from './handlers/systemInstall';
 import componentList from './handlers/componentList';
 import componentInstall from './handlers/componentInstall';
+import componentCreate from './handlers/componentCreate';
 
 // Main program commands.
 program
@@ -95,5 +96,16 @@ component
     "Install a component from within the current project's system and variant"
   )
   .action(componentInstall);
+component
+  .command('create [name]')
+  .option(
+    '-d --directory <directory>',
+    'Used to set the directory where the new component is to be created'
+  )
+  .alias('c')
+  .description(
+    "Create a component from within the current project's system and variant"
+  )
+  .action(componentCreate);
 
 void program.parseAsync(process.argv);
