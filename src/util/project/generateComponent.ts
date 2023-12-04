@@ -34,7 +34,7 @@ const twigTemplate = (filename: string, className: string) =>
  * - ${filename}__content - the content of the component (typically text)
  * 
  * Available blocks:
- * - ${filename}__content - used to replace the content of the button with something other than text
+ * - ${filename}__content - used to replace the content with something other than text
  *   for example: to insert an icon
  */
 #}
