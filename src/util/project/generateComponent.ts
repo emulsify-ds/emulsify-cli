@@ -1,11 +1,12 @@
 import * as fs from 'fs';
 import { pathExists } from 'fs-extra';
-import type { EmulsifyVariant, StructureResponse } from '@emulsify-cli/config';
+import type { EmulsifyVariant } from '@emulsify-cli/config';
 import { join, dirname } from 'path';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath';
 import log from '../../lib/log';
 import inquirer, { QuestionCollection } from 'inquirer';
+import { StructureHandlerResponse } from '@emulsify-cli/handlers';
 
 const storiesTemplate = (
   componentName: string,
@@ -91,7 +92,7 @@ export default async function generateComponent(
       choices: variant.structureImplementations,
     };
 
-    const response = await inquirer.prompt<StructureResponse>(
+    const response = await inquirer.prompt<StructureHandlerResponse>(
       structureSelector
     );
     directory = response.structure;
