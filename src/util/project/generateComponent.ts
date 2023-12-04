@@ -1,10 +1,11 @@
 import * as fs from 'fs';
 import { pathExists } from 'fs-extra';
-import type { EmulsifyVariant } from '@emulsify-cli/config';
+import type { EmulsifyVariant, StructureResponse } from '@emulsify-cli/config';
 import { join, dirname } from 'path';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath';
 import log from '../../lib/log';
+import inquirer, { QuestionCollection } from 'inquirer';
 
 const storiesTemplate = (
   componentName: string,
@@ -63,14 +64,15 @@ ${filename}__content: 'It is a descriptive text of the ${componentName} componen
  *
  * @param variant EmulsifyVariant object containing information about the component, where it lives, and how it should be created.
  * @param componentName string name of the component that should be created.
- * @param directory string name of the directory where it should be created.
+ * @param componentDirectory string name of the directory where it should be created.
  * @returns
  */
 export default async function generateComponent(
   variant: EmulsifyVariant,
   componentName: string,
-  directory: string
+  componentDirectory?: string
 ): Promise<void> {
+  let directory = componentDirectory || '';
   // Gather information about the current Emulsify project. If none exists,
   // throw an error.
   const path = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
@@ -78,6 +80,21 @@ export default async function generateComponent(
     throw new Error(
       'Unable to find an Emulsify project to create the component into.'
     );
+  }
+
+  // Choose the component's parent structure within the given variant configuration.
+  if (!directory) {
+    const structureSelector: QuestionCollection = {
+      type: 'list',
+      name: 'structure',
+      message: 'Choose a directory for the new component:',
+      choices: variant.structureImplementations,
+    };
+
+    const response = await inquirer.prompt<StructureResponse>(
+      structureSelector
+    );
+    directory = response.structure;
   }
 
   // Find the component's parent structure within the given variant configuration. If the
@@ -91,6 +108,13 @@ export default async function generateComponent(
     );
   }
 
+  // Calculate the parent path based on the path to the Emulsify project and the component's structure.
+  const parentPath = join(dirname(path), structure.directory);
+  if (!(await pathExists(parentPath))) {
+    // Create the component's parent directory.
+    fs.mkdirSync(parentPath);
+  }
+
   // Calculate the destination path based on the path to the Emulsify project, the structure of the
   // component, and the component's name.
   const destination = join(dirname(path), structure.directory, componentName);
@@ -98,9 +122,7 @@ export default async function generateComponent(
   // If the component already exists within the project,
   // throw an error.
   if (await pathExists(destination)) {
-    throw new Error(
-      `The component "${componentName}" already exists in ${structure.directory}`
-    );
+    throw new Error(`The component already exists in ${structure.directory}`);
   }
 
   const filename = componentName

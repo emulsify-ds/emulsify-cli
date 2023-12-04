@@ -90,11 +90,11 @@ export default async function componentCreate(
   }
 
   if (!name) {
-    return log('error', 'Specify a name for the new component.');
+    return log('error', 'Please specify a name for the new component.');
   }
 
   try {
-    await generateComponent(variantConf, name, directory || '');
+    await generateComponent(variantConf, name, directory);
   } catch (e) {
     log(
       'error',

@@ -90,6 +90,16 @@ export type Files = {
   description?: string;
 }[];
 
+/**
+ * Represents the response structure obtained from user input, typically through Inquirer
+ */
+export type StructureResponse = {
+  /**
+   * Name or identifier of the selected structure
+   */
+  structure: string;
+};
+
 export interface EmulsifyVariant {
   platform: Platform;
   structureImplementations: StructureImplementations;

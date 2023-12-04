@@ -22,6 +22,6 @@ declare module '@emulsify-cli/handlers' {
   };
 
   export type CreateComponentHandlerOptions = {
-    directory?: string | void;
+    directory?: string;
   };
 }
