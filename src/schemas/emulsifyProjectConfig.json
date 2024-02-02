@@ -62,6 +62,9 @@
         "structureImplementations": {
           "$ref": "variant.json#/definitions/structureImplementations"
         },
+        "components": {
+          "$ref": "variant.json#/definitions/components"
+        },
         "repository": {
           "type": "string",
           "description": "Git repository containing the system this project is utilizing"

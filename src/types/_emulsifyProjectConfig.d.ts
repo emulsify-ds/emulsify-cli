@@ -67,6 +67,35 @@ export interface EmulsifyProjectConfiguration {
       directory: string;
     }[];
     /**
+     * Array containing objects that describe each component available within the variant
+     */
+    components?: {
+      /**
+       * Name of the component. MUST correspond with the folder name containing the component
+       */
+      name: string;
+      /**
+       * Name of the structure to which the component belongs. This, along with the name, will determine which folder the component will live in
+       */
+      structure: string;
+      /**
+       * Text describing the intended purpose of the component
+       */
+      description?: string;
+      /**
+       * Boolean indicating whether or not the component is required
+       */
+      required?: boolean;
+      /**
+       * Array containing list of all components from which depends current conponent
+       */
+      dependency?: string[];
+      /**
+       * List of all subtheme to which this component belonning to and should be installed as part of subtheme
+       */
+      subtheme?: string[];
+    }[];
+    /**
      * Git repository containing the system this project is utilizing
      */
     repository?: string;
