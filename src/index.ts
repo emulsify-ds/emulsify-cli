@@ -9,7 +9,16 @@ import componentInstall from './handlers/componentInstall';
 
 // Main program commands.
 program
-  .command('init <name> [path]')
+  .enablePositionalOptions()
+  .option(
+    '-c --checkout <commit/branch/tag>',
+    'Commit, branch or tag of the base repository that should be checked out'
+  );
+
+program
+  .command('init <name> [path]', 'Initialize an Emulsify project', {
+    isDefault: true,
+  })
   .option(
     '-m --machineName <machineName>',
     'Machine-friendly name of the project you are initializing. If not provided, this will be automatically generated.'
@@ -26,27 +35,25 @@ program
     '-p --platform <drupal/wordpress/etc>',
     'Name of the platform Emulsify is being within. In some cases, Emulsify is able to automatically detect this. If it is not, Emulsify will prompt you to specify.'
   )
-  .description('Initialize an Emulsify project', {
-    name: 'Name of the Emulsify project you are initializing. This should be a proper name, such as "Carmen Sandiego".',
-    path: 'Path to the folder in which you would like to to create your Emulsify project. For example, "./themes" will result in the Emulsify project being placed in ./themes/{name}',
-  })
   .action(withProgressBar(init));
 
 // System sub-commands.
-const system = program
-  .command('system')
-  .description(
-    'Parent command that contains sub-commands pertaining to systems'
-  );
+const system = program.command(
+  'system',
+  'Parent command that contains sub-commands pertaining to systems'
+);
 system
-  .command('list')
-  .alias('ls')
-  .description(
+  .command(
+    'list',
     'Lists all of the available systems that Emulsify supports out-of-the-box'
   )
+  .alias('ls')
   .action(systemList);
 system
-  .command('install [name]')
+  .command(
+    'install [name]',
+    'Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as compound), or a link to a git repository containing the system you want to install'
+  )
   .option(
     '-r --repository <repository>',
     'Git repository containing the system you would like to install'
@@ -59,29 +66,25 @@ system
     '-a --all',
     'Use this to install all available components within the specified system. Without this flag, only the required system components will be installed.'
   )
-  .description(
-    'Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as compound), or a link to a git repository containing the system you want to install',
-    {
-      name: 'Name of the out-of-the-box system you would like to install',
-    }
-  )
   .action(systemInstall);
 
 // Component sub-commands.
-const component = program
-  .command('component')
-  .description(
-    'Parent command that contains sub-commands pertaining to components'
-  );
+const component = program.command(
+  'component',
+  'Parent command that contains sub-commands pertaining to components'
+);
 component
-  .command('list')
-  .alias('ls')
-  .description(
+  .command(
+    'list',
     'Lists all of the components that are available for installation within your project based on the system and variant you selected'
   )
+  .alias('ls')
   .action(componentList);
 component
-  .command('install [name]')
+  .command(
+    'install [name]',
+    "Install a component from within the current project's system and variant"
+  )
   .option(
     '-f --force',
     'Use this to overwrite a component that is already installed'
@@ -91,9 +94,6 @@ component
     'Use this to install all available components, rather than specifying a single component to install'
   )
   .alias('i')
-  .description(
-    "Install a component from within the current project's system and variant"
-  )
   .action(componentInstall);
 
 void program.parseAsync(process.argv);
