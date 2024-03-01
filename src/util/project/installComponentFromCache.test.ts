@@ -8,7 +8,7 @@ import findFileInCurrentPath from '../fs/findFileInCurrentPath';
 import installComponentFromCache from './installComponentFromCache';
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/uname/Projects/cornflake/web/themes/custom/cornflake/project.emulsify.json'
+  '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json'
 );
 const pathExistsMock = (pathExists as jest.Mock).mockResolvedValue(false);
 
@@ -87,7 +87,7 @@ describe('installComponentFromCache', () => {
     expect(copyItemFromCache as jest.Mock).toHaveBeenCalledWith(
       'systems',
       ['compound', './components/00-base', 'link'],
-      '/home/uname/Projects/cornflake/web/themes/custom/cornflake/components/00-base/link',
+      '/home/username/Projects/drupal-project/web/themes/custom/themename/components/00-base/link',
       false
     );
   });
