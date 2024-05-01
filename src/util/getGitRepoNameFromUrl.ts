@@ -10,8 +10,6 @@ import R from 'ramda';
  */
 export default function getGitRepoNameFromUrl(url: string): string | void {
   const parts = url.split('/');
-
-  
   const gitName = R.last(parts) as string;
 
   // If no .git extension is provided, then this is an invalid git url.
