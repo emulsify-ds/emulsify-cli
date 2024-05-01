@@ -3,8 +3,13 @@ jest.mock('simple-git', () => {
     clone: jest.fn(),
     branch: jest.fn(),
     checkout: jest.fn(),
-    fetch: jest.fn(),
+    fetch: jest.fn().mockReturnThis(),
     pull: jest.fn(),
+    init: jest.fn().mockReturnThis(),
+    addRemote: jest.fn().mockReturnThis(),
+    tags: jest.fn(() => {
+      return { latest: '' };
+    }),
   };
 
   return jest.fn(() => mockGit);

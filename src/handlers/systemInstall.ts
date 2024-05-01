@@ -19,6 +19,7 @@ import getAvailableSystems from '../util/system/getAvailableSystems';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
 import cloneIntoCache from '../util/cache/cloneIntoCache';
 import getCachedItemCheckout from '../util/cache/getCachedItemCheckout';
+import getRepositoryLatestTag from '../util/getRepositoryLatestTag';
 import installComponentFromCache from '../util/project/installComponentFromCache';
 import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
@@ -43,13 +44,21 @@ export async function getSystemRepoInfo(
 ): Promise<(GitCloneOptions & { name: string }) | void> {
   // If a repository and checkout were specified, use that to return system information.
   if (repository && checkout) {
-    const repoName = getGitRepoNameFromUrl(repository);
-    if (repoName) {
-      return {
-        name: repoName,
-        repository,
-        checkout,
-      };
+    try {
+      const repoName = getGitRepoNameFromUrl(repository);
+      if (repoName) {
+        return {
+          name: repoName,
+          repository,
+          checkout,
+        };
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        return log('error', error.message, EXIT_ERROR);
+      } else {
+        throw error;
+      }
     }
   }
 
@@ -109,16 +118,23 @@ export default async function systemInstall(
     );
   }
 
+  let checkout = repo.checkout;
+  // Attempt to get latest tag if no branch was supplied.
+  if (!checkout) {
+    checkout = await getRepositoryLatestTag(repo.repository);
+  }
+
   // Clone the system into the cache.
   await cloneIntoCache('systems', [repo.name])({
     repository: repo.repository,
-    checkout: repo.checkout,
+    checkout: checkout,
   });
 
   // Load the system configuration file.
   const systemConf: EmulsifySystem | void = await getJsonFromCachedFile(
     'systems',
     [repo.name],
+    repo.checkout,
     EMULSIFY_SYSTEM_CONFIG_FILE
   );
 
