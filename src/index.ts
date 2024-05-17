@@ -98,4 +98,8 @@ component
   .alias('i')
   .action(componentInstall);
 
+// Because './package.json' is outside of our defined rootDir of ./src
+// in tsconfig, we need to disable the next line.
+// eslint-disable-next-line
+program.version(require('./package.json').version);
 void program.parseAsync(process.argv);
