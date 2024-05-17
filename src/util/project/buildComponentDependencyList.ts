@@ -2,26 +2,28 @@ import type { Components } from '@emulsify-cli/config';
 
 export default function buildComponentDependencyList(
   components: Components,
-  name: string
+  componentsList: string[]
 ) {
-  const rootComponent = components.filter(
-    (component) => component.name == name
+  const rootComponents = components.filter((component) =>
+    componentsList.includes(component.name)
   );
-  if (rootComponent.length == 0) return [];
-  let finalList = [name];
-  if (rootComponent.length > 0) {
-    const list = rootComponent[0].dependency as string[];
-    if (list && list.length > 0) {
-      list.forEach((componentName: string) => {
-        finalList = [
-          ...new Set(
-            finalList.concat(
-              buildComponentDependencyList(components, componentName)
-            )
-          ),
-        ];
-      });
-    }
+  if (rootComponents.length == 0) return [];
+  let finalList = [...componentsList];
+  if (rootComponents.length > 0) {
+    rootComponents.forEach((rootComponent) => {
+      const list = rootComponent.dependency as string[];
+      if (list && list.length > 0) {
+        list.forEach((componentName: string) => {
+          finalList = [
+            ...new Set(
+              finalList.concat(
+                buildComponentDependencyList(components, [componentName])
+              )
+            ),
+          ];
+        });
+      }
+    });
   }
   return finalList;
 }

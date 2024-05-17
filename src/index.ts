@@ -4,6 +4,7 @@ import withProgressBar from './handlers/hofs/withProgressBar';
 import init from './handlers/init';
 import systemList from './handlers/systemList';
 import systemInstall from './handlers/systemInstall';
+import systemImport from './handlers/systemImport';
 import componentList from './handlers/componentList';
 import componentInstall from './handlers/componentInstall';
 
@@ -69,6 +70,10 @@ system
     'Use this to install all available components within the specified system. Without this flag, only the required system components will be installed.'
   )
   .action(systemInstall);
+system
+  .command('import')
+  .description('Import components listed in project configuration file')
+  .action(systemImport);
 
 // Component sub-commands.
 const component = program.command(
@@ -94,6 +99,10 @@ component
   .option(
     '-a --all',
     'Use this to install all available components, rather than specifying a single component to install'
+  )
+  .option(
+    '-s --subtheme <subtheme>',
+    'This option use name as subtheme to pull group of components from full list of the components'
   )
   .alias('i')
   .action(componentInstall);

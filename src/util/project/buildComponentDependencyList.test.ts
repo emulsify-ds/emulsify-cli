@@ -36,17 +36,17 @@ describe('buildComponentDependencyList', () => {
   ] as Components;
 
   it('Build list of components without dependency', () => {
-    expect(buildComponentDependencyList(components, 'buttons')).toEqual([
+    expect(buildComponentDependencyList(components, ['buttons'])).toEqual([
       'buttons',
     ]);
   });
 
   it('Build all components dependency for not existing component', () => {
-    expect(buildComponentDependencyList(components, 'test')).toEqual([]);
+    expect(buildComponentDependencyList(components, ['test'])).toEqual([]);
   });
 
   it('Build all components dependency tree returning flat list without duplicates', () => {
-    expect(buildComponentDependencyList(components, 'card')).toEqual([
+    expect(buildComponentDependencyList(components, ['card'])).toEqual([
       'card',
       'images',
       'text',
@@ -56,11 +56,17 @@ describe('buildComponentDependencyList', () => {
   });
 
   it('Build all components dependency tree with hierarchical dependency', () => {
-    expect(buildComponentDependencyList(components, 'menus')).toEqual([
+    expect(buildComponentDependencyList(components, ['menus'])).toEqual([
       'menus',
       'images',
       'text',
       'links',
     ]);
+  });
+
+  it('Build all components dependency tree for 2 components', () => {
+    expect(buildComponentDependencyList(components, ['menus', 'card'])).toEqual(
+      ['menus', 'card', 'images', 'text', 'links', 'buttons']
+    );
   });
 });
