@@ -16,9 +16,10 @@ program
   );
 
 program
-  .command('init <name> [path]', 'Initialize an Emulsify project', {
+  .command('init <name> [path]', {
     isDefault: true,
   })
+  .description('Initialize an Emulsify project')
   .option(
     '-m --machineName <machineName>',
     'Machine-friendly name of the project you are initializing. If not provided, this will be automatically generated.'
@@ -38,20 +39,21 @@ program
   .action(withProgressBar(init));
 
 // System sub-commands.
-const system = program.command(
-  'system',
-  'Parent command that contains sub-commands pertaining to systems'
-);
+const system = program
+  .command('system')
+  .description(
+    'Parent command that contains sub-commands pertaining to systems'
+  );
 system
-  .command(
-    'list',
+  .command('list')
+  .description(
     'Lists all of the available systems that Emulsify supports out-of-the-box'
   )
   .alias('ls')
   .action(systemList);
 system
-  .command(
-    'install [name]',
+  .command('install [name]')
+  .description(
     'Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as compound), or a link to a git repository containing the system you want to install'
   )
   .option(
@@ -74,15 +76,15 @@ const component = program.command(
   'Parent command that contains sub-commands pertaining to components'
 );
 component
-  .command(
-    'list',
+  .command('list')
+  .description(
     'Lists all of the components that are available for installation within your project based on the system and variant you selected'
   )
   .alias('ls')
   .action(componentList);
 component
-  .command(
-    'install [name]',
+  .command('install [name]')
+  .description(
     "Install a component from within the current project's system and variant"
   )
   .option(
@@ -96,4 +98,8 @@ component
   .alias('i')
   .action(componentInstall);
 
+// Because './package.json' is outside of our defined rootDir of ./src
+// in tsconfig, we need to disable the next line.
+// eslint-disable-next-line
+program.version(require('./package.json').version);
 void program.parseAsync(process.argv);
