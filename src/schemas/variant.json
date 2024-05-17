@@ -61,6 +61,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "componentSet": {
+            "type": "array",
+            "description": "List of all component library to which this component belonning to and should be installed as part of library",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false,
