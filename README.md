@@ -100,17 +100,17 @@ This project is automatically built and deployed to NPM via a GitHub Actions wor
 </tr>
 <tr>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/robherba>
+            <img src=https://avatars.githubusercontent.com/u/9342274?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Roberto Henández Badilla/>
+            <br />
+            <sub style="font-size:14px"><b>Roberto Henández Badilla</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
         <a href=https://github.com/fertant>
             <img src=https://avatars.githubusercontent.com/u/3853492?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Andrii Shutov/>
             <br />
             <sub style="font-size:14px"><b>Andrii Shutov</b></sub>
-        </a>
-    </td>
-    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
-        <a href=https://github.com/ryanhagerty>
-            <img src=https://avatars.githubusercontent.com/u/8405274?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Ryan Hagerty/>
-            <br />
-            <sub style="font-size:14px"><b>Ryan Hagerty</b></sub>
         </a>
     </td>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
@@ -128,10 +128,26 @@ This project is automatically built and deployed to NPM via a GitHub Actions wor
         </a>
     </td>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/karldivad>
+            <img src=https://avatars.githubusercontent.com/u/13474855?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Carlos Valencia Rivero/>
+            <br />
+            <sub style="font-size:14px"><b>Carlos Valencia Rivero</b></sub>
+        </a>
+    </td>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
         <a href=https://github.com/iryston>
             <img src=https://avatars.githubusercontent.com/u/1258460?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Igor R. Plity/>
             <br />
             <sub style="font-size:14px"><b>Igor R. Plity</b></sub>
+        </a>
+    </td>
+</tr>
+<tr>
+    <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
+        <a href=https://github.com/ryanhagerty>
+            <img src=https://avatars.githubusercontent.com/u/8405274?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Ryan Hagerty/>
+            <br />
+            <sub style="font-size:14px"><b>Ryan Hagerty</b></sub>
         </a>
     </td>
 </tr>
