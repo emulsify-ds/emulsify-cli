@@ -5,8 +5,8 @@ describe('strToMachineName', () => {
     expect.assertions(1);
     expect(
       strToMachineName(
-        '^Live &meaningfully%%%%      and DO nOt!# persue $expediency**(#$'
-      )
+        '^Live &meaningfully%%%%      and DO nOt!# persue $expediency**(#$',
+      ),
     ).toBe('live-meaningfully-and-do-not-persue-expediency');
   });
 
@@ -15,8 +15,8 @@ describe('strToMachineName', () => {
     expect(
       strToMachineName(
         '^Live &meaningfully%%%%      and DO nOt!# persue $expediency**(#$',
-        'drupal'
-      )
+        'drupal',
+      ),
     ).toBe('live_meaningfully_and_do_not_persue_expediency');
   });
 });

@@ -9,7 +9,7 @@ import { cyan } from 'chalk';
  */
 export default function getInitSuccessMessageForPlatform(
   platform: string,
-  directory: string
+  directory: string,
 ): {
   method: LogMethod;
   message: string;
@@ -39,10 +39,10 @@ export default function getInitSuccessMessageForPlatform(
             ${cyan('List systems')}: emulsify system list
             ${cyan('Install a system')}: emulsify system install "system-name"
             ${cyan(
-              'Install default system with default components'
+              'Install default system with default components',
             )}: emulsify system install compound
             ${cyan(
-              'Install default system with all components'
+              'Install default system with all components',
             )}: emulsify system install compound --all
             `,
       },

@@ -1,8 +1,8 @@
 jest.mock('./getCachedItemPath', () =>
   jest.fn(
     () =>
-      '/home/uname/.emulsify/cache/systems/12345/compound/components/00-base/colors'
-  )
+      '/home/uname/.emulsify/cache/systems/12345/compound/components/00-base/colors',
+  ),
 );
 import { copy, remove } from 'fs-extra';
 import copyItemFromCache from './copyItemFromCache';
@@ -12,11 +12,11 @@ describe('copyItemFromCache', () => {
     await copyItemFromCache(
       'systems',
       ['compound', 'components', '00-base', 'colors'],
-      '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors'
+      '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors',
     );
     expect(copy).toHaveBeenCalledWith(
       '/home/uname/.emulsify/cache/systems/12345/compound/components/00-base/colors',
-      '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors'
+      '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors',
     );
   });
   it('can remove a destination before copying items from the cache if "force" is true', async () => {
@@ -24,10 +24,10 @@ describe('copyItemFromCache', () => {
       'systems',
       ['compound', 'components', '00-base', 'colors'],
       '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors',
-      true
+      true,
     );
     expect(remove).toHaveBeenCalledWith(
-      '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors'
+      '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors',
     );
   });
 });

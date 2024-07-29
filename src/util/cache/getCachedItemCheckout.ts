@@ -14,7 +14,7 @@ import getCachedItemPath from './getCachedItemPath';
  */
 export default async function getCachedItemCheckout(
   bucket: CacheBucket,
-  itemPath: CacheItemPath
+  itemPath: CacheItemPath,
 ): Promise<string> {
   const location = getCachedItemPath(bucket, itemPath);
   const git = simpleGit(location);

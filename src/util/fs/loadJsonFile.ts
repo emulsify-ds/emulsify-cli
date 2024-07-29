@@ -8,13 +8,13 @@ import { promises as fs } from 'fs';
  * @returns Object representing the JSON file loaded from the given path, or void if no such file exists.
  */
 export default async function loadJsonFile<Output>(
-  path: string
+  path: string,
 ): Promise<Output | void> {
   try {
     return JSON.parse(
       await fs.readFile(path, {
         encoding: 'utf-8',
-      })
+      }),
     ) as Output;
   } catch {
     return undefined;
