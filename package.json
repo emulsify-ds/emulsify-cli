@@ -1,6 +1,6 @@
 {
   "name": "@emulsify/cli",
-  "version": "1.10.1",
+  "version": "1.10.2",
   "description": "Command line interface for Emulsify",
   "repository": "git@github.com:emulsify-ds/emulsify-cli.git",
   "author": "Patrick Coffey <patrickcoffey48@gmail.com>",
