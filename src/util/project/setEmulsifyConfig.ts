@@ -13,13 +13,13 @@ import getEmulsifyConfig from './getEmulsifyConfig';
  * @returns Void if the write was successful, otherwise throws an error.
  */
 export default async function setEmulsifyConfig(
-  config: Partial<EmulsifyProjectConfiguration>
+  config: Partial<EmulsifyProjectConfiguration>,
 ): Promise<void> {
   const path = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
   const existingConfig = await getEmulsifyConfig();
   if (!path || !existingConfig) {
     throw new Error(
-      `Unable to set values for ${EMULSIFY_PROJECT_CONFIG_FILE} because you are not in an Emulsify project`
+      `Unable to set values for ${EMULSIFY_PROJECT_CONFIG_FILE} because you are not in an Emulsify project`,
     );
   }
 

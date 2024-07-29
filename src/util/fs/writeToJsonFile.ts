@@ -10,7 +10,7 @@ import { promises as fs } from 'fs';
  */
 export default async function loadJsonFile<Json>(
   path: string,
-  json: Json
+  json: Json,
 ): Promise<void> {
   const data = JSON.stringify(json, null, 2);
   try {

@@ -17,7 +17,7 @@ import getCachedItemPath from './getCachedItemPath';
  */
 export default function cloneIntoCache(
   bucket: CacheBucket,
-  itemPath: CacheItemPath
+  itemPath: CacheItemPath,
 ) {
   return async ({ repository, checkout }: GitCloneOptions): Promise<void> => {
     const destination = getCachedItemPath(bucket, itemPath, checkout);
@@ -41,7 +41,7 @@ export default function cloneIntoCache(
         ? {
             '--branch': checkout,
           }
-        : {}
+        : {},
     );
   };
 }

@@ -18,36 +18,36 @@ export default async function installComponentFromCache(
   system: EmulsifySystem,
   variant: EmulsifyVariant,
   componentName: string,
-  force = false
+  force = false,
 ): Promise<void> {
   // Gather information about the current Emulsify project. If none exists,
   // throw an error.
   const path = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
   if (!path) {
     throw new Error(
-      'Unable to find an Emulsify project to install the component into.'
+      'Unable to find an Emulsify project to install the component into.',
     );
   }
 
   // Find the specified component within the given variant configuration. If the
   // component is not found, throw an error.
   const component = variant.components.find(
-    ({ name }) => name === componentName
+    ({ name }) => name === componentName,
   );
   if (!component) {
     throw new Error(
-      `The specified component (${componentName}) does not exist within the given system variant.`
+      `The specified component (${componentName}) does not exist within the given system variant.`,
     );
   }
 
   // Find the component's parent structure within the given variant configuration. If the
   // component's parent structure does not exist, throw an error.
   const structure = variant.structureImplementations.find(
-    ({ name }) => name === component.structure
+    ({ name }) => name === component.structure,
   );
   if (!structure) {
     throw new Error(
-      `The structure (${component.structure}) specified within the component ${componentName} is invalid.`
+      `The structure (${component.structure}) specified within the component ${componentName} is invalid.`,
     );
   }
 
@@ -59,7 +59,7 @@ export default async function installComponentFromCache(
   // throw an error.
   if ((await pathExists(destination)) && !force) {
     throw new Error(
-      `The component "${component.name}" already exists, and force was not passed (--force).`
+      `The component "${component.name}" already exists, and force was not passed (--force).`,
     );
   }
 
@@ -67,6 +67,6 @@ export default async function installComponentFromCache(
     'systems',
     [system.name, structure.directory, component.name],
     destination,
-    force
+    force,
   );
 }

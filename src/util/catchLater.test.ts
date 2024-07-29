@@ -6,7 +6,7 @@ describe('catchLater', () => {
       /* eslint-disable-next-line @typescript-eslint/require-await */
       (async () => {
         throw new Error('pancakes');
-      })()
+      })(),
     );
 
     await new Promise((res) => setTimeout(() => res(undefined), 0));

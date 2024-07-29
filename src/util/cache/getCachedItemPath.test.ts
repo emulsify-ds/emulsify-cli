@@ -8,7 +8,7 @@ import findFileInCurrentPath from '../fs/findFileInCurrentPath';
 import getCachedItemPath from './getCachedItemPath';
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/uname/projects/emulsify'
+  '/home/uname/projects/emulsify',
 );
 
 describe('getCachedItemPath', () => {
@@ -18,19 +18,19 @@ describe('getCachedItemPath', () => {
       getCachedItemPath(
         'systems',
         ['compound', 'system.emulsify.json'],
-        'branch-name'
-      )
+        'branch-name',
+      ),
     ).toBe(
-      'home/uname/.emulsify/cache/systems/2a39785f5c873d7a694ac505a8123bb9/compound/system.emulsify.json'
+      'home/uname/.emulsify/cache/systems/2a39785f5c873d7a694ac505a8123bb9/compound/system.emulsify.json',
     );
     expect(
       getCachedItemPath(
         'variants',
         ['compound', 'drupal', 'variant.emulsify.json'],
-        'branch-name'
-      )
+        'branch-name',
+      ),
     ).toBe(
-      'home/uname/.emulsify/cache/variants/2a39785f5c873d7a694ac505a8123bb9/compound/drupal/variant.emulsify.json'
+      'home/uname/.emulsify/cache/variants/2a39785f5c873d7a694ac505a8123bb9/compound/drupal/variant.emulsify.json',
     );
   });
 
@@ -40,8 +40,8 @@ describe('getCachedItemPath', () => {
       getCachedItemPath(
         'systems',
         ['compound', 'system.emulsify.json'],
-        'branch-name'
-      )
+        'branch-name',
+      ),
     ).toThrow('Unable to find project.emulsify.json');
   });
 });

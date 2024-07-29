@@ -9,12 +9,12 @@ describe('writeToJsonFile', () => {
     await expect(
       writeToJsonFile('path.json', {
         key: 'value',
-      })
+      }),
     ).resolves.toBe(undefined);
     expect(writeFileMock).toHaveBeenCalledWith(
       'path.json',
       expect.any(String),
-      { encoding: 'utf-8' }
+      { encoding: 'utf-8' },
     );
   });
 
@@ -25,7 +25,7 @@ describe('writeToJsonFile', () => {
     });
 
     await expect(writeToJsonFile('path.json', {})).rejects.toEqual(
-      Error('Unable to write to path.json with the given JSON: {}')
+      Error('Unable to write to path.json with the given JSON: {}'),
     );
   });
 });
