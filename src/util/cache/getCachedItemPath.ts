@@ -21,7 +21,7 @@ import findFileInCurrentPath from '../fs/findFileInCurrentPath';
 export default function getCachedItemPath(
   bucket: CacheBucket,
   itemPath: CacheItemPath,
-  checkout: CacheCheckout
+  checkout: CacheCheckout,
 ): string {
   const projectPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
 
@@ -35,6 +35,6 @@ export default function getCachedItemPath(
     createHash('md5')
       .update(`MBR${String(projectPath)}${String(checkout)}`)
       .digest('hex'),
-    ...itemPath
+    ...itemPath,
   );
 }

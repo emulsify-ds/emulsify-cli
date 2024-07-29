@@ -47,7 +47,7 @@ const logMethodEq =
 export default function log(
   method: LogMethod,
   message: string,
-  exitCode?: number
+  exitCode?: number,
 ): void {
   // @TODO: add support for --verbose flag, and suppress verbose messages
   // by default when --verbose is false or void.

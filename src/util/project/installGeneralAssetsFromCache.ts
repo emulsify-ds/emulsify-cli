@@ -14,14 +14,14 @@ import catchLater from '../catchLater';
  */
 export default async function installGeneralAssetsFromCache(
   system: EmulsifySystem,
-  variant: EmulsifyVariant
+  variant: EmulsifyVariant,
 ): Promise<void> {
   // Gather information about the current Emulsify project. If none exists,
   // throw an error.
   const path = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
   if (!path) {
     throw new Error(
-      'Unable to find an Emulsify project to install assets into.'
+      'Unable to find an Emulsify project to install assets into.',
     );
   }
 
@@ -35,9 +35,9 @@ export default async function installGeneralAssetsFromCache(
           'systems',
           [system.name, asset.path],
           destination,
-          true
-        )
-      )
+          true,
+        ),
+      ),
     );
   }
 

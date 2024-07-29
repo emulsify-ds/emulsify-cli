@@ -20,7 +20,7 @@ const findFileInCurrentPath = R.memoizeWith(
 
     const path: string = R.until(
       R.either(directoryContainsFile, reachedCwdRoot),
-      incrementLeftTraversal
+      incrementLeftTraversal,
     )(process.cwd());
 
     if (!reachedCwdRoot(path)) {
@@ -28,6 +28,6 @@ const findFileInCurrentPath = R.memoizeWith(
     }
 
     return undefined;
-  }
+  },
 );
 export default findFileInCurrentPath;

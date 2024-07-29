@@ -6,6 +6,6 @@ import getAvailableSystems from '../util/system/getAvailableSystems';
  */
 export default async function systemList(): Promise<void> {
   (await getAvailableSystems()).map(({ name, repository }) =>
-    log('info', `${name} - ${repository}`)
+    log('info', `${name} - ${repository}`),
   );
 }
