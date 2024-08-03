@@ -1,3 +1,3 @@
-module.exports = {
+export default {
   '*.{js,ts}': ['npm run format'],
 };

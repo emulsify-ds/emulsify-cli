@@ -9,7 +9,7 @@ jest
   .spyOn(global.process, 'exit')
   .mockImplementation(R.identity as () => never);
 
-import log from './log';
+import log from './log.js';
 
 describe('log', () => {
   it('can log info messages', () => {
@@ -39,7 +39,7 @@ describe('log', () => {
   it('exits with the given code if one is provided', () => {
     log('error', 'big oof', 1);
     expect(global.process.exit as unknown as jest.Mock).toHaveBeenCalledTimes(
-      1
+      1,
     );
   });
 });

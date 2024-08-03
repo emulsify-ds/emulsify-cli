@@ -3,8 +3,8 @@ import type {
   PlatformInstanceInfo,
 } from '@emulsify-cli/internal';
 import { dirname, join } from 'path';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import loadJsonFile from '../fs/loadJsonFile';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import loadJsonFile from '../fs/loadJsonFile.js';
 
 /**
  * Looks for a Drupal project within the cwd, and returns information about the
@@ -21,7 +21,7 @@ export default async function getDrupalInfo(): Promise<PlatformInstanceInfo | vo
     if (json && json.extra?.['drupal-scaffold']?.locations?.['web-root']) {
       const root = join(
         dirname(path),
-        json.extra['drupal-scaffold'].locations['web-root']
+        json.extra['drupal-scaffold'].locations['web-root'],
       );
 
       return {

@@ -1,12 +1,12 @@
-import strToMachineName from './strToMachineName';
+import strToMachineName from './strToMachineName.js';
 
 describe('strToMachineName', () => {
   it('can convert a given string to a machine-friendly string', () => {
     expect.assertions(1);
     expect(
       strToMachineName(
-        '^Live &meaningfully%%%%      and DO nOt!# persue $expediency**(#$'
-      )
+        '^Live &meaningfully%%%%      and DO nOt!# persue $expediency**(#$',
+      ),
     ).toBe('live-meaningfully-and-do-not-persue-expediency');
   });
 
@@ -15,8 +15,8 @@ describe('strToMachineName', () => {
     expect(
       strToMachineName(
         '^Live &meaningfully%%%%      and DO nOt!# persue $expediency**(#$',
-        'drupal'
-      )
+        'drupal',
+      ),
     ).toBe('live_meaningfully_and_do_not_persue_expediency');
   });
 });

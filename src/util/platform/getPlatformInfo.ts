@@ -1,6 +1,6 @@
 import type { PlatformInstanceInfo } from '@emulsify-cli/internal';
 
-import getDrupalInfo from './getDrupalInfo';
+import getDrupalInfo from './getDrupalInfo.js';
 
 /**
  * Returns information about the platform the user is currently within (cwd), if it

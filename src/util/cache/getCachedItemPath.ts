@@ -6,8 +6,11 @@ import type {
 
 import { join } from 'path';
 import { createHash } from 'crypto';
-import { CACHE_DIR, EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
+import {
+  CACHE_DIR,
+  EMULSIFY_PROJECT_CONFIG_FILE,
+} from '../../lib/constants.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 
 /**
  * Accepts a cache bucket, item path, and item name, and returns the full
@@ -21,7 +24,7 @@ import findFileInCurrentPath from '../fs/findFileInCurrentPath';
 export default function getCachedItemPath(
   bucket: CacheBucket,
   itemPath: CacheItemPath,
-  checkout: CacheCheckout
+  checkout: CacheCheckout,
 ): string {
   const projectPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
 
@@ -35,6 +38,6 @@ export default function getCachedItemPath(
     createHash('md5')
       .update(`MBR${String(projectPath)}${String(checkout)}`)
       .digest('hex'),
-    ...itemPath
+    ...itemPath,
   );
 }

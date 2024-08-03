@@ -1,12 +1,12 @@
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 jest.mock('../fs/loadJsonFile', () => jest.fn());
 
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import loadJsonFile from '../fs/loadJsonFile';
-import getEmulsifyConfig from './getEmulsifyConfig';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import loadJsonFile from '../fs/loadJsonFile.js';
+import getEmulsifyConfig from './getEmulsifyConfig.js';
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/projects/project.emulsify.json'
+  '/projects/project.emulsify.json',
 );
 (loadJsonFile as jest.Mock).mockResolvedValue({
   emulsify: 'config',

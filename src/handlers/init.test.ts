@@ -6,12 +6,12 @@ jest.mock('../util/project/installDependencies', () => jest.fn());
 
 import fs from 'fs';
 import git from 'simple-git';
-import log from '../lib/log';
-import init from './init';
-import getPlatformInfo from '../util/platform/getPlatformInfo';
-import writeToJsonFile from '../util/fs/writeToJsonFile';
-import executeScript from '../util/fs/executeScript';
-import installDependencies from '../util/project/installDependencies';
+import log from '../lib/log.js';
+import init from './init.js';
+import getPlatformInfo from '../util/platform/getPlatformInfo.js';
+import writeToJsonFile from '../util/fs/writeToJsonFile.js';
+import executeScript from '../util/fs/executeScript.js';
+import installDependencies from '../util/project/installDependencies.js';
 import ProgressBar from 'progress';
 
 const root = '/home/uname/Projects/cornflake';
@@ -45,11 +45,11 @@ describe('init', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-drupal.git',
       '/home/uname/Projects/cornflake/themes/cornflake',
-      { '--branch': 'master' }
+      { '--branch': 'master' },
     );
     expect(rmdirMock).toHaveBeenCalledWith(
       '/home/uname/Projects/cornflake/themes/cornflake/.git',
-      { recursive: true }
+      { recursive: true },
     );
     expect(writeJsonFileMock).toHaveBeenCalledWith(
       '/home/uname/Projects/cornflake/themes/cornflake/project.emulsify.json',
@@ -62,7 +62,7 @@ describe('init', () => {
         starter: {
           repository: 'https://github.com/emulsify-ds/emulsify-drupal.git',
         },
-      }
+      },
     );
   });
 
@@ -96,7 +96,7 @@ describe('init', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/cornflake-ds/cornflake-drupal.git',
       '/home/uname/Projects/cornflake/themes/subDir/cornflake',
-      { '--branch': '5.6x' }
+      { '--branch': '5.6x' },
     );
     expect(logMock).toHaveBeenCalledTimes(5);
   });
@@ -111,7 +111,7 @@ describe('init', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/cornflake-ds/cornflake-drupal.git',
       '/home/uname/Projects/cornflake/themes/subDir/cornflake',
-      {}
+      {},
     );
   });
 
@@ -119,7 +119,7 @@ describe('init', () => {
     expect.assertions(1);
     await init(progress)('cornflake');
     expect(installDependencies).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/themes/cornflake'
+      '/home/uname/Projects/cornflake/themes/cornflake',
     );
   });
 
@@ -128,7 +128,7 @@ describe('init', () => {
     existsSyncMock.mockReturnValueOnce(false).mockReturnValueOnce(true);
     await init(progress)('cornflake');
     expect(executeScript).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/themes/cornflake/.cli/init.js'
+      '/home/uname/Projects/cornflake/themes/cornflake/.cli/init.js',
     );
   });
 
@@ -139,7 +139,7 @@ describe('init', () => {
     expect(logMock).toHaveBeenCalledWith(
       'error',
       'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
-      1
+      1,
     );
   });
 
@@ -151,7 +151,7 @@ describe('init', () => {
     expect(logMock).toHaveBeenCalledWith(
       'error',
       'Unable to pull down https://github.com/emulsify-ds/emulsify-drupal.git: Error: Does not exist!',
-      1
+      1,
     );
   });
 
@@ -164,7 +164,7 @@ describe('init', () => {
     expect(logMock).toHaveBeenCalledWith(
       'error',
       'Unable to find a directory to put Emulsify in. Please specify a directory using the "path" argument: emulsify init myTheme ./themes',
-      1
+      1,
     );
   });
 
@@ -177,7 +177,7 @@ describe('init', () => {
     expect(logMock).toHaveBeenCalledWith(
       'error',
       'Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter https://github.com/emulsify-ds/emulsify-drupal.git',
-      1
+      1,
     );
   });
 
@@ -188,7 +188,7 @@ describe('init', () => {
     expect(logMock).toHaveBeenCalledWith(
       'error',
       'The intended target is already occupied: /home/uname/Projects/cornflake/themes/cornflake',
-      1
+      1,
     );
   });
 });

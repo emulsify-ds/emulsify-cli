@@ -1,7 +1,7 @@
 jest.mock('./getDrupalInfo', () => jest.fn());
 
-import getDrupalInfo from './getDrupalInfo';
-import getPlatformInfo from './getPlatformInfo';
+import getDrupalInfo from './getDrupalInfo.js';
+import getPlatformInfo from './getPlatformInfo.js';
 
 describe('getPlatformInfo', () => {
   it('can return information about Drupal, if the user is currently within a Drupal instance', async () => {

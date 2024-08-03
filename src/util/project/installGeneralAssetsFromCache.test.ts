@@ -2,12 +2,12 @@ jest.mock('../cache/copyItemFromCache', () => jest.fn());
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
-import copyItemFromCache from '../cache/copyItemFromCache';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import installGeneralAssetsFromCache from './installGeneralAssetsFromCache';
+import copyItemFromCache from '../cache/copyItemFromCache.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import installGeneralAssetsFromCache from './installGeneralAssetsFromCache.js';
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json'
+  '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',
 );
 const copyItemMock = (copyItemFromCache as jest.Mock).mockResolvedValue(true);
 
@@ -39,9 +39,9 @@ describe('installGeneralAssetsFromCache', () => {
     expect.assertions(1);
     findFileMock.mockReturnValueOnce(undefined);
     await expect(
-      installGeneralAssetsFromCache(system, variant)
+      installGeneralAssetsFromCache(system, variant),
     ).rejects.toThrow(
-      'Unable to find an Emulsify project to install assets into.'
+      'Unable to find an Emulsify project to install assets into.',
     );
   });
 
@@ -53,14 +53,14 @@ describe('installGeneralAssetsFromCache', () => {
       'systems',
       ['compound', './components/00-base/00-defaults'],
       '/home/username/Projects/drupal-project/web/themes/custom/themename/components/00-base/00-defaults',
-      true
+      true,
     );
     expect(copyItemMock).toHaveBeenNthCalledWith(
       2,
       'systems',
       ['compound', './components/style.scss'],
       '/home/username/Projects/drupal-project/web/themes/custom/themename/components/style.scss',
-      true
+      true,
     );
   });
 

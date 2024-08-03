@@ -3,8 +3,8 @@ jest.mock('../../lib/constants', () => ({
 }));
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
-import cloneIntoCache from './cloneIntoCache';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
+import cloneIntoCache from './cloneIntoCache.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 
 import fs from 'fs';
 import git from 'simple-git';
@@ -14,7 +14,7 @@ const mkdirMock = fs.promises.mkdir as jest.Mock;
 const gitCloneMock = git().clone as jest.Mock;
 
 (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/uname/projects/emulsify'
+  '/home/uname/projects/emulsify',
 );
 
 describe('cloneIntoCache', () => {
@@ -43,7 +43,7 @@ describe('cloneIntoCache', () => {
       'home/uname/.emulsify/cache/systems/2a39785f5c873d7a694ac505a8123bb9',
       {
         recursive: true,
-      }
+      },
     );
   });
 
@@ -54,7 +54,7 @@ describe('cloneIntoCache', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'repo-path',
       'home/uname/.emulsify/cache/systems/2a39785f5c873d7a694ac505a8123bb9/cornflake',
-      { '--branch': 'branch-name' }
+      { '--branch': 'branch-name' },
     );
   });
 
@@ -65,7 +65,7 @@ describe('cloneIntoCache', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'repo-path',
       'home/uname/.emulsify/cache/systems/6342daf21717ab9c095fcddf7943e4e1/cornflake',
-      {}
+      {},
     );
   });
 });

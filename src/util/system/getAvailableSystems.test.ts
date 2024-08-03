@@ -1,4 +1,4 @@
-import getAvailableSystems from './getAvailableSystems';
+import getAvailableSystems from './getAvailableSystems.js';
 
 describe('getAvailableSystems', () => {
   it('returns the available systems', async () => {

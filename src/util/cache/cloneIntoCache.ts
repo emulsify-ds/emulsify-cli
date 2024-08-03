@@ -5,7 +5,7 @@ import simpleGit from 'simple-git';
 import { existsSync, promises as fs } from 'fs';
 import { dirname } from 'path';
 
-import getCachedItemPath from './getCachedItemPath';
+import getCachedItemPath from './getCachedItemPath.js';
 
 /**
  * Clones a repository into the cache (util) directory, if it does not already exist.
@@ -17,7 +17,7 @@ import getCachedItemPath from './getCachedItemPath';
  */
 export default function cloneIntoCache(
   bucket: CacheBucket,
-  itemPath: CacheItemPath
+  itemPath: CacheItemPath,
 ) {
   return async ({ repository, checkout }: GitCloneOptions): Promise<void> => {
     const destination = getCachedItemPath(bucket, itemPath, checkout);
@@ -41,7 +41,7 @@ export default function cloneIntoCache(
         ? {
             '--branch': checkout,
           }
-        : {}
+        : {},
     );
   };
 }

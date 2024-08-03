@@ -3,12 +3,12 @@ jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
 import { pathExists } from 'fs-extra';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
-import copyItemFromCache from '../cache/copyItemFromCache';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import installComponentFromCache from './installComponentFromCache';
+import copyItemFromCache from '../cache/copyItemFromCache.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import installComponentFromCache from './installComponentFromCache.js';
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json'
+  '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',
 );
 const pathExistsMock = (pathExists as jest.Mock).mockResolvedValue(false);
 
@@ -35,18 +35,18 @@ describe('installComponentFromCache', () => {
     expect.assertions(1);
     findFileMock.mockReturnValueOnce(undefined);
     await expect(
-      installComponentFromCache(system, variant, 'link')
+      installComponentFromCache(system, variant, 'link'),
     ).rejects.toThrow(
-      'Unable to find an Emulsify project to install the component into.'
+      'Unable to find an Emulsify project to install the component into.',
     );
   });
 
   it('throws an error if the specified component does not exist within the given variant', async () => {
     expect.assertions(1);
     await expect(
-      installComponentFromCache(system, variant, 'card')
+      installComponentFromCache(system, variant, 'card'),
     ).rejects.toThrow(
-      'The specified component (card) does not exist within the given system variant.'
+      'The specified component (card) does not exist within the given system variant.',
     );
   });
 
@@ -64,10 +64,10 @@ describe('installComponentFromCache', () => {
             },
           ],
         } as EmulsifyVariant,
-        'link'
-      )
+        'link',
+      ),
     ).rejects.toThrow(
-      'The structure (cornpop) specified within the component link is invalid.'
+      'The structure (cornpop) specified within the component link is invalid.',
     );
   });
 
@@ -75,9 +75,9 @@ describe('installComponentFromCache', () => {
     expect.assertions(1);
     pathExistsMock.mockResolvedValueOnce(true);
     await expect(
-      installComponentFromCache(system, variant, 'link', false)
+      installComponentFromCache(system, variant, 'link', false),
     ).rejects.toThrow(
-      'The component "link" already exists, and force was not passed (--force).'
+      'The component "link" already exists, and force was not passed (--force).',
     );
   });
 
@@ -88,7 +88,7 @@ describe('installComponentFromCache', () => {
       'systems',
       ['compound', './components/00-base', 'link'],
       '/home/username/Projects/drupal-project/web/themes/custom/themename/components/00-base/link',
-      false
+      false,
     );
   });
 });

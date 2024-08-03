@@ -1,6 +1,6 @@
 import type { CacheBucket, CacheItemPath } from '@emulsify-cli/cache';
 import { copy, remove } from 'fs-extra';
-import getCachedItemPath from './getCachedItemPath';
+import getCachedItemPath from './getCachedItemPath.js';
 
 /**
  * Accepts a cache bucket, item path, and item name, and copies the cached item to the
@@ -16,7 +16,7 @@ export default async function copyFileFromCache(
   bucket: CacheBucket,
   itemPath: CacheItemPath,
   destination: string,
-  force = false
+  force = false,
 ): Promise<void> {
   const source = getCachedItemPath(bucket, itemPath);
 

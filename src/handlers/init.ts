@@ -1,4 +1,3 @@
-import R from 'ramda';
 import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import simpleGit from 'simple-git';
@@ -13,16 +12,16 @@ import {
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_PROJECT_HOOK_INIT,
   EMULSIFY_PROJECT_HOOK_FOLDER,
-} from '../lib/constants';
-import getPlatformInfo from '../util/platform/getPlatformInfo';
-import getAvailableStarters from '../util/getAvailableStarters';
-import writeToJsonFile from '../util/fs/writeToJsonFile';
-import strToMachineName from '../util/strToMachineName';
-import installDependencies from '../util/project/installDependencies';
-import executeScript from '../util/fs/executeScript';
-import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform';
-import log from '../lib/log';
-import { EXIT_ERROR } from '../lib/constants';
+} from '../lib/constants.js';
+import getPlatformInfo from '../util/platform/getPlatformInfo.js';
+import getAvailableStarters from '../util/getAvailableStarters.js';
+import writeToJsonFile from '../util/fs/writeToJsonFile.js';
+import strToMachineName from '../util/strToMachineName.js';
+import installDependencies from '../util/project/installDependencies.js';
+import executeScript from '../util/fs/executeScript.js';
+import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform.js';
+import log from '../lib/log.js';
+import { EXIT_ERROR } from '../lib/constants.js';
 
 const git = simpleGit();
 
@@ -39,7 +38,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
   return async (
     name: string,
     targetDirectory?: string,
-    options?: InitHandlerOptions
+    options?: InitHandlerOptions,
   ): Promise<void> => {
     // Load information about the project and platform.
     const { name: autoPlatformName, emulsifyParentDirectory } =
@@ -53,7 +52,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       return log(
         'error',
         'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
 
@@ -68,7 +67,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     // Collection information about the starter kit, such as the target directory,
     // starter repository, and checkout version.
     const starters = getAvailableStarters();
-    const starter = starters.find(R.propEq('platform')(platformName));
+    const starter = starters.find((s) => s.platform === platformName);
 
     const targetParent = targetDirectory || emulsifyParentDirectory;
     const target = targetParent ? join(targetParent, machineName) : undefined;
@@ -80,7 +79,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       return log(
         'error',
         'Unable to find a directory to put Emulsify in. Please specify a directory using the "path" argument: emulsify init myTheme ./themes',
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
 
@@ -90,7 +89,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
         `Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter ${
           getAvailableStarters()[0].repository
         }`,
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
 
@@ -98,7 +97,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       return log(
         'error',
         `The intended target is already occupied: ${target}`,
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
 
@@ -114,7 +113,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
           ? {
               '--branch': checkout,
             }
-          : {}
+          : {},
       );
 
       // Construct an Emulsify configuration object.
@@ -127,7 +126,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
             machineName,
           },
           starter: { repository },
-        }
+        },
       );
 
       progress.tick(30, {
@@ -146,7 +145,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       const initPath = join(
         target,
         EMULSIFY_PROJECT_HOOK_FOLDER,
-        EMULSIFY_PROJECT_HOOK_INIT
+        EMULSIFY_PROJECT_HOOK_INIT,
       );
       if (existsSync(initPath)) {
         await executeScript(initPath);
@@ -163,13 +162,13 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
 
       log('success', `Created an Emulsify project in ${target}.`);
       getInitSuccessMessageForPlatform(platformName, target).map(
-        ({ method, message }) => log(method, message)
+        ({ method, message }) => log(method, message),
       );
     } catch (e) {
       log(
         'error',
         `Unable to pull down ${repository}: ${String(e)}`,
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
   };

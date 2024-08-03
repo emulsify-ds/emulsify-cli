@@ -3,7 +3,7 @@
  * Exports methods that MUST be used when writing to the console.
  */
 
-import { Chalk, dim, cyan, yellow, green, red } from 'chalk';
+import chalk from 'chalk';
 import R from 'ramda';
 import consolaGlobalInstance, { Consola } from 'consola';
 
@@ -16,14 +16,14 @@ export type LogMethod =
   | 'success';
 
 const logMethodColorMap: {
-  [name in LogMethod]: Chalk;
+  [name in LogMethod]: (message: string) => string;
 } = {
-  info: cyan,
-  error: red.bold,
-  warn: yellow.bold,
-  debug: dim,
-  verbose: dim,
-  success: green,
+  info: chalk.cyan,
+  error: chalk.red.bold,
+  warn: chalk.yellow.bold,
+  debug: chalk.dim,
+  verbose: chalk.dim,
+  success: chalk.green,
 };
 
 const withColor =
@@ -47,7 +47,7 @@ const logMethodEq =
 export default function log(
   method: LogMethod,
   message: string,
-  exitCode?: number
+  exitCode?: number,
 ): void {
   // @TODO: add support for --verbose flag, and suppress verbose messages
   // by default when --verbose is false or void.

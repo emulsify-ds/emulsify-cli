@@ -7,7 +7,7 @@ import { join, resolve } from 'path';
 import { compileFromFile } from 'json-schema-to-typescript';
 import { writeFileSync } from 'fs';
 
-import main from './jsonSchemaToTs';
+import main from './jsonSchemaToTs.js';
 
 describe('jsonSchemaToTs', () => {
   beforeEach(() => {
@@ -26,11 +26,11 @@ describe('jsonSchemaToTs', () => {
       {
         cwd: expect.any(String) as jest.Expect,
         style: { singleQuote: true },
-      }
+      },
     );
     expect(writeFileSync).toHaveBeenCalledWith(
       join(typesDir, '_system.d.ts'),
-      'the typescript'
+      'the typescript',
     );
   });
 });

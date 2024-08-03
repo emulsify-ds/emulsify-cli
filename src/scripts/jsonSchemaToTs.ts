@@ -1,7 +1,10 @@
-import { join, resolve } from 'path';
+import { join, resolve, dirname } from 'path';
 import { writeFileSync } from 'fs';
 import { compileFromFile } from 'json-schema-to-typescript';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 /**
  * Takes a list of schema names that have corresponding schema files in
  * the src/schemas folder. Loads up each json-schema file,
@@ -21,8 +24,8 @@ export default async function main(schemas: string[]): Promise<void[]> {
         style: {
           singleQuote: true,
         },
-      }).then((ts) => writeFileSync(join(typesDir, `_${name}.d.ts`), ts))
-    )
+      }).then((ts) => writeFileSync(join(typesDir, `_${name}.d.ts`), ts)),
+    ),
   );
 }
 

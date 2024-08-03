@@ -1,7 +1,7 @@
 import { Platform } from '@emulsify-cli/config';
 
 export const getMachineNameSpaceReplacement = (
-  platform?: Platform
+  platform?: Platform,
 ): '-' | '_' => (platform === 'drupal' ? '_' : '-');
 
 /**
@@ -14,7 +14,7 @@ export const getMachineNameSpaceReplacement = (
  */
 export default function strToMachineName(
   str: string,
-  platform?: Platform
+  platform?: Platform,
 ): string {
   return (
     str

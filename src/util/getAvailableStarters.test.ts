@@ -1,4 +1,4 @@
-import getAvailableStarters from './getAvailableStarters';
+import getAvailableStarters from './getAvailableStarters.js';
 
 describe('getAvailableStarters', () => {
   it('can return a list of Emulsify starters', () => {

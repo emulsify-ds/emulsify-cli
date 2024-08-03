@@ -1,4 +1,4 @@
-import catchLater from './catchLater';
+import catchLater from './catchLater.js';
 
 describe('catchLater', () => {
   it('can prevent unhandled promise rejections when caught asynchronously', async () => {
@@ -6,7 +6,7 @@ describe('catchLater', () => {
       /* eslint-disable-next-line @typescript-eslint/require-await */
       (async () => {
         throw new Error('pancakes');
-      })()
+      })(),
     );
 
     await new Promise((res) => setTimeout(() => res(undefined), 0));

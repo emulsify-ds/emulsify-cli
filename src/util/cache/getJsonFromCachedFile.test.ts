@@ -1,16 +1,16 @@
 jest.mock('./getCachedItemPath', () =>
   jest.fn(
     () =>
-      '/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json'
-  )
+      '/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json',
+  ),
 );
 jest.mock('../../lib/constants', () => ({
   CACHE_DIR: 'home/uname/.emulsify/cache',
 }));
 jest.mock('../fs/loadJsonFile', () => jest.fn());
 
-import loadJsonFile from '../fs/loadJsonFile';
-import getJsonFromCachedFile from './getJsonFromCachedFile';
+import loadJsonFile from '../fs/loadJsonFile.js';
+import getJsonFromCachedFile from './getJsonFromCachedFile.js';
 
 const loadJsonMock = (loadJsonFile as jest.Mock).mockResolvedValue({
   the: 'json',
@@ -24,13 +24,13 @@ describe('getJsonFromCachedFile', () => {
         'systems',
         ['compound'],
         'branch-name',
-        'system.emulsify.json'
-      )
+        'system.emulsify.json',
+      ),
     ).resolves.toEqual({
       the: 'json',
     });
     expect(loadJsonMock).toHaveBeenCalledWith(
-      '/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json'
+      '/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json',
     );
   });
 
@@ -42,8 +42,8 @@ describe('getJsonFromCachedFile', () => {
         'systems',
         ['compound'],
         'branch-name',
-        'system.emulsify.json'
-      )
+        'system.emulsify.json',
+      ),
     ).resolves.toBe(undefined);
   });
 });

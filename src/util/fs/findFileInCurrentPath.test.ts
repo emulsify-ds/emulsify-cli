@@ -1,6 +1,6 @@
 import process from 'process';
 import fs from 'fs';
-import findFileInCurrentPath from './findFileInCurrentPath';
+import findFileInCurrentPath from './findFileInCurrentPath.js';
 
 const cwd = jest
   .spyOn(process, 'cwd')
@@ -18,13 +18,13 @@ describe('findFileInCurrentPath', () => {
       .mockReturnValueOnce(false)
       .mockReturnValueOnce(true);
     expect(findFileInCurrentPath('composer.json')).toBe(
-      '/home/uname/Projects/cornflake/composer.json'
+      '/home/uname/Projects/cornflake/composer.json',
     );
   });
 
   it('Memoize its values', () => {
     expect(findFileInCurrentPath('composer.json')).toBe(
-      '/home/uname/Projects/cornflake/composer.json'
+      '/home/uname/Projects/cornflake/composer.json',
     );
     expect(cwd).not.toHaveBeenCalled();
   });

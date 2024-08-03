@@ -2,10 +2,10 @@ import type { Components } from '@emulsify-cli/config';
 
 export default function buildComponentDependencyList(
   components: Components,
-  name: string
+  name: string,
 ) {
   const rootComponent = components.filter(
-    (component) => component.name == name
+    (component) => component.name == name,
   );
   if (rootComponent.length == 0) return [];
   let finalList = [name];
@@ -16,8 +16,8 @@ export default function buildComponentDependencyList(
         finalList = [
           ...new Set(
             finalList.concat(
-              buildComponentDependencyList(components, componentName)
-            )
+              buildComponentDependencyList(components, componentName),
+            ),
           ),
         ];
       });

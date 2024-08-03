@@ -1,5 +1,5 @@
 import { LogMethod } from 'src/lib/log';
-import { cyan } from 'chalk';
+import chalk from 'chalk';
 
 /**
  * Returns the init success log messages for a given platform.
@@ -9,7 +9,7 @@ import { cyan } from 'chalk';
  */
 export default function getInitSuccessMessageForPlatform(
   platform: string,
-  directory: string
+  directory: string,
 ): {
   method: LogMethod;
   message: string;
@@ -36,13 +36,13 @@ export default function getInitSuccessMessageForPlatform(
       {
         method: 'verbose',
         message: `
-            ${cyan('List systems')}: emulsify system list
-            ${cyan('Install a system')}: emulsify system install "system-name"
-            ${cyan(
-              'Install default system with default components'
+            ${chalk.cyan('List systems')}: emulsify system list
+            ${chalk.cyan('Install a system')}: emulsify system install "system-name"
+            ${chalk.cyan(
+              'Install default system with default components',
             )}: emulsify system install compound
-            ${cyan(
-              'Install default system with all components'
+            ${chalk.cyan(
+              'Install default system with all components',
             )}: emulsify system install compound --all
             `,
       },
