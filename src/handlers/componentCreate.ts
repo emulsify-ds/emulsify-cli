@@ -18,14 +18,14 @@ import generateComponent from '../util/project/generateComponent';
  */
 export default async function componentCreate(
   name: string,
-  { directory }: CreateComponentHandlerOptions
+  { directory }: CreateComponentHandlerOptions,
 ): Promise<void> {
   const emulsifyConfig = await getEmulsifyConfig();
   if (!emulsifyConfig) {
     return log(
       'error',
       'No Emulsify project detected. You must run this command within an existing Emulsify project. For more information about creating Emulsify projects, run "emulsify init --help"',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -34,7 +34,7 @@ export default async function componentCreate(
     return log(
       'error',
       'You must select and install a system before you can create components. To see a list of out-of-the-box systems, run "emulsify system list". You can install a system by running "emulsify system install [name]"',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -44,7 +44,7 @@ export default async function componentCreate(
     return log(
       'error',
       `The system specified in your project configuration is not valid. Please make sure your ${EMULSIFY_PROJECT_CONFIG_FILE} file contains a system.repository value that is a valid git url`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -55,7 +55,7 @@ export default async function componentCreate(
     return log(
       'error',
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -64,7 +64,7 @@ export default async function componentCreate(
     'systems',
     [systemName],
     emulsifyConfig.system.checkout,
-    EMULSIFY_SYSTEM_CONFIG_FILE
+    EMULSIFY_SYSTEM_CONFIG_FILE,
   );
 
   // If no systemConf is present, error with a helpful message.
@@ -72,20 +72,20 @@ export default async function componentCreate(
     return log(
       'error',
       `Unable to load configuration for the ${systemName} system. Please make sure the system is installed.`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
   const variantName = emulsifyConfig.variant.platform;
   const variantConf = systemConf.variants?.find(
-    ({ platform }) => platform === variantName
+    ({ platform }) => platform === variantName,
   );
 
   if (!variantConf) {
     return log(
       'error',
       `Unable to find configuration for the variant ${variantName} within the system ${systemName}.`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -98,7 +98,7 @@ export default async function componentCreate(
   } catch (e) {
     log(
       'error',
-      `Unable to create the ${name} component: ${(e as Error).toString()}`
+      `Unable to create the ${name} component: ${(e as Error).toString()}`,
     );
   }
 }

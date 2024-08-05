@@ -16,7 +16,7 @@ export default async function copyFileFromCache(
   bucket: CacheBucket,
   itemPath: CacheItemPath,
   destination: string,
-  force = false
+  force = false,
 ): Promise<void> {
   const source = getCachedItemPath(bucket, itemPath);
 

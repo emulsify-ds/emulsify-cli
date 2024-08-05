@@ -21,8 +21,8 @@ export default async function main(schemas: string[]): Promise<void[]> {
         style: {
           singleQuote: true,
         },
-      }).then((ts) => writeFileSync(join(typesDir, `_${name}.d.ts`), ts))
-    )
+      }).then((ts) => writeFileSync(join(typesDir, `_${name}.d.ts`), ts)),
+    ),
   );
 }
 

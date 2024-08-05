@@ -11,7 +11,7 @@ describe('getLatestRepositoryTag', () => {
     expect.assertions(1);
     gitTagsMock.mockReturnValueOnce({ latest: '1.5.0' });
     const latest = await getRepositoryLatestTag(
-      'git@github.com:emulsify-ds/compound.git'
+      'git@github.com:emulsify-ds/compound.git',
     );
     expect(latest).toBe('1.5.0');
   });
@@ -19,7 +19,7 @@ describe('getLatestRepositoryTag', () => {
   it('Can return empty if no latest tag is found', async () => {
     expect.assertions(1);
     const latest = await getRepositoryLatestTag(
-      'git@github.com:emulsify-ds/compoun.git'
+      'git@github.com:emulsify-ds/compoun.git',
     );
     expect(latest).toBe('');
   });

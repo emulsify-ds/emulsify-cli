@@ -30,6 +30,6 @@ describe('constats', () => {
         expect.assertions(1);
         expect(value).toBe(expectation);
       });
-    }
+    },
   );
 });

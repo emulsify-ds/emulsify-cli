@@ -15,7 +15,7 @@ const loadJsonMock = (loadJsonFile as jest.Mock).mockResolvedValue({
   },
 });
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/uname/Projects/cornflake/composer.json'
+  '/home/uname/Projects/cornflake/composer.json',
 );
 
 describe('getDrupalInfo', () => {
@@ -40,7 +40,7 @@ describe('getDrupalInfo', () => {
     expect.assertions(1);
     loadJsonMock.mockImplementationOnce(() => {
       throw new Error(
-        'Big oof, the composer.json file that was found cannot be loaded.'
+        'Big oof, the composer.json file that was found cannot be loaded.',
       );
     });
 

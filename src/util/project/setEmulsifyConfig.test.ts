@@ -12,7 +12,7 @@ import setEmulsifyConfig from './setEmulsifyConfig';
 
 (writeToJsonFile as jest.Mock).mockResolvedValue(undefined);
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/path/project.emulsify.json'
+  '/path/project.emulsify.json',
 );
 const getConfigMock = (getEmulsifyConfig as jest.Mock).mockResolvedValue({
   originalConfig: 'value',
@@ -29,7 +29,7 @@ describe('setEmulsifyConfig', () => {
         toOverride: {
           config: 'new value',
         },
-      } as unknown as EmulsifyProjectConfiguration)
+      } as unknown as EmulsifyProjectConfiguration),
     ).resolves.toBe(undefined);
     expect(findFileMock).toHaveBeenCalledWith(EMULSIFY_PROJECT_CONFIG_FILE);
     expect(getConfigMock).toHaveBeenCalled();
@@ -38,7 +38,7 @@ describe('setEmulsifyConfig', () => {
       {
         originalConfig: 'value',
         toOverride: { config: 'new value' },
-      }
+      },
     );
   });
 
@@ -46,11 +46,11 @@ describe('setEmulsifyConfig', () => {
     expect.assertions(1);
     findFileMock.mockReturnValueOnce(undefined);
     await expect(
-      setEmulsifyConfig({} as unknown as EmulsifyProjectConfiguration)
+      setEmulsifyConfig({} as unknown as EmulsifyProjectConfiguration),
     ).rejects.toThrow(
       Error(
-        `Unable to set values for ${EMULSIFY_PROJECT_CONFIG_FILE} because you are not in an Emulsify project`
-      )
+        `Unable to set values for ${EMULSIFY_PROJECT_CONFIG_FILE} because you are not in an Emulsify project`,
+      ),
     );
   });
 
@@ -58,11 +58,11 @@ describe('setEmulsifyConfig', () => {
     expect.assertions(1);
     getConfigMock.mockReturnValueOnce(undefined);
     await expect(
-      setEmulsifyConfig({} as unknown as EmulsifyProjectConfiguration)
+      setEmulsifyConfig({} as unknown as EmulsifyProjectConfiguration),
     ).rejects.toThrow(
       Error(
-        `Unable to set values for ${EMULSIFY_PROJECT_CONFIG_FILE} because you are not in an Emulsify project`
-      )
+        `Unable to set values for ${EMULSIFY_PROJECT_CONFIG_FILE} because you are not in an Emulsify project`,
+      ),
     );
   });
 });

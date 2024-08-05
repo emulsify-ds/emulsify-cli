@@ -11,7 +11,7 @@ import { StructureHandlerResponse } from '@emulsify-cli/handlers';
 const storiesTemplate = (
   componentName: string,
   filename: string,
-  directory: string
+  directory: string,
 ) =>
   `import ${componentName}Twig from './${filename}.twig';
 import ${componentName}Data from './${filename}.yml';
@@ -71,7 +71,7 @@ ${filename}__content: 'It is a descriptive text of the ${componentName} componen
 export default async function generateComponent(
   variant: EmulsifyVariant,
   componentName: string,
-  componentDirectory?: string
+  componentDirectory?: string,
 ): Promise<void> {
   let directory = componentDirectory || '';
   // Gather information about the current Emulsify project. If none exists,
@@ -79,7 +79,7 @@ export default async function generateComponent(
   const path = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
   if (!path) {
     throw new Error(
-      'Unable to find an Emulsify project to create the component into.'
+      'Unable to find an Emulsify project to create the component into.',
     );
   }
 
@@ -92,20 +92,19 @@ export default async function generateComponent(
       choices: variant.structureImplementations,
     };
 
-    const response = await inquirer.prompt<StructureHandlerResponse>(
-      structureSelector
-    );
+    const response =
+      await inquirer.prompt<StructureHandlerResponse>(structureSelector);
     directory = response.structure;
   }
 
   // Find the component's parent structure within the given variant configuration. If the
   // component's parent structure does not exist, throw an error.
   const structure = variant.structureImplementations.find(
-    ({ name }) => name === directory
+    ({ name }) => name === directory,
   );
   if (!structure) {
     throw new Error(
-      `The structure (${directory}) specified within the component ${componentName} is invalid.`
+      `The structure (${directory}) specified within the component ${componentName} is invalid.`,
     );
   }
 
@@ -156,13 +155,13 @@ export default async function generateComponent(
   const storiesTemplateFile = storiesTemplate(
     componentName,
     filename,
-    directory
+    directory,
   );
   const storiesTemplatePath = join(destination, `${filename}.stories.js`);
   fs.writeFileSync(storiesTemplatePath, storiesTemplateFile);
 
   return log(
     'success',
-    `The ${componentName} component has been created in ${structure.directory}`
+    `The ${componentName} component has been created in ${structure.directory}`,
   );
 }

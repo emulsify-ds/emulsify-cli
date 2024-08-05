@@ -39,7 +39,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
   return async (
     name: string,
     targetDirectory?: string,
-    options?: InitHandlerOptions
+    options?: InitHandlerOptions,
   ): Promise<void> => {
     // Load information about the project and platform.
     const { name: autoPlatformName, emulsifyParentDirectory } =
@@ -53,7 +53,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       return log(
         'error',
         'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
 
@@ -80,7 +80,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       return log(
         'error',
         'Unable to find a directory to put Emulsify in. Please specify a directory using the "path" argument: emulsify init myTheme ./themes',
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
 
@@ -90,7 +90,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
         `Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter ${
           getAvailableStarters()[0].repository
         }`,
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
 
@@ -98,7 +98,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       return log(
         'error',
         `The intended target is already occupied: ${target}`,
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
 
@@ -114,7 +114,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
           ? {
               '--branch': checkout,
             }
-          : {}
+          : {},
       );
 
       // Construct an Emulsify configuration object.
@@ -127,7 +127,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
             machineName,
           },
           starter: { repository },
-        }
+        },
       );
 
       progress.tick(30, {
@@ -146,7 +146,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       const initPath = join(
         target,
         EMULSIFY_PROJECT_HOOK_FOLDER,
-        EMULSIFY_PROJECT_HOOK_INIT
+        EMULSIFY_PROJECT_HOOK_INIT,
       );
       if (existsSync(initPath)) {
         await executeScript(initPath);
@@ -163,13 +163,13 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
 
       log('success', `Created an Emulsify project in ${target}.`);
       getInitSuccessMessageForPlatform(platformName, target).map(
-        ({ method, message }) => log(method, message)
+        ({ method, message }) => log(method, message),
       );
     } catch (e) {
       log(
         'error',
         `Unable to pull down ${repository}: ${String(e)}`,
-        EXIT_ERROR
+        EXIT_ERROR,
       );
     }
   };

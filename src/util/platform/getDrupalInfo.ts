@@ -21,7 +21,7 @@ export default async function getDrupalInfo(): Promise<PlatformInstanceInfo | vo
     if (json && json.extra?.['drupal-scaffold']?.locations?.['web-root']) {
       const root = join(
         dirname(path),
-        json.extra['drupal-scaffold'].locations['web-root']
+        json.extra['drupal-scaffold'].locations['web-root'],
       );
 
       return {

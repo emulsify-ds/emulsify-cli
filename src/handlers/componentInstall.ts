@@ -19,14 +19,14 @@ import catchLater from '../util/catchLater';
  */
 export default async function componentInstall(
   name: string,
-  { force, all }: InstallComponentHandlerOptions
+  { force, all }: InstallComponentHandlerOptions,
 ): Promise<void> {
   const emulsifyConfig = await getEmulsifyConfig();
   if (!emulsifyConfig) {
     return log(
       'error',
       'No Emulsify project detected. You must run this command within an existing Emulsify project. For more information about creating Emulsify projects, run "emulsify init --help"',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -35,7 +35,7 @@ export default async function componentInstall(
     return log(
       'error',
       'You must select and install a system before you can install components. To see a list of out-of-the-box systems, run "emulsify system list". You can install a system by running "emulsify system install [name]"',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -45,7 +45,7 @@ export default async function componentInstall(
     return log(
       'error',
       `The system specified in your project configuration is not valid. Please make sure your ${EMULSIFY_PROJECT_CONFIG_FILE} file contains a system.repository value that is a valid git url`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -56,7 +56,7 @@ export default async function componentInstall(
     return log(
       'error',
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -65,7 +65,7 @@ export default async function componentInstall(
     'systems',
     [systemName],
     emulsifyConfig.system.checkout,
-    EMULSIFY_SYSTEM_CONFIG_FILE
+    EMULSIFY_SYSTEM_CONFIG_FILE,
   );
 
   // If no systemConf is present, error with a helpful message.
@@ -73,27 +73,27 @@ export default async function componentInstall(
     return log(
       'error',
       `Unable to load configuration for the ${systemName} system. Please make sure the system is installed.`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
   const variantName = emulsifyConfig.variant.platform;
   const variantConf = systemConf.variants?.find(
-    ({ platform }) => platform === variantName
+    ({ platform }) => platform === variantName,
   );
 
   if (!variantConf) {
     return log(
       'error',
       `Unable to find configuration for the variant ${variantName} within the system ${systemName}.`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
   if (!name && !all) {
     return log(
       'error',
-      'Please specify a component to install, or pass --all to install all available components.'
+      'Please specify a component to install, or pass --all to install all available components.',
     );
   }
 
@@ -109,17 +109,17 @@ export default async function componentInstall(
             variantConf,
             component.name,
             // Force install all components.
-            true
-          )
+            true,
+          ),
         ),
-      ])
+      ]),
     );
   }
   // If there is only one component to install, add one single promise for the single component.
   else {
     const componentsWithDependencies = buildComponentDependencyList(
       variantConf.components,
-      name
+      name,
     );
     componentsWithDependencies.forEach((componentName) => {
       components.push([
@@ -129,8 +129,8 @@ export default async function componentInstall(
             systemConf,
             variantConf,
             componentName,
-            force
-          )
+            force,
+          ),
         ),
       ]);
     });
@@ -141,7 +141,7 @@ export default async function componentInstall(
       await promise;
       log(
         'success',
-        `Success! The ${cname} component has been added to your project.`
+        `Success! The ${cname} component has been added to your project.`,
       );
     } catch (e) {
       log('error', `Unable to install ${cname}: ${(e as Error).toString()}`);

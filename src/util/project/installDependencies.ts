@@ -5,7 +5,7 @@ import { exec } from 'child_process';
  * @param directory directory in which `npm install` should be run.
  */
 export default async function installDependencies(
-  directory: string
+  directory: string,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     exec(
@@ -19,7 +19,7 @@ export default async function installDependencies(
         }
 
         resolve(stdout ? stdout : stderr);
-      }
+      },
     );
   });
 }

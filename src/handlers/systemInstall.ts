@@ -40,7 +40,7 @@ import variantSchema from '../schemas/variant.json';
  */
 export async function getSystemRepoInfo(
   name: string | void,
-  { repository, checkout }: InstallSystemHandlerOptions
+  { repository, checkout }: InstallSystemHandlerOptions,
 ): Promise<(GitCloneOptions & { name: string }) | void> {
   // If a repository and checkout were specified, use that to return system information.
   if (repository && checkout) {
@@ -86,7 +86,7 @@ export async function getSystemRepoInfo(
  */
 export default async function systemInstall(
   name: string | void,
-  options: InstallSystemHandlerOptions
+  options: InstallSystemHandlerOptions,
 ): Promise<void> {
   // @TODO: extract some of this into a common util.
   // Attempt to load emulsify config. If none is found, this is not an Emulsify project.
@@ -95,7 +95,7 @@ export default async function systemInstall(
     return log(
       'error',
       'No Emulsify project detected. You must run this command within an existing Emulsify project. For more information about creating Emulsify projects, run "emulsify init --help"',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -103,7 +103,7 @@ export default async function systemInstall(
     return log(
       'error',
       'You have already selected a system within this Emulsify project.',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -114,7 +114,7 @@ export default async function systemInstall(
     return log(
       'error',
       'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -135,7 +135,7 @@ export default async function systemInstall(
     'systems',
     [repo.name],
     repo.checkout,
-    EMULSIFY_SYSTEM_CONFIG_FILE
+    EMULSIFY_SYSTEM_CONFIG_FILE,
   );
 
   // If there is no configuration file within the system, error.
@@ -143,7 +143,7 @@ export default async function systemInstall(
     return log(
       'error',
       `The system you attempted to install (${repo.name}) is invalid, as it does not contain a valid configuration file.`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -168,7 +168,7 @@ export default async function systemInstall(
     return log(
       'error',
       `The system install failed due to the validation errors reported above. Please fix the the errors in the "${systemConf.name}" configuration and try again.`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -179,19 +179,19 @@ export default async function systemInstall(
     return log(
       'error',
       'Unable to determine a variant for the specified system. Please either pass in a valid variant using the --variant flag.',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
   // @TODO: clone variants into their own cache bucket if a reference is provided.
   const variantConf = systemConf.variants?.find(
-    ({ platform }) => platform === variantName
+    ({ platform }) => platform === variantName,
   );
   if (!variantConf) {
     return log(
       'error',
       `Unable to find a variant (${variantName}) within the system (${systemConf.name}). Please check your Emulsify project config and make sure the project.platform value is correct, or select a system with a variant that is compatible with the platform you are using.`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -220,7 +220,7 @@ export default async function systemInstall(
     return log(
       'error',
       'Unable to update your Emulsify project configuration.',
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
@@ -228,7 +228,7 @@ export default async function systemInstall(
     // Install all required components or all available components.
     const componentsList = variantConf.components;
     const requiredComponents = componentsList.filter(
-      ({ required }) => required === true
+      ({ required }) => required === true,
     );
 
     for (const component of options.all ? componentsList : requiredComponents) {
@@ -236,7 +236,7 @@ export default async function systemInstall(
         systemConf,
         variantConf,
         component.name,
-        true
+        true,
       );
     }
 
@@ -249,7 +249,7 @@ export default async function systemInstall(
       ? join(
           path,
           EMULSIFY_PROJECT_HOOK_FOLDER,
-          EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL
+          EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
         )
       : undefined;
     if (hookPath && existsSync(hookPath)) {
@@ -259,15 +259,15 @@ export default async function systemInstall(
     return log(
       'error',
       `Unable to install system assets and/or required components: ${R.toString(
-        e
+        e,
       )}`,
-      EXIT_ERROR
+      EXIT_ERROR,
     );
   }
 
   return log(
     'success',
     `Successfully installed the ${systemConf.name} system using the ${variantConf.platform} variant.`,
-    EXIT_SUCCESS
+    EXIT_SUCCESS,
   );
 }

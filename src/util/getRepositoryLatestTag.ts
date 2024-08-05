@@ -9,7 +9,7 @@ const git = simpleGit();
  * @returns string of the latest tag or undefined.
  */
 export default async function getRepositoryLatestTag(
-  url: string
+  url: string,
 ): Promise<string | undefined> {
   const repositoryTags = await git
     .init()

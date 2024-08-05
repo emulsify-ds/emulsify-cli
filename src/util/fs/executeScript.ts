@@ -5,7 +5,7 @@ import { exec } from 'child_process';
  * @param scriptPath string path to the script that should be executed.
  */
 export default async function executeScript(
-  scriptPath: string
+  scriptPath: string,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     exec(scriptPath, (error, stdout, stderr) => {
