@@ -19,5 +19,10 @@ export default async function getAvailableSystems(): Promise<
       repository: 'https://github.com/emulsify-ds/compound.git',
       platforms: ['drupal'],
     },
+    {
+      name: 'emulsify-ui-kit',
+      repository: 'https://github.com/emulsify-ds/emulsify-ui-kit.git',
+      platforms: ['drupal'],
+    },
   ];
 }
