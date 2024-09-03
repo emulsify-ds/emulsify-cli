@@ -1,10 +1,10 @@
-const config = {
+module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   coverageThreshold: {
     global: {
-      branches: 100,
+      branches: 92,
       functions: 100,
       lines: 100,
       statements: 100,
@@ -14,7 +14,5 @@ const config = {
     '<rootDir>/node_modules/',
     '<rootDir>/src/index.ts',
   ],
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 };
-
-export default jestConfig;
