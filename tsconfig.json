@@ -13,10 +13,11 @@
 		"resolveJsonModule": true,
 		"noUnusedParameters": true,
 		"noUnusedLocals": true,
-		"esModuleInterop": true
+		"esModuleInterop": true,
+		"skipLibCheck": true
 	},
 	"ts-node": {
-		"esm": true,
+		"esm": true
 	},
 	"include": ["src/**/*.ts"]
 }

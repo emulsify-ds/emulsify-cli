@@ -14,7 +14,7 @@ const config = {
     '<rootDir>/node_modules/',
     '<rootDir>/src/index.ts',
   ],
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
 };
 
-export default config;
+export default jestConfig;
