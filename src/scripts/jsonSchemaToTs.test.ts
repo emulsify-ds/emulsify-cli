@@ -1,3 +1,5 @@
+import { jest } from '@jest/globals';
+
 jest.mock('json-schema-to-typescript', () => ({
   /* eslint-disable-next-line @typescript-eslint/require-await */
   compileFromFile: jest.fn().mockImplementation(async () => 'the typescript'),
