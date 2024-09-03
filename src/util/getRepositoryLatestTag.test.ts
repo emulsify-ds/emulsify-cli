@@ -1,15 +1,25 @@
 import getRepositoryLatestTag from './getRepositoryLatestTag.js';
-import git from 'simple-git';
+import simpleGit from 'simple-git';
 
-const gitTagsMock = git().tags as jest.Mock;
+jest.mock('simple-git');
 
-describe('getLatestRepositoryTag', () => {
+describe('getRepositoryLatestTag', () => {
+  let gitMock: any;
+
   beforeEach(() => {
-    gitTagsMock.mockClear();
+    gitMock = {
+      init: jest.fn().mockReturnThis(),
+      addRemote: jest.fn().mockReturnThis(),
+      fetch: jest.fn().mockReturnThis(),
+      tags: jest.fn().mockResolvedValue({ latest: '1.5.0' }),
+    };
+    (simpleGit as jest.Mock).mockReturnValue(gitMock);
+    jest.clearAllMocks();
   });
+
   it('Can get latest tag from repository url', async () => {
     expect.assertions(1);
-    gitTagsMock.mockReturnValueOnce({ latest: '1.5.0' });
+    gitMock.tags.mockResolvedValueOnce({ latest: '1.5.0' });
     const latest = await getRepositoryLatestTag(
       'git@github.com:emulsify-ds/compound.git',
     );
@@ -18,9 +28,36 @@ describe('getLatestRepositoryTag', () => {
 
   it('Can return empty if no latest tag is found', async () => {
     expect.assertions(1);
+    gitMock.tags.mockResolvedValueOnce({ latest: '' });
     const latest = await getRepositoryLatestTag(
       'git@github.com:emulsify-ds/compoun.git',
     );
     expect(latest).toBe('');
+  });
+
+  it('should handle errors during init', async () => {
+    gitMock.init.mockRejectedValueOnce(new Error('init error'));
+    const url = 'git@github.com:emulsify-ds/compound.git';
+    await expect(getRepositoryLatestTag(url)).rejects.toThrow('init error');
+  });
+
+  it('should handle errors during addRemote', async () => {
+    gitMock.addRemote.mockRejectedValueOnce(new Error('addRemote error'));
+    const url = 'git@github.com:emulsify-ds/compound.git';
+    await expect(getRepositoryLatestTag(url)).rejects.toThrow(
+      'addRemote error',
+    );
+  });
+
+  it('should handle errors during fetch', async () => {
+    gitMock.fetch.mockRejectedValueOnce(new Error('fetch error'));
+    const url = 'git@github.com:emulsify-ds/compound.git';
+    await expect(getRepositoryLatestTag(url)).rejects.toThrow('fetch error');
+  });
+
+  it('should handle errors during tags', async () => {
+    gitMock.tags.mockRejectedValueOnce(new Error('tags error'));
+    const url = 'git@github.com:emulsify-ds/compound.git';
+    await expect(getRepositoryLatestTag(url)).rejects.toThrow('tags error');
   });
 });

@@ -23,4 +23,23 @@ describe('getEmulsifyConfig', () => {
     findFileMock.mockReturnValueOnce(undefined);
     await expect(getEmulsifyConfig()).resolves.toBe(undefined);
   });
+
+  it('handles errors thrown by findFileInCurrentPath', async () => {
+    findFileMock.mockImplementationOnce(() => {
+      throw new Error('findFile error');
+    });
+    await expect(getEmulsifyConfig()).rejects.toThrow('findFile error');
+  });
+
+  it('handles errors thrown by loadJsonFile', async () => {
+    (loadJsonFile as jest.Mock).mockImplementationOnce(() => {
+      throw new Error('loadJsonFile error');
+    });
+    await expect(getEmulsifyConfig()).rejects.toThrow('loadJsonFile error');
+  });
+
+  it('handles invalid JSON structure', async () => {
+    (loadJsonFile as jest.Mock).mockResolvedValueOnce({});
+    await expect(getEmulsifyConfig()).resolves.toEqual({});
+  });
 });
