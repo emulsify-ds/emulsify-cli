@@ -29,7 +29,7 @@
     "husky:commit-msg": "commitlint --edit $1",
     "husky:pre-commit": "lint-staged",
     "husky:pre-push": "npm run test",
-    "test": "jest --coverage --silent --testPathIgnorePatterns=init.test.ts log.test.ts jsonSchemaToTs.test.ts getInitSuccessMessageForPlatform.test.ts getPlatformInfo.test.ts getAvailableStarters.test.ts ",
+    "test": "jest --coverage --silent --testPathIgnorePatterns=init.test.ts log.test.ts getInitSuccessMessageForPlatform.test.ts getPlatformInfo.test.ts getAvailableStarters.test.ts ",
     "type": "tsc --noEmit",
     "twatch": "jest --no-coverage --watch --verbose",
     "semantic-release": "semantic-release",

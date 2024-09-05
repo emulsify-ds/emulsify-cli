@@ -1,10 +1,8 @@
-import { join, resolve, dirname } from 'path';
+import { join, resolve } from 'path';
 import { writeFileSync } from 'fs';
 import { compileFromFile } from 'json-schema-to-typescript';
-import { fileURLToPath } from 'url';
+import { resolveCurrentPath } from '../util/fs/resolveCurrentPath.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 /**
  * Takes a list of schema names that have corresponding schema files in
  * the src/schemas folder. Loads up each json-schema file,
@@ -14,8 +12,9 @@ const __dirname = dirname(__filename);
  * @param schemas array containing the names of schemas within src/schemas.
  */
 export default async function main(schemas: string[]): Promise<void[]> {
-  const schemaDir = resolve(__dirname, '..', 'schemas');
-  const typesDir = resolve(__dirname, '..', 'types');
+  const { directoryPath } = resolveCurrentPath();
+  const typesDir = resolve(directoryPath, '..', 'types');
+  const schemaDir = resolve(directoryPath, '..', 'schemas');
 
   return await Promise.all(
     schemas.map((name) =>
