@@ -7,9 +7,7 @@
     "platform": {
       "type": "string",
       "description": "Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9",
-      "enum": [
-        "drupal"
-      ]
+      "enum": ["drupal"]
     },
     "structureImplementations": {
       "type": "array",
@@ -27,10 +25,7 @@
           }
         },
         "additionalProperties": false,
-        "required": [
-          "name",
-          "directory"
-        ]
+        "required": ["name", "directory"]
       }
     },
     "components": {
@@ -64,10 +59,7 @@
           }
         },
         "additionalProperties": false,
-        "required": [
-          "name",
-          "structure"
-        ]
+        "required": ["name", "structure"]
       }
     },
     "directories": {
@@ -94,11 +86,7 @@
           }
         },
         "additionalProperties": false,
-        "required": [
-          "name",
-          "path",
-          "destinationPath"
-        ]
+        "required": ["name", "path", "destinationPath"]
       }
     },
     "files": {
@@ -125,11 +113,7 @@
           }
         },
         "additionalProperties": false,
-        "required": [
-          "name",
-          "path",
-          "destinationPath"
-        ]
+        "required": ["name", "path", "destinationPath"]
       }
     }
   },

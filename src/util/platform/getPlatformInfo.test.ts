@@ -12,13 +12,13 @@ describe('getPlatformInfo', () => {
       platformMajorVersion: 9,
     });
 
-    await expect(getPlatformInfo()).resolves.toMatchInlineSnapshot(`
-      Object {
-        "name": "drupal",
-        "platformMajorVersion": 9,
-        "root": "/home/uname/Projects/cornflake",
-      }
-    `);
+    const expected = {
+      name: 'drupal',
+      platformMajorVersion: 9,
+      root: '/home/uname/Projects/cornflake',
+    };
+
+    await expect(getPlatformInfo()).resolves.toEqual(expected);
   });
 
   it('returns undefined if the user (cwd) is not within any detectable platform', async () => {
