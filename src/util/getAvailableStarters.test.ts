@@ -6,10 +6,10 @@ describe('getAvailableStarters', () => {
 
     const expected = [
       {
-        checkout: 'master',
-        platform: 'drupal',
-        platformMajorVersion: 9,
-        repository: 'https://github.com/emulsify-ds/emulsify-drupal.git',
+        platform: 'none',
+        platformMajorVersion: 1,
+        repository: 'https://github.com/emulsify-ds/emulsify-starter',
+        checkout: 'develop',
       },
     ];
 

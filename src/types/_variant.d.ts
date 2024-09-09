@@ -8,7 +8,7 @@
 /**
  * Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9
  */
-export type Platform = 'drupal';
+export type Platform = 'none' | 'drupal';
 /**
  * Array containing an object for each structure specified in the system to which this variant belongs
  */

@@ -21,9 +21,9 @@ const rmdirMock = (fs.promises.rmdir as jest.Mock).mockReturnValue(true);
 const gitCloneMock = git().clone as jest.Mock;
 const getPlatformInfoMock = (getPlatformInfo as jest.Mock).mockReturnValue({
   root,
-  name: 'drupal',
-  emulsifyParentDirectory: `${root}/themes`,
-  platformMajorVersion: 9,
+  name: 'none',
+  emulsifyParentDirectory: `${root}`,
+  platformMajorVersion: 1,
 });
 const logMock = log as jest.Mock;
 const writeJsonFileMock = writeToJsonFile as jest.Mock;
@@ -43,24 +43,24 @@ describe('init', () => {
     expect.assertions(3);
     await init(progress)('cornflake');
     expect(gitCloneMock).toHaveBeenCalledWith(
-      'https://github.com/emulsify-ds/emulsify-drupal.git',
-      '/home/uname/Projects/cornflake/themes/cornflake',
-      { '--branch': 'master' },
+      'https://github.com/emulsify-ds/emulsify-starter',
+      '/home/uname/Projects/cornflake/cornflake',
+      { '--branch': 'develop' },
     );
     expect(rmdirMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/themes/cornflake/.git',
+      '/home/uname/Projects/cornflake/cornflake/.git',
       { recursive: true },
     );
     expect(writeJsonFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/themes/cornflake/project.emulsify.json',
+      '/home/uname/Projects/cornflake/cornflake/project.emulsify.json',
       {
         project: {
-          platform: 'drupal',
+          platform: 'none',
           machineName: 'cornflake',
           name: 'cornflake',
         },
         starter: {
-          repository: 'https://github.com/emulsify-ds/emulsify-drupal.git',
+          repository: 'https://github.com/emulsify-ds/emulsify-starter',
         },
       },
     );
@@ -70,7 +70,8 @@ describe('init', () => {
     expect.assertions(5);
     await init(progress)('cornflake');
     expect(progress.tick).toHaveBeenNthCalledWith(1, 10, {
-      message: 'using starter for drupal, validating config',
+      message:
+        'using starter for none as the selected platform, validating config',
     });
     expect(progress.tick).toHaveBeenNthCalledWith(2, 10, {
       message: 'validation complete, cloning starter',
@@ -89,14 +90,14 @@ describe('init', () => {
 
   it('can clone an Emulsify starter based on CLI input, and log a success message upon completion', async () => {
     expect.assertions(2);
-    await init(progress)('cornflake', `${root}/themes/subDir`, {
-      starter: 'https://github.com/cornflake-ds/cornflake-drupal.git',
-      checkout: '5.6x',
+    await init(progress)('cornflake', `${root}`, {
+      starter: 'https://github.com/emulsify-ds/emulsify-starter',
+      checkout: 'develop',
     });
     expect(gitCloneMock).toHaveBeenCalledWith(
-      'https://github.com/cornflake-ds/cornflake-drupal.git',
-      '/home/uname/Projects/cornflake/themes/subDir/cornflake',
-      { '--branch': '5.6x' },
+      'https://github.com/emulsify-ds/emulsify-starter',
+      '/home/uname/Projects/cornflake/cornflake',
+      { '--branch': 'develop' },
     );
     expect(logMock).toHaveBeenCalledTimes(5);
   });
@@ -104,13 +105,13 @@ describe('init', () => {
   it('can clone an Emulsify starter without a provided checkout', async () => {
     expect.assertions(1);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
-    await init(progress)('cornflake', `${root}/themes/subDir`, {
-      starter: 'https://github.com/cornflake-ds/cornflake-drupal.git',
+    await init(progress)('cornflake', `${root}`, {
+      starter: 'https://github.com/emulsify-ds/emulsify-starter',
       platform: 'wordpress',
     });
     expect(gitCloneMock).toHaveBeenCalledWith(
-      'https://github.com/cornflake-ds/cornflake-drupal.git',
-      '/home/uname/Projects/cornflake/themes/subDir/cornflake',
+      'https://github.com/emulsify-ds/emulsify-starter',
+      '/home/uname/Projects/cornflake/cornflake',
       {},
     );
   });
@@ -119,7 +120,7 @@ describe('init', () => {
     expect.assertions(1);
     await init(progress)('cornflake');
     expect(installDependencies).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/themes/cornflake',
+      '/home/uname/Projects/cornflake/cornflake',
     );
   });
 
@@ -128,7 +129,7 @@ describe('init', () => {
     existsSyncMock.mockReturnValueOnce(false).mockReturnValueOnce(true);
     await init(progress)('cornflake');
     expect(executeScript).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/themes/cornflake/.cli/init.js',
+      '/home/uname/Projects/cornflake/cornflake/.cli/init.js',
     );
   });
 
@@ -150,7 +151,7 @@ describe('init', () => {
     await init(progress)('cornflake');
     expect(logMock).toHaveBeenCalledWith(
       'error',
-      'Unable to pull down https://github.com/emulsify-ds/emulsify-drupal.git: Error: Does not exist!',
+      'Unable to pull down https://github.com/emulsify-ds/emulsify-starter: Error: Does not exist!',
       1,
     );
   });
@@ -176,7 +177,7 @@ describe('init', () => {
     await init(progress)('cornflake', root);
     expect(logMock).toHaveBeenCalledWith(
       'error',
-      'Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter https://github.com/emulsify-ds/emulsify-drupal.git',
+      'Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter https://github.com/emulsify-ds/emulsify-starter',
       1,
     );
   });
@@ -187,7 +188,7 @@ describe('init', () => {
     await init(progress)('cornflake');
     expect(logMock).toHaveBeenCalledWith(
       'error',
-      'The intended target is already occupied: /home/uname/Projects/cornflake/themes/cornflake',
+      'The intended target is already occupied: /home/uname/Projects/cornflake/cornflake',
       1,
     );
   });
