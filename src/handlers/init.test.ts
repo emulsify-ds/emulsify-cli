@@ -45,7 +45,7 @@ describe('init', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-starter',
       '/home/uname/Projects/cornflake/cornflake',
-      { '--branch': 'develop' },
+      { '--branch': 'main' },
     );
     expect(rmdirMock).toHaveBeenCalledWith(
       '/home/uname/Projects/cornflake/cornflake/.git',
@@ -92,12 +92,12 @@ describe('init', () => {
     expect.assertions(2);
     await init(progress)('cornflake', `${root}`, {
       starter: 'https://github.com/emulsify-ds/emulsify-starter',
-      checkout: 'develop',
+      checkout: 'main',
     });
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-starter',
       '/home/uname/Projects/cornflake/cornflake',
-      { '--branch': 'develop' },
+      { '--branch': 'main' },
     );
     expect(logMock).toHaveBeenCalledTimes(5);
   });
