@@ -119,7 +119,7 @@ export interface EmulsifySystem {
     /**
      * Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9
      */
-    platform: 'drupal';
+    platform: 'none' | 'drupal';
     structureImplementations: StructureImplementations;
     components: Components;
     directories?: Directories;

@@ -57,7 +57,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     }
 
     progress.tick(10, {
-      message: `using starter for ${platformName}, validating config`,
+      message: `using starter for ${platformName} as the selected platform, validating config`,
     });
 
     // Choose a folder name. If no machineName is given, create one using the project name.

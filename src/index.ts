@@ -26,7 +26,7 @@ program
   )
   .option(
     '-s --starter <repository>',
-    'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-drupal.git',
+    'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-starter',
   )
   .option(
     '-c --checkout <commit/branch/tag>',

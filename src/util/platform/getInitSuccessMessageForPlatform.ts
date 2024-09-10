@@ -14,7 +14,7 @@ export default function getInitSuccessMessageForPlatform(
   method: LogMethod;
   message: string;
 }[] {
-  if (platform === 'drupal') {
+  if (platform === 'none' || platform === 'drupal') {
     return [
       {
         method: 'info',

@@ -12,9 +12,9 @@ describe('getGitRepoNameFromUrl', () => {
     expect.assertions(1);
     expect(
       getGitRepoNameFromUrl(
-        'https://github.com/emulsify-ds/emulsify-drupal.git',
+        'https://github.com/emulsify-ds/emulsify-starter.git',
       ),
-    ).toBe('emulsify-drupal');
+    ).toBe('emulsify-starter');
   });
 
   it('can throw an Error if given an invalid git url', () => {
@@ -23,7 +23,7 @@ describe('getGitRepoNameFromUrl', () => {
       getGitRepoNameFromUrl('');
     }).toThrow(Error);
     expect(() => {
-      getGitRepoNameFromUrl('https://github.com/emulsify-ds/emulsify-drupal');
+      getGitRepoNameFromUrl('https://github.com/emulsify-ds/emulsify-starter');
     }).toThrow(Error);
   });
 });
