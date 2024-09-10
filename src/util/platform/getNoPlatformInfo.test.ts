@@ -14,14 +14,15 @@ describe('getNoPlatformInfo', () => {
     await expect(getNoPlatformInfo()).resolves.toEqual({
       name: 'none',
       platformMajorVersion: 1,
-      emulsifyParentDirectory: '/home/uname/Projects/cornflake',
-      root: '/home/uname/Projects/cornflake/',
+      emulsifyParentDirectory:
+        '/home/uname/Projects/cornflake/web/themes/custom',
+      root: '/home/uname/Projects/cornflake',
     });
   });
 
   it('returns void if no project.emulsify.json file is found', async () => {
     expect.assertions(1);
     findFileMock.mockReturnValueOnce(undefined);
-    await expect(getNoPlatformInfo()).resolves.toBe(undefined);
+    await expect(getNoPlatformInfo()).resolves.toBeUndefined();
   });
 });

@@ -1,7 +1,6 @@
-import type { PlatformInstanceInfo } from '@emulsify-cli/internal';
-import { resolve } from 'path';
+import { dirname, join } from 'path';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
-import { resolveCurrentPath } from '../fs/resolveCurrentPath.js';
+import type { PlatformInstanceInfo } from '@emulsify-cli/internal';
 
 /**
  * Looks for no platform specified within the cwd, and returns information
@@ -12,13 +11,11 @@ export default async function getNoPlatformInfo(): Promise<PlatformInstanceInfo 
   if (!existingProject) {
     return undefined;
   }
-  const { directoryPath } = resolveCurrentPath();
-  const root = resolve(directoryPath);
-
+  const root = dirname(existingProject);
   return {
     root,
     name: 'none',
-    emulsifyParentDirectory: root,
+    emulsifyParentDirectory: join(root, 'web', 'themes', 'custom'),
     platformMajorVersion: 1,
   };
 }
