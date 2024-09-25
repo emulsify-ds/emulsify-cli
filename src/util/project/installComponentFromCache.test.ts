@@ -3,9 +3,9 @@ jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
 import { pathExists } from 'fs-extra';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
-import copyItemFromCache from '../cache/copyItemFromCache';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import installComponentFromCache from './installComponentFromCache';
+import copyItemFromCache from '../cache/copyItemFromCache.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import installComponentFromCache from './installComponentFromCache.js';
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',

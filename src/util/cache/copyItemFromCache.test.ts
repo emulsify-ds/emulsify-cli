@@ -5,7 +5,7 @@ jest.mock('./getCachedItemPath', () =>
   ),
 );
 import { copy, remove } from 'fs-extra';
-import copyItemFromCache from './copyItemFromCache';
+import copyItemFromCache from './copyItemFromCache.js';
 
 describe('copyItemFromCache', () => {
   it('can copy an item from cache to the given destination', async () => {

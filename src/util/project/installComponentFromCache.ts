@@ -1,9 +1,9 @@
 import { pathExists } from 'fs-extra';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
 import { join, dirname } from 'path';
-import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import copyItemFromCache from '../cache/copyItemFromCache';
+import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import copyItemFromCache from '../cache/copyItemFromCache.js';
 
 /**
  * Installs a specified component within the Emulsify project the user is currently within.

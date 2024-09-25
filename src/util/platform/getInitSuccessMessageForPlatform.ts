@@ -1,5 +1,5 @@
 import { LogMethod } from 'src/lib/log';
-import { cyan } from 'chalk';
+import { cyan } from 'colorette';
 
 /**
  * Returns the init success log messages for a given platform.
@@ -14,7 +14,7 @@ export default function getInitSuccessMessageForPlatform(
   method: LogMethod;
   message: string;
 }[] {
-  if (platform === 'drupal') {
+  if (platform === 'none' || platform === 'drupal') {
     return [
       {
         method: 'info',

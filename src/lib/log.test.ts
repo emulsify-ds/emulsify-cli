@@ -9,7 +9,7 @@ jest
   .spyOn(global.process, 'exit')
   .mockImplementation(R.identity as () => never);
 
-import log from './log';
+import log from './log.js';
 
 describe('log', () => {
   it('can log info messages', () => {

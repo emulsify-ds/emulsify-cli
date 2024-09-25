@@ -2,9 +2,9 @@ jest.mock('../cache/copyItemFromCache', () => jest.fn());
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
-import copyItemFromCache from '../cache/copyItemFromCache';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import installGeneralAssetsFromCache from './installGeneralAssetsFromCache';
+import copyItemFromCache from '../cache/copyItemFromCache.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import installGeneralAssetsFromCache from './installGeneralAssetsFromCache.js';
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',

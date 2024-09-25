@@ -1,9 +1,9 @@
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 jest.mock('../fs/loadJsonFile', () => jest.fn());
 
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import loadJsonFile from '../fs/loadJsonFile';
-import getDrupalInfo from './getDrupalInfo';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import loadJsonFile from '../fs/loadJsonFile.js';
+import getDrupalInfo from './getDrupalInfo.js';
 
 const loadJsonMock = (loadJsonFile as jest.Mock).mockResolvedValue({
   extra: {

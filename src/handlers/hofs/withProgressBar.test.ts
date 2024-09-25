@@ -2,7 +2,7 @@ class PB {}
 jest.mock('progress', () => {
   return PB;
 });
-import withProgressBar from './withProgressBar';
+import withProgressBar from './withProgressBar.js';
 
 describe('withProgressBar', () => {
   it('creates a ProgressBar object, and passes it into the given handler fn', () => {
