@@ -2,6 +2,8 @@ import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import simpleGit from 'simple-git';
 import ProgressBar from 'progress';
+import inquirer from 'inquirer';
+import { AnyQuestion } from 'inquirer/dist/cjs/types/types.js';
 
 import type {
   EmulsifyProjectConfiguration,
@@ -25,6 +27,28 @@ import { EXIT_ERROR } from '../lib/constants.js';
 
 const git = simpleGit();
 
+export const DIRECTORY = 1;
+export const questions: AnyQuestion<String>[] = [
+  {
+    type: 'input',
+    name: 'name',
+    message: 'Project name:',
+    default: 'emulsifyTheme',
+  },
+  {
+    type: 'input',
+    name: 'targetDirectory',
+    message: 'Target directory:',
+    default: './',
+  },
+  {
+    type: 'input',
+    name: 'platform',
+    message: 'Platform:',
+    default: 'drupal',
+  },
+];
+
 /**
  * Handler for the initialization command.
  *
@@ -36,13 +60,28 @@ const git = simpleGit();
  */
 export default function init(progress: InstanceType<typeof ProgressBar>) {
   return async (
-    name: string,
+    name?: string,
     targetDirectory?: string,
     options?: InitHandlerOptions,
   ): Promise<void> => {
     // Load information about the project and platform.
     const { name: autoPlatformName, emulsifyParentDirectory } =
       (await getPlatformInfo()) || {};
+
+    if (typeof name === 'undefined') {
+      questions[DIRECTORY].default = emulsifyParentDirectory;
+      const response = await inquirer.prompt(questions as any);
+      if (response?.targetDirectory) targetDirectory = response.targetDirectory;
+      if (response?.platform) options = { platform: response.platform };
+      if (response?.name) name = response.name;
+    }
+    if (!name) {
+      return log(
+        'error',
+        'Unable to determine the project name. Please provide a valid project name.',
+        EXIT_ERROR,
+      );
+    }
 
     // If no platform name is given, and none can be detected, exit and error.
     const platformName = (options?.platform || autoPlatformName) as

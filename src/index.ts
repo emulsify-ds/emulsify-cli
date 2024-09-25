@@ -16,7 +16,7 @@ program
   );
 
 program
-  .command('init <name> [path]', {
+  .command('init [name] [path]', {
     isDefault: true,
   })
   .description('Initialize an Emulsify project')

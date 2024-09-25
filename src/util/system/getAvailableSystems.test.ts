@@ -14,6 +14,11 @@ describe('getAvailableSystems', () => {
         repository: 'https://github.com/emulsify-ds/emulsify-ui-kit.git',
         platforms: ['none', 'drupal'],
       },
+      {
+        name: 'emulsify-ui-kit',
+        repository: 'https://github.com/emulsify-ds/emulsify-ui-kit.git',
+        platforms: ['drupal'],
+      },
     ]);
   });
 });
