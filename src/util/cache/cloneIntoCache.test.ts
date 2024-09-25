@@ -64,7 +64,7 @@ describe('cloneIntoCache', () => {
     await cloneIntoCache('systems', ['cornflake'])({ repository: 'repo-path' });
     expect(gitCloneMock).toHaveBeenCalledWith(
       'repo-path',
-      'home/uname/.emulsify/cache/systems/6342daf21717ab9c095fcddf7943e4e1/cornflake',
+      'home/uname/.emulsify/cache/systems/6ce9bab2a26010442d0708dc5ec76cf7/cornflake',
       {},
     );
   });

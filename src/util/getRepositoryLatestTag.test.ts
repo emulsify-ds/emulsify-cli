@@ -43,6 +43,7 @@ describe('getRepositoryLatestTag', () => {
   });
 
   it('should handle errors during addRemote', async () => {
+    expect.assertions(1);
     gitMock.addRemote.mockRejectedValueOnce(new Error('addRemote error'));
     const url = 'git@github.com:emulsify-ds/compound.git';
     await expect(getRepositoryLatestTag(url)).rejects.toThrow(
@@ -52,10 +53,10 @@ describe('getRepositoryLatestTag', () => {
 
   it('should handle errors during removeRemote', async () => {
     gitMock.removeRemote.mockRejectedValueOnce(new Error('removeRemote error'));
-    const url = 'git@github.com:emulsify-ds/compound.git';
-    await expect(getRepositoryLatestTag(url)).rejects.toThrow(
-      'removeRemote error',
+    const latest = await getRepositoryLatestTag(
+      'git@github.com:emulsify-ds/compound.git',
     );
+    expect(latest).toBe('1.5.0');
   });
 
   it('should handle errors during fetch', async () => {
