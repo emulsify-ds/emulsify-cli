@@ -10,6 +10,7 @@ describe('getRepositoryLatestTag', () => {
     gitMock = {
       init: jest.fn().mockReturnThis(),
       addRemote: jest.fn().mockReturnThis(),
+      removeRemote: jest.fn().mockReturnThis(),
       fetch: jest.fn().mockReturnThis(),
       tags: jest.fn().mockResolvedValue({ latest: '1.5.0' }),
     };
@@ -46,6 +47,14 @@ describe('getRepositoryLatestTag', () => {
     const url = 'git@github.com:emulsify-ds/compound.git';
     await expect(getRepositoryLatestTag(url)).rejects.toThrow(
       'addRemote error',
+    );
+  });
+
+  it('should handle errors during removeRemote', async () => {
+    gitMock.removeRemote.mockRejectedValueOnce(new Error('removeRemote error'));
+    const url = 'git@github.com:emulsify-ds/compound.git';
+    await expect(getRepositoryLatestTag(url)).rejects.toThrow(
+      'removeRemote error',
     );
   });
 

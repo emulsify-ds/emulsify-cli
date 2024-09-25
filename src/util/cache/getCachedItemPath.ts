@@ -32,6 +32,11 @@ export default function getCachedItemPath(
     throw new Error(`Unable to find ${EMULSIFY_PROJECT_CONFIG_FILE}`);
   }
 
+  // Preventing oddity when checkout isn't set.
+  if (!checkout || typeof checkout === 'undefined') {
+    checkout = '';
+  }
+
   return join(
     CACHE_DIR,
     bucket,
