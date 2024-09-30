@@ -22,7 +22,7 @@
   "scripts": {
     "build": "npm run build-schema-types && npm run build-ts",
     "build-ts": "tsc --build tsconfig.dist.json",
-    "build-schema-types": "node --no-warnings=ExperimentalWarning --loader ts-node/esm ./src/scripts/jsonSchemaToTs.ts",
+    "build-schema-types": "node --import ./src/register.mjs ./src/scripts/jsonSchemaToTs.ts",
     "watch": "nodemon --watch src --ext ts,json --ignore src/types --exec npm run build",
     "watch-ts": "nodemon --watch src --ext ts,json --ignore src/types --exec npm run build-ts",
     "format": "prettier --write './src/**/*.{js,ts}'",
