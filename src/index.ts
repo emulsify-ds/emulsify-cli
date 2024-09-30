@@ -6,6 +6,7 @@ import systemList from './handlers/systemList.js';
 import systemInstall from './handlers/systemInstall.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
+import componentCreate from './handlers/componentCreate.js';
 
 // Main program commands.
 program
@@ -98,6 +99,17 @@ component
   )
   .alias('i')
   .action(componentInstall);
+component
+  .command('create [name]')
+  .option(
+    '-d --directory <directory>',
+    'Used to set the directory where the new component is to be created',
+  )
+  .alias('c')
+  .description(
+    "Create a component from within the current project's system and variant",
+  )
+  .action(componentCreate);
 
 // This doesn't seem to be used for anything.
 program.version('2');
