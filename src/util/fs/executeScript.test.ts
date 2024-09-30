@@ -5,7 +5,7 @@
 // @TODO: dig into this and figure out how to get typescript to use
 // the correct overload.
 import childproc from 'child_process';
-import executeScript from './executeScript';
+import executeScript from './executeScript.js';
 
 const execMock = jest.spyOn(childproc, 'exec');
 

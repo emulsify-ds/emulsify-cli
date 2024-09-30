@@ -1,4 +1,4 @@
-import getInitSuccessMessageForPlatform from './getInitSuccessMessageForPlatform';
+import getInitSuccessMessageForPlatform from './getInitSuccessMessageForPlatform.js';
 
 // The unsafe assignment rule is disabled for this file because
 // it is important to use `expect.any`. There is no reason to test the

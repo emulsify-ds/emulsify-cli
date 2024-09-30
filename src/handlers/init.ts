@@ -1,8 +1,9 @@
-import R from 'ramda';
 import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import simpleGit from 'simple-git';
 import ProgressBar from 'progress';
+import inquirer from 'inquirer';
+import { AnyQuestion } from 'inquirer/dist/cjs/types/types.js';
 
 import type {
   EmulsifyProjectConfiguration,
@@ -13,18 +14,40 @@ import {
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_PROJECT_HOOK_INIT,
   EMULSIFY_PROJECT_HOOK_FOLDER,
-} from '../lib/constants';
-import getPlatformInfo from '../util/platform/getPlatformInfo';
-import getAvailableStarters from '../util/getAvailableStarters';
-import writeToJsonFile from '../util/fs/writeToJsonFile';
-import strToMachineName from '../util/strToMachineName';
-import installDependencies from '../util/project/installDependencies';
-import executeScript from '../util/fs/executeScript';
-import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform';
-import log from '../lib/log';
-import { EXIT_ERROR } from '../lib/constants';
+} from '../lib/constants.js';
+import getPlatformInfo from '../util/platform/getPlatformInfo.js';
+import getAvailableStarters from '../util/getAvailableStarters.js';
+import writeToJsonFile from '../util/fs/writeToJsonFile.js';
+import strToMachineName from '../util/strToMachineName.js';
+import installDependencies from '../util/project/installDependencies.js';
+import executeScript from '../util/fs/executeScript.js';
+import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform.js';
+import log from '../lib/log.js';
+import { EXIT_ERROR } from '../lib/constants.js';
 
 const git = simpleGit();
+
+export const DIRECTORY = 1;
+export const questions: AnyQuestion<String>[] = [
+  {
+    type: 'input',
+    name: 'name',
+    message: 'Project name:',
+    default: 'emulsifyTheme',
+  },
+  {
+    type: 'input',
+    name: 'targetDirectory',
+    message: 'Target directory:',
+    default: './',
+  },
+  {
+    type: 'input',
+    name: 'platform',
+    message: 'Platform:',
+    default: 'drupal',
+  },
+];
 
 /**
  * Handler for the initialization command.
@@ -37,13 +60,28 @@ const git = simpleGit();
  */
 export default function init(progress: InstanceType<typeof ProgressBar>) {
   return async (
-    name: string,
+    name?: string,
     targetDirectory?: string,
     options?: InitHandlerOptions,
   ): Promise<void> => {
     // Load information about the project and platform.
     const { name: autoPlatformName, emulsifyParentDirectory } =
       (await getPlatformInfo()) || {};
+
+    if (typeof name === 'undefined') {
+      questions[DIRECTORY].default = emulsifyParentDirectory;
+      const response = await inquirer.prompt(questions as any);
+      if (response?.targetDirectory) targetDirectory = response.targetDirectory;
+      if (response?.platform) options = { platform: response.platform };
+      if (response?.name) name = response.name;
+    }
+    if (!name) {
+      return log(
+        'error',
+        'Unable to determine the project name. Please provide a valid project name.',
+        EXIT_ERROR,
+      );
+    }
 
     // If no platform name is given, and none can be detected, exit and error.
     const platformName = (options?.platform || autoPlatformName) as
@@ -58,7 +96,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     }
 
     progress.tick(10, {
-      message: `using starter for ${platformName}, validating config`,
+      message: `using starter for ${platformName} as the selected platform, validating config`,
     });
 
     // Choose a folder name. If no machineName is given, create one using the project name.
@@ -68,7 +106,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     // Collection information about the starter kit, such as the target directory,
     // starter repository, and checkout version.
     const starters = getAvailableStarters();
-    const starter = starters.find(R.propEq('platform')(platformName));
+    const starter = starters.find((s) => s.platform === platformName);
 
     const targetParent = targetDirectory || emulsifyParentDirectory;
     const target = targetParent ? join(targetParent, machineName) : undefined;

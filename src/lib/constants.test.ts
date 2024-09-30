@@ -4,7 +4,7 @@ import {
   UTIL_DIR,
   CACHE_DIR,
   EMULSIFY_PROJECT_CONFIG_FILE,
-} from './constants';
+} from './constants.js';
 
 jest.mock('os', () => ({
   homedir: () => '/home/username',

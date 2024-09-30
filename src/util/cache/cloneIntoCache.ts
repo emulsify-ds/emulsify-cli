@@ -5,7 +5,7 @@ import simpleGit from 'simple-git';
 import { existsSync, promises as fs } from 'fs';
 import { dirname } from 'path';
 
-import getCachedItemPath from './getCachedItemPath';
+import getCachedItemPath from './getCachedItemPath.js';
 
 /**
  * Clones a repository into the cache (util) directory, if it does not already exist.

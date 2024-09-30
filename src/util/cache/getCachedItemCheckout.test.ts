@@ -2,7 +2,7 @@ jest.mock('./getCachedItemPath', () =>
   jest.fn(() => '/home/uname/.emulsify/cache/systems/12345/compound'),
 );
 import git from 'simple-git';
-import getCachedItemCheckout from './getCachedItemCheckout';
+import getCachedItemCheckout from './getCachedItemCheckout.js';
 
 const gitBranchMock = git().branch as jest.Mock;
 gitBranchMock.mockResolvedValue({

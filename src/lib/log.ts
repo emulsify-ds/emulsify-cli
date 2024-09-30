@@ -3,7 +3,7 @@
  * Exports methods that MUST be used when writing to the console.
  */
 
-import { Chalk, dim, cyan, yellow, green, red } from 'chalk';
+import { cyan, red, yellow, green, dim, bold } from 'colorette';
 import R from 'ramda';
 import consolaGlobalInstance, { Consola } from 'consola';
 
@@ -16,11 +16,11 @@ export type LogMethod =
   | 'success';
 
 const logMethodColorMap: {
-  [name in LogMethod]: Chalk;
+  [name in LogMethod]: (message: string) => string;
 } = {
   info: cyan,
-  error: red.bold,
-  warn: yellow.bold,
+  error: (message: string) => bold(red(message)),
+  warn: (message: string) => bold(yellow(message)),
   debug: dim,
   verbose: dim,
   success: green,

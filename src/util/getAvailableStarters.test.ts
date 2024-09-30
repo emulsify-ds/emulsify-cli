@@ -1,4 +1,4 @@
-import getAvailableStarters from './getAvailableStarters';
+import getAvailableStarters from './getAvailableStarters.js';
 
 describe('getAvailableStarters', () => {
   it('can return a list of Emulsify starters', () => {
@@ -6,10 +6,16 @@ describe('getAvailableStarters', () => {
 
     const expected = [
       {
-        checkout: 'master',
+        platform: 'none',
+        platformMajorVersion: 1,
+        repository: 'https://github.com/emulsify-ds/emulsify-starter',
+        checkout: 'main',
+      },
+      {
         platform: 'drupal',
-        platformMajorVersion: 9,
-        repository: 'https://github.com/emulsify-ds/emulsify-drupal.git',
+        platformMajorVersion: 11,
+        repository: 'https://github.com/emulsify-ds/emulsify-drupal-starter',
+        checkout: 'main',
       },
     ];
 

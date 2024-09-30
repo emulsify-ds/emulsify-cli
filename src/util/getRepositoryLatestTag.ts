@@ -1,20 +1,23 @@
 import simpleGit from 'simple-git';
 
-const git = simpleGit();
+const getRepositoryLatestTag = async (repoUrl: string): Promise<string> => {
+  const git = simpleGit();
+  try {
+    await git.init();
 
-/**
- * Helper function to get the latest tag for a given repository url.
- *
- * @param url git url to use
- * @returns string of the latest tag or undefined.
- */
-export default async function getRepositoryLatestTag(
-  url: string,
-): Promise<string | undefined> {
-  const repositoryTags = await git
-    .init()
-    .addRemote('origin', url)
-    .fetch()
-    .tags();
-  return repositoryTags.latest;
-}
+    // If this gets run twice somehow, don't break, just try again.
+    try {
+      await git.removeRemote('origin');
+    } catch (error) {
+      // honestly no big deal if there is nothing to remove.
+    }
+    await git.addRemote('origin', repoUrl);
+    await git.fetch();
+    const tags = await git.tags();
+    return tags.latest || '';
+  } catch (error) {
+    throw error;
+  }
+};
+
+export default getRepositoryLatestTag;

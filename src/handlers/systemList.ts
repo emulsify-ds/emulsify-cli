@@ -1,5 +1,5 @@
-import log from '../lib/log';
-import getAvailableSystems from '../util/system/getAvailableSystems';
+import log from '../lib/log.js';
+import getAvailableSystems from '../util/system/getAvailableSystems.js';
 
 /**
  * Handler for the `system list` command.

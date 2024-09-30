@@ -13,22 +13,22 @@ import {
   EMULSIFY_SYSTEM_CONFIG_FILE,
   EMULSIFY_PROJECT_HOOK_FOLDER,
   EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
-} from '../lib/constants';
-import log from '../lib/log';
-import getAvailableSystems from '../util/system/getAvailableSystems';
-import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
-import cloneIntoCache from '../util/cache/cloneIntoCache';
-import getCachedItemCheckout from '../util/cache/getCachedItemCheckout';
-import getRepositoryLatestTag from '../util/getRepositoryLatestTag';
-import installComponentFromCache from '../util/project/installComponentFromCache';
-import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache';
-import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
-import setEmulsifyConfig from '../util/project/setEmulsifyConfig';
-import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
-import findFileInCurrentPath from '../util/fs/findFileInCurrentPath';
-import executeScript from '../util/fs/executeScript';
-import systemSchema from '../schemas/system.json';
-import variantSchema from '../schemas/variant.json';
+} from '../lib/constants.js';
+import log from '../lib/log.js';
+import getAvailableSystems from '../util/system/getAvailableSystems.js';
+import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl.js';
+import cloneIntoCache from '../util/cache/cloneIntoCache.js';
+import getCachedItemCheckout from '../util/cache/getCachedItemCheckout.js';
+import getRepositoryLatestTag from '../util/getRepositoryLatestTag.js';
+import installComponentFromCache from '../util/project/installComponentFromCache.js';
+import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache.js';
+import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
+import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
+import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
+import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
+import executeScript from '../util/fs/executeScript.js';
+import systemSchema from '../schemas/system.json' with { type: 'json' };
+import variantSchema from '../schemas/variant.json' with { type: 'json' };
 
 /**
  * Helper function that uses InstallSystemHandlerOptions input to determine what
@@ -65,7 +65,7 @@ export async function getSystemRepoInfo(
   // If a name was provided, attempt to find an out-of-the-box system with
   // the name, and use it to return system information.
   if (name) {
-    const system = (await getAvailableSystems()).find(R.propEq('name', name));
+    const system = (await getAvailableSystems()).find((s) => s.name === name);
     if (system) {
       return {
         name,

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { program } from 'commander';
-import withProgressBar from './handlers/hofs/withProgressBar';
-import init from './handlers/init';
-import systemList from './handlers/systemList';
-import systemInstall from './handlers/systemInstall';
-import componentList from './handlers/componentList';
-import componentInstall from './handlers/componentInstall';
-import componentCreate from './handlers/componentCreate';
+import withProgressBar from './handlers/hofs/withProgressBar.js';
+import init from './handlers/init.js';
+import systemList from './handlers/systemList.js';
+import systemInstall from './handlers/systemInstall.js';
+import componentList from './handlers/componentList.js';
+import componentInstall from './handlers/componentInstall.js';
+import componentCreate from './handlers/componentCreate.js';
 
 // Main program commands.
 program
@@ -17,7 +17,7 @@ program
   );
 
 program
-  .command('init <name> [path]', {
+  .command('init [name] [path]', {
     isDefault: true,
   })
   .description('Initialize an Emulsify project')
@@ -27,7 +27,7 @@ program
   )
   .option(
     '-s --starter <repository>',
-    'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-drupal.git',
+    'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-starter',
   )
   .option(
     '-c --checkout <commit/branch/tag>',
@@ -72,10 +72,11 @@ system
   .action(systemInstall);
 
 // Component sub-commands.
-const component = program.command(
-  'component',
-  'Parent command that contains sub-commands pertaining to components',
-);
+const component = program
+  .command('component')
+  .description(
+    'Parent command that contains sub-commands pertaining to components',
+  );
 component
   .command('list')
   .description(
@@ -110,8 +111,6 @@ component
   )
   .action(componentCreate);
 
-// Because './package.json' is outside of our defined rootDir of ./src
-// in tsconfig, we need to disable the next line.
-// eslint-disable-next-line
-program.version(require('./package.json').version);
+// This doesn't seem to be used for anything.
+program.version('2');
 void program.parseAsync(process.argv);
