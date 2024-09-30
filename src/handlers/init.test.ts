@@ -20,7 +20,7 @@ import { EXIT_ERROR } from '../lib/constants.js';
 const root = '/home/uname/Projects/cornflake';
 
 const existsSyncMock = (fs.existsSync as jest.Mock).mockReturnValue(false);
-const rmdirMock = (fs.promises.rmdir as jest.Mock).mockReturnValue(true);
+const rmMock = (fs.promises.rm as jest.Mock).mockReturnValue(true);
 const gitCloneMock = git().clone as jest.Mock;
 const getPlatformInfoMock = (getPlatformInfo as jest.Mock).mockReturnValue({
   root,
@@ -73,7 +73,7 @@ describe('init', () => {
       '/home/uname/Projects/cornflake/cornflake',
       { '--branch': 'main' },
     );
-    expect(rmdirMock).toHaveBeenCalledWith(
+    expect(rmMock).toHaveBeenCalledWith(
       '/home/uname/Projects/cornflake/cornflake/.git',
       { recursive: true },
     );
