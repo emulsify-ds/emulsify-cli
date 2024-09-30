@@ -7,6 +7,7 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { createRequire } from 'module';
 import {
   EXIT_ERROR,
   EXIT_SUCCESS,
@@ -27,8 +28,9 @@ import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import executeScript from '../util/fs/executeScript.js';
-import systemSchema from '../schemas/system.json' with { type: 'json' };
-import variantSchema from '../schemas/variant.json' with { type: 'json' };
+
+const systemSchema = createRequire(import.meta.url)('../schemas/system.json');
+const variantSchema = createRequire(import.meta.url)('../schemas/variant.json');
 
 /**
  * Helper function that uses InstallSystemHandlerOptions input to determine what
