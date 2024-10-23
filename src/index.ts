@@ -6,6 +6,11 @@ import systemList from './handlers/systemList.js';
 import systemInstall from './handlers/systemInstall.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
+import { createRequire } from 'module';
+import { cyan, green } from 'colorette';
+import boxen from 'boxen';
+
+const packageInfo = createRequire(import.meta.url)('../package.json');
 
 // Main program commands.
 program
@@ -99,6 +104,27 @@ component
   .alias('i')
   .action(componentInstall);
 
-// This doesn't seem to be used for anything.
-program.version('2');
+/*
+ * Generate a styled version message using boxen and colorette.
+ * This displays the product name and version in a visually appealing format.
+ *
+ *  ╭ Emulsify CLI ──────╮
+ *  │                    │
+ *  │   Version: 2.0.0   │
+ *  │                    │
+ *  ╰────────────────────╯
+ */
+const title = cyan(packageInfo.productName);
+const message = `Version: ${green(packageInfo.version)}`;
+
+const boxedMessage = boxen(message, {
+  title: title,
+  backgroundColor: 'black',
+  borderStyle: 'round',
+  borderColor: 'blue',
+  padding: 1,
+  margin: 1,
+});
+
+program.version(boxedMessage);
 void program.parseAsync(process.argv);
