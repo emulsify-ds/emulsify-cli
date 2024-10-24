@@ -24,8 +24,4 @@ declare module '@emulsify-cli/handlers' {
   export type CreateComponentHandlerOptions = {
     directory?: string;
   };
-
-  export type StructureHandlerResponse = {
-    structure: string;
-  };
 }

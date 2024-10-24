@@ -1,12 +1,14 @@
-import * as fs from 'fs';
-import { pathExists } from 'fs-extra';
 import type { EmulsifyVariant } from '@emulsify-cli/config';
+
+import inquirer from 'inquirer';
+import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
-import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import log from '../../lib/log';
-import inquirer, { QuestionCollection } from 'inquirer';
-import { StructureHandlerResponse } from '@emulsify-cli/handlers';
+import { pathExists } from 'fs-extra';
+
+import log from '../../lib/log.js';
+import { AnyQuestion } from 'inquirer/dist/cjs/types/types.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 
 const storiesTemplate = (
   componentName: string,
@@ -85,16 +87,14 @@ export default async function generateComponent(
 
   // Choose the component's parent structure within the given variant configuration.
   if (!directory) {
-    const structureSelector: QuestionCollection = {
+    const structureSelector: AnyQuestion<String> = {
       type: 'list',
-      name: 'structure',
+      name: 'directory',
       message: 'Choose a directory for the new component:',
       choices: variant.structureImplementations,
     };
-
-    const response =
-      await inquirer.prompt<StructureHandlerResponse>(structureSelector);
-    directory = response.structure;
+    const response = await inquirer.prompt(structureSelector as any);
+    directory = response.directory;
   }
 
   // Find the component's parent structure within the given variant configuration. If the
@@ -112,7 +112,7 @@ export default async function generateComponent(
   const parentPath = join(dirname(path), structure.directory);
   if (!(await pathExists(parentPath))) {
     // Create the component's parent directory.
-    fs.mkdirSync(parentPath);
+    await fs.mkdir(parentPath, { recursive: true });
   }
 
   // Calculate the destination path based on the path to the Emulsify project, the structure of the
@@ -121,9 +121,20 @@ export default async function generateComponent(
 
   // If the component already exists within the project,
   // throw an error.
-  if (await pathExists(destination)) {
-    throw new Error(`The component already exists in ${structure.directory}`);
+  const component = variant.components.find(
+    ({ name, structure }) =>
+      structure === componentDirectory && name === componentName,
+  );
+
+  if (component) {
+    throw new Error(
+      `The ${componentName} component already exists in ${structure.directory}`,
+    );
   }
+
+  // if (await pathExists(destination)) {
+  //   throw new Error(`The component already exists in ${structure.directory}`);
+  // }
 
   const filename = componentName
     .replace(/([a-z])([A-Z])/g, '$1_$2')
@@ -134,22 +145,22 @@ export default async function generateComponent(
     .toLowerCase();
 
   // Create the component directory
-  fs.mkdirSync(destination);
+  await fs.mkdir(destination, { recursive: true });
 
   // Generate twig template file
   const twigTemplateFile = twigTemplate(filename, className);
   const twigTemplatePath = join(destination, `${filename}.twig`);
-  fs.writeFileSync(twigTemplatePath, twigTemplateFile);
+  await fs.writeFile(twigTemplatePath, twigTemplateFile);
 
   // Generate yml template file
   const ymlTemplateFile = ymlTemplate(filename, componentName);
   const ymlTemplatePath = join(destination, `${filename}.yml`);
-  fs.writeFileSync(ymlTemplatePath, ymlTemplateFile);
+  await fs.writeFile(ymlTemplatePath, ymlTemplateFile);
 
   // Generate scss template file
   const scssTemplateFile = scssTemplate(className);
   const scssTemplatePath = join(destination, `${filename}.scss`);
-  fs.writeFileSync(scssTemplatePath, scssTemplateFile);
+  await fs.writeFile(scssTemplatePath, scssTemplateFile);
 
   // Generate stories template file
   const storiesTemplateFile = storiesTemplate(
@@ -158,7 +169,7 @@ export default async function generateComponent(
     directory,
   );
   const storiesTemplatePath = join(destination, `${filename}.stories.js`);
-  fs.writeFileSync(storiesTemplatePath, storiesTemplateFile);
+  await fs.writeFile(storiesTemplatePath, storiesTemplateFile);
 
   return log(
     'success',
