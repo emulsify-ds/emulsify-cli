@@ -1,7 +1,7 @@
 import type { CacheBucket, CacheItemPath } from '@emulsify-cli/cache';
 import { copy, remove } from 'fs-extra';
 import getCachedItemPath from './getCachedItemPath.js';
-import getEmulsifyConfig from '../project/getEmulsifyConfig';
+import getEmulsifyConfig from '../project/getEmulsifyConfig.js';
 
 /**
  * Accepts a cache bucket, item path, and item name, and copies the cached item to the
