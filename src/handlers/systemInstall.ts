@@ -120,16 +120,15 @@ export default async function systemInstall(
     );
   }
 
-  let checkout = repo.checkout;
   // Attempt to get latest tag if no branch was supplied.
-  if (!checkout) {
-    checkout = await getRepositoryLatestTag(repo.repository);
+  if (repo.checkout === undefined) {
+    repo.checkout = await getRepositoryLatestTag(repo.repository);
   }
 
   // Clone the system into the cache.
   await cloneIntoCache('systems', [repo.name])({
     repository: repo.repository,
-    checkout: checkout,
+    checkout: repo.checkout,
   });
 
   // Load the system configuration file.
