@@ -4,11 +4,11 @@ jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 jest.mock('../fs/writeToJsonFile', () => jest.fn());
 jest.mock('./getEmulsifyConfig', () => jest.fn());
 
-import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import writeToJsonFile from '../fs/writeToJsonFile';
-import getEmulsifyConfig from './getEmulsifyConfig';
-import setEmulsifyConfig from './setEmulsifyConfig';
+import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import writeToJsonFile from '../fs/writeToJsonFile.js';
+import getEmulsifyConfig from './getEmulsifyConfig.js';
+import setEmulsifyConfig from './setEmulsifyConfig.js';
 
 (writeToJsonFile as jest.Mock).mockResolvedValue(undefined);
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(

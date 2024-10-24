@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import loadJsonFile from './loadJsonFile';
+import loadJsonFile from './loadJsonFile.js';
 
 const readFileMock = fs.readFile as jest.Mock;
 

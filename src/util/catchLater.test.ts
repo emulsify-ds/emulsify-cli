@@ -1,20 +1,21 @@
 import catchLater from './catchLater';
 
 describe('catchLater', () => {
-  it('can prevent unhandled promise rejections when caught asynchronously', async () => {
-    const promise = catchLater(
-      /* eslint-disable-next-line @typescript-eslint/require-await */
-      (async () => {
-        throw new Error('pancakes');
-      })(),
-    );
+  it('should return a promise that resolves successfully', async () => {
+    const promise = Promise.resolve('success');
+    const result = await catchLater(promise);
+    expect(result).toBe('success');
+  });
 
-    await new Promise((res) => setTimeout(() => res(undefined), 0));
+  it('should return a promise that rejects', async () => {
+    const promise = Promise.reject(new Error('failure'));
+    await expect(catchLater(promise)).rejects.toThrow('failure');
+  });
 
-    try {
-      await promise;
-    } catch (e) {
-      expect(e).toEqual(Error('pancakes'));
-    }
+  it('should call the catch method on the promise', async () => {
+    const promise = Promise.reject(new Error('failure'));
+    const catchSpy = jest.spyOn(promise, 'catch');
+    catchLater(promise).catch(() => {}); // Ensure the promise is handled
+    expect(catchSpy).toHaveBeenCalled();
   });
 });

@@ -4,8 +4,8 @@ import type {
   CacheCheckout,
 } from '@emulsify-cli/cache';
 
-import getCachedItemPath from './getCachedItemPath';
-import loadJsonFile from '../fs/loadJsonFile';
+import getCachedItemPath from './getCachedItemPath.js';
+import loadJsonFile from '../fs/loadJsonFile.js';
 
 export default async function getJsonFromCachedFile<Output>(
   bucket: CacheBucket,

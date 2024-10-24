@@ -6,8 +6,11 @@ import type {
 
 import { join } from 'path';
 import { createHash } from 'crypto';
-import { CACHE_DIR, EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
+import {
+  CACHE_DIR,
+  EMULSIFY_PROJECT_CONFIG_FILE,
+} from '../../lib/constants.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 
 /**
  * Accepts a cache bucket, item path, and item name, and returns the full
@@ -27,6 +30,11 @@ export default function getCachedItemPath(
 
   if (!projectPath) {
     throw new Error(`Unable to find ${EMULSIFY_PROJECT_CONFIG_FILE}`);
+  }
+
+  // Preventing oddity when checkout isn't set.
+  if (!checkout || typeof checkout === 'undefined') {
+    checkout = '';
   }
 
   return join(
