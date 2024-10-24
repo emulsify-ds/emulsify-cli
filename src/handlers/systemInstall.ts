@@ -122,7 +122,7 @@ export default async function systemInstall(
 
   let checkout = repo.checkout;
   // Attempt to get latest tag if no branch was supplied.
-  if (!checkout) {
+  if (!checkout || checkout === undefined) {
     checkout = await getRepositoryLatestTag(repo.repository);
   }
 
