@@ -44,14 +44,5 @@ export default function cloneIntoCache(
           }
         : {},
     );
-
-    git.revparse(['HEAD --'], (err, commitId) => {
-      if (!err) {
-        console.log('Commit ID:', commitId.trim());
-        storeCacheBucketID(commitId.trim());
-      } else {
-        console.error('Error:', err);
-      }
-    });
   };
 }
