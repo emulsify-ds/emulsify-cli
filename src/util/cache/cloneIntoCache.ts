@@ -4,7 +4,6 @@ import type { GitCloneOptions } from '@emulsify-cli/git';
 import simpleGit from 'simple-git';
 import { existsSync, promises as fs } from 'fs';
 import { dirname } from 'path';
-import storeCacheBucketID from './storeCacheBucketID.js';
 
 import getCachedItemPath from './getCachedItemPath.js';
 
