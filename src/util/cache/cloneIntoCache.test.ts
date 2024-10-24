@@ -40,7 +40,7 @@ describe('cloneIntoCache', () => {
     existsSyncMock.mockReturnValueOnce(false).mockReturnValueOnce(false);
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
     expect(mkdirMock).toHaveBeenCalledWith(
-      'home/uname/.emulsify/cache/systems/2a39785f5c873d7a694ac505a8123bb9',
+      'home/uname/.emulsify/cache/systems/6ce9bab2a26010442d0708dc5ec76cf7',
       {
         recursive: true,
       },
@@ -53,7 +53,7 @@ describe('cloneIntoCache', () => {
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
     expect(gitCloneMock).toHaveBeenCalledWith(
       'repo-path',
-      'home/uname/.emulsify/cache/systems/2a39785f5c873d7a694ac505a8123bb9/cornflake',
+      'home/uname/.emulsify/cache/systems/6ce9bab2a26010442d0708dc5ec76cf7/cornflake',
       { '--branch': 'branch-name' },
     );
   });
