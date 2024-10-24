@@ -1,6 +1,7 @@
 import type { CacheBucket, CacheItemPath } from '@emulsify-cli/cache';
 import { copy, remove } from 'fs-extra';
 import getCachedItemPath from './getCachedItemPath.js';
+import getEmulsifyConfig from '../project/getEmulsifyConfig';
 
 /**
  * Accepts a cache bucket, item path, and item name, and copies the cached item to the
@@ -18,7 +19,17 @@ export default async function copyFileFromCache(
   destination: string,
   force = false,
 ): Promise<void> {
-  const source = getCachedItemPath(bucket, itemPath);
+  // Get the existing checkout setting if we have it and use it.
+  const emulsifyConfig = await getEmulsifyConfig();
+  let checkout = '';
+  if (
+    emulsifyConfig != undefined &&
+    emulsifyConfig.system &&
+    emulsifyConfig.system.checkout
+  ) {
+    checkout = emulsifyConfig.system.checkout;
+  }
+  const source = getCachedItemPath(bucket, itemPath, checkout);
 
   if (force) {
     await remove(destination);
