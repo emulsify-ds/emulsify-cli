@@ -71,10 +71,11 @@ system
   .action(systemInstall);
 
 // Component sub-commands.
-const component = program.command(
-  'component',
-  'Parent command that contains sub-commands pertaining to components',
-);
+const component = program
+  .command('component')
+  .description(
+    'Parent command that contains sub-commands pertaining to components',
+  );
 component
   .command('list')
   .description(
