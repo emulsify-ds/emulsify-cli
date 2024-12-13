@@ -7,7 +7,7 @@ jest.mock('../fs/findFileInCurrentPath.js');
 
 import inquirer from 'inquirer';
 import { pathExists } from 'fs-extra';
-import generateComponent from './generateComponent';
+import generateComponent from './generateComponent.js';
 import { EmulsifyVariant } from '@emulsify-cli/config';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 

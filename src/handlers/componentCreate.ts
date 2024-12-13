@@ -1,17 +1,16 @@
-import log from '../lib/log';
+import log from '../lib/log.js';
 import {
   EXIT_ERROR,
   EMULSIFY_SYSTEM_CONFIG_FILE,
   EMULSIFY_PROJECT_CONFIG_FILE,
-} from '../lib/constants';
+} from '../lib/constants.js';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import type { CreateComponentHandlerOptions } from '@emulsify-cli/handlers';
-import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
-import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
-import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
-import cloneIntoCache from '../util/cache/cloneIntoCache';
-
-import generateComponent from '../util/project/generateComponent';
+import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl.js';
+import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
+import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
+import cloneIntoCache from '../util/cache/cloneIntoCache.js';
+import generateComponent from '../util/project/generateComponent.js';
 
 /**
  * Handler for the `component create` command.
