@@ -6,6 +6,7 @@ import systemList from './handlers/systemList.js';
 import systemInstall from './handlers/systemInstall.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
+import componentCreate from './handlers/componentCreate.js';
 import { createRequire } from 'module';
 import { cyan, green } from 'colorette';
 import boxen from 'boxen';
@@ -103,6 +104,17 @@ component
   )
   .alias('i')
   .action(componentInstall);
+component
+  .command('create [name]')
+  .option(
+    '-d --directory <directory>',
+    'Used to set the directory where the new component is to be created',
+  )
+  .alias('c')
+  .description(
+    "Create a component from within the current project's system and variant",
+  )
+  .action(componentCreate);
 
 /*
  * Generate a styled version message using boxen and colorette.
