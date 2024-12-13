@@ -1,6 +1,7 @@
 {
   "name": "@emulsify/cli",
-  "version": "1.10.2",
+  "productName": "Emulsify CLI",
+  "version": "2.0.0",
   "description": "Command line interface for Emulsify",
   "repository": "git@github.com:emulsify-ds/emulsify-cli.git",
   "author": "Patrick Coffey <patrickcoffey48@gmail.com>",
@@ -22,7 +23,7 @@
   "scripts": {
     "build": "npm run build-schema-types && npm run build-ts",
     "build-ts": "tsc --build tsconfig.dist.json",
-    "build-schema-types": "node --no-warnings=ExperimentalWarning --loader ts-node/esm ./src/scripts/jsonSchemaToTs.ts",
+    "build-schema-types": "node --import ./src/register.mjs ./src/scripts/jsonSchemaToTs.ts",
     "watch": "nodemon --watch src --ext ts,json --ignore src/types --exec npm run build",
     "watch-ts": "nodemon --watch src --ext ts,json --ignore src/types --exec npm run build-ts",
     "format": "prettier --write './src/**/*.{js,ts}'",
@@ -62,6 +63,7 @@
     "@types/progress": "^2.0.5",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
+    "boxen": "^8.0.1",
     "colorette": "^2.0.20",
     "commander": "^12.0.0",
     "consola": "^2.15.3",
