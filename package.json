@@ -1,13 +1,13 @@
 {
   "name": "@emulsify/cli",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "description": "Command line interface for Emulsify",
   "repository": "git@github.com:emulsify-ds/emulsify-cli.git",
   "author": "Patrick Coffey <patrickcoffey48@gmail.com>",
   "license": "GPL-2.0",
   "private": false,
   "engines": {
-    "node": ">=24"
+    "node": ">=20"
   },
   "bin": {
     "emulsify": "dist/index.js"
