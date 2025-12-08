@@ -45,7 +45,7 @@ describe('init', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-drupal.git',
       '/home/uname/Projects/cornflake/themes/cornflake',
-      { '--branch': 'master' },
+      { '--branch': 'main' },
     );
     expect(rmdirMock).toHaveBeenCalledWith(
       '/home/uname/Projects/cornflake/themes/cornflake/.git',
