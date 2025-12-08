@@ -14,7 +14,7 @@ describe('getGitRepoNameFromUrl', () => {
       getGitRepoNameFromUrl(
         'https://github.com/emulsify-ds/emulsify-drupal-starter.git',
       ),
-    ).toBe('emulsify-drupal');
+    ).toBe('emulsify-drupal-starter');
   });
 
   it('can throw an Error if given an invalid git url', () => {
