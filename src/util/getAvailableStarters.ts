@@ -9,9 +9,9 @@ export default function getAvailableStarters(): EmulsifyStarter[] {
   return [
     {
       platform: 'drupal',
-      platformMajorVersion: 9,
+      platformMajorVersion: 11,
       repository: 'https://github.com/emulsify-ds/emulsify-drupal.git',
-      checkout: 'master',
+      checkout: 'main',
     },
   ];
 }
