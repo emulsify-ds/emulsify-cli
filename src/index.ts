@@ -33,6 +33,7 @@ program
   .option(
     '-s --starter <repository>',
     'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-starter',
+    // 'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-drupal-starter.git',
   )
   .option(
     '-c --checkout <commit/branch/tag>',
@@ -121,7 +122,7 @@ component
  * This displays the product name and version in a visually appealing format.
  *
  *  ╭ Emulsify CLI ──────╮
- *  │                    │
+ *  |                    │
  *  │   Version: 2.0.0   │
  *  │                    │
  *  ╰────────────────────╯

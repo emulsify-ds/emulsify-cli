@@ -71,6 +71,8 @@ describe('init', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-starter',
       '/home/uname/Projects/cornflake/cornflake',
+      // 'https://github.com/emulsify-ds/emulsify-drupal-starter.git',
+      // '/home/uname/Projects/cornflake/themes/cornflake',
       { '--branch': 'main' },
     );
     expect(rmMock).toHaveBeenCalledWith(
@@ -87,6 +89,8 @@ describe('init', () => {
         },
         starter: {
           repository: 'https://github.com/emulsify-ds/emulsify-starter',
+          // repository:
+          //   'https://github.com/emulsify-ds/emulsify-drupal-starter.git',
         },
       },
     );
@@ -178,6 +182,7 @@ describe('init', () => {
     expect(logMock).toHaveBeenCalledWith(
       'error',
       'Unable to pull down https://github.com/emulsify-ds/emulsify-starter: Error: Does not exist!',
+      // 'Unable to pull down https://github.com/emulsify-ds/emulsify-drupal-starter.git: Error: Does not exist!',
       1,
     );
   });
@@ -204,6 +209,7 @@ describe('init', () => {
     expect(logMock).toHaveBeenCalledWith(
       'error',
       'Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter https://github.com/emulsify-ds/emulsify-starter',
+      // 'Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter https://github.com/emulsify-ds/emulsify-drupal-starter.git',
       1,
     );
   });
