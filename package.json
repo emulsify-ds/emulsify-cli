@@ -9,7 +9,7 @@
   "private": false,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "bin": {
     "emulsify": "dist/index.js"
