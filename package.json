@@ -43,7 +43,7 @@
     "@commitlint/config-conventional": "^19.8.1",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/github": "^11.0.6",
-    "@semantic-release/npm": "^8.0.3",
+    "@semantic-release/npm": "^13.1.5",
     "@semantic-release/release-notes-generator": "^14.1.0",
     "@types/fs-extra": "^11.0.4",
     "@types/inquirer": "^9.0.9",
@@ -56,7 +56,7 @@
     "lint-staged": "^15.5.2",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
-    "semantic-release": "^24.2.9",
+    "semantic-release": "^25.0.3",
     "ts-jest": "^29.4.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
@@ -71,7 +71,7 @@
     "consola": "^2.15.3",
     "cosmiconfig": "^9.0.0",
     "fs-extra": "^11.3.2",
-    "inquirer": "^10.2.2",
+    "inquirer": "^13.4.1",
     "progress": "^2.0.3",
     "ramda": "^0.27.2",
     "simple-git": "^3.28.0"
