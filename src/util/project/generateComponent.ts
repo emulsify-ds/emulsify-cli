@@ -1,12 +1,11 @@
 import type { EmulsifyVariant } from '@emulsify-cli/config';
 
-import inquirer from 'inquirer';
+import inquirer, { type Question } from 'inquirer';
 import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { pathExists } from 'fs-extra';
 
 import log from '../../lib/log.js';
-import { AnyQuestion } from 'inquirer/dist/cjs/types/types.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 
@@ -87,7 +86,7 @@ export default async function generateComponent(
 
   // Choose the component's parent structure within the given variant configuration.
   if (!directory) {
-    const structureSelector: AnyQuestion<String> = {
+    const structureSelector: Question = {
       type: 'list',
       name: 'directory',
       message: 'Choose a directory for the new component:',

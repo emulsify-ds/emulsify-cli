@@ -2,8 +2,7 @@ import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import simpleGit from 'simple-git';
 import ProgressBar from 'progress';
-import inquirer from 'inquirer';
-import { AnyQuestion } from 'inquirer/dist/cjs/types/types.js';
+import inquirer, { type Question } from 'inquirer';
 
 import type {
   EmulsifyProjectConfiguration,
@@ -28,7 +27,7 @@ import { EXIT_ERROR } from '../lib/constants.js';
 const git = simpleGit();
 
 export const DIRECTORY = 1;
-export const questions: AnyQuestion<String>[] = [
+export const questions: Question[] = [
   {
     type: 'input',
     name: 'name',
