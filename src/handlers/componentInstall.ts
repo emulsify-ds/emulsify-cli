@@ -121,6 +121,13 @@ export default async function componentInstall(
       variantConf.components,
       name,
     );
+    if (componentsWithDependencies.length === 0) {
+      return log(
+        'error',
+        `Cannot find the definition for component "${name}".\n\nRun "emulsify component list" to see the full list.`,
+        EXIT_ERROR,
+      );
+    }
     componentsWithDependencies.forEach((componentName) => {
       components.push([
         componentName,
