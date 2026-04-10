@@ -1,3 +1,5 @@
+import { pathExists } from 'fs-extra';
+import { confirm } from '@inquirer/prompts';
 import log from '../lib/log.js';
 import {
   EXIT_ERROR,
@@ -9,10 +11,13 @@ import type { InstallComponentHandlerOptions } from '@emulsify-cli/handlers';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
-import installComponentFromCache from '../util/project/installComponentFromCache.js';
+import installComponentFromCache, {
+  getComponentDestination,
+} from '../util/project/installComponentFromCache.js';
 import buildComponentDependencyList from '../util/project/buildComponentDependencyList.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
 import catchLater from '../util/catchLater.js';
+import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 
 /**
  * Handler for the `component install` command.
@@ -123,12 +128,35 @@ export default async function componentInstall(
     );
     if (componentsWithDependencies.length === 0) {
       return log(
-        'error',
+        'warn',
         `Cannot find the definition for component "${name}".\n\nRun "emulsify component list" to see the full list.`,
         EXIT_ERROR,
       );
     }
-    componentsWithDependencies.forEach((componentName) => {
+    const projectConfigPath = findFileInCurrentPath(
+      EMULSIFY_PROJECT_CONFIG_FILE,
+    );
+
+    for (const componentName of componentsWithDependencies) {
+      let currentForce = force;
+      const destination = projectConfigPath
+        ? getComponentDestination(variantConf, componentName, projectConfigPath)
+        : undefined;
+
+      if (destination && (await pathExists(destination)) && !force) {
+        const result = await confirm({
+          message: `The component "${componentName}" already exists. Would you like to replace it?`,
+          default: false,
+        });
+
+        if (result) {
+          currentForce = true;
+        } else {
+          log('info', `Skipping installation of component "${componentName}".`);
+          continue;
+        }
+      }
+
       components.push([
         componentName,
         catchLater(
@@ -136,11 +164,11 @@ export default async function componentInstall(
             systemConf,
             variantConf,
             componentName,
-            force,
+            currentForce,
           ),
         ),
       ]);
-    });
+    }
   }
 
   for (const [cname, promise] of components) {
@@ -151,7 +179,7 @@ export default async function componentInstall(
         `Success! The ${cname} component has been added to your project.`,
       );
     } catch (e) {
-      log('error', `Unable to install ${cname}: ${(e as Error).toString()}`);
+      log('warn', `Unable to install ${cname}: ${(e as Error).toString()}`);
     }
   }
 }
