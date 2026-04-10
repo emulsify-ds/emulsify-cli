@@ -42,4 +42,14 @@ describe('log', () => {
       1,
     );
   });
+
+  it('can log debug messages', () => {
+    log('debug', 'debug message');
+    expect(consolaGlobalInstance.log as jest.Mock).toHaveBeenCalled();
+  });
+
+  it('can log verbose messages', () => {
+    log('verbose', 'verbose message');
+    expect(consolaGlobalInstance.log as jest.Mock).toHaveBeenCalled();
+  });
 });

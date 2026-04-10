@@ -133,6 +133,17 @@ Drupal.behaviors.${filename} = {
 };
 `;
 
+const COMPONENT_FORMAT_CHOICES = [
+  {
+    name: `${bold('Default')} (Standard Emulsify component)`,
+    value: 'default',
+  },
+  {
+    name: `${bold('SDC')} (Single Directory Component for Drupal)`,
+    value: 'sdc',
+  },
+];
+
 /**
  * Installs a specified component within the Emulsify project the user is currently within.
  *
@@ -159,16 +170,7 @@ export default async function generateComponent(
   // Choose the component format.
   const format = await select({
     message: cyan('Choose the component format:'),
-    choices: [
-      {
-        name: `${bold('Default')} (Standard Emulsify component)`,
-        value: 'default',
-      },
-      {
-        name: `${bold('SDC')} (Single Directory Component for Drupal)`,
-        value: 'sdc',
-      },
-    ],
+    choices: COMPONENT_FORMAT_CHOICES,
   });
 
   // Choose the component's parent structure within the given variant configuration.

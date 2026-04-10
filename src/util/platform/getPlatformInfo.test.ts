@@ -1,6 +1,8 @@
 jest.mock('./getDrupalInfo', () => jest.fn());
+jest.mock('./getNoPlatformInfo', () => jest.fn());
 
 import getDrupalInfo from './getDrupalInfo.js';
+import getNoPlatformInfo from './getNoPlatformInfo.js';
 import getPlatformInfo from './getPlatformInfo.js';
 
 describe('getPlatformInfo', () => {
@@ -36,5 +38,14 @@ describe('getPlatformInfo', () => {
     };
 
     await expect(getPlatformInfo()).resolves.toEqual(expected);
+  });
+
+  it('returns no platform info if getDrupalInfo returns null', async () => {
+    expect.assertions(1);
+    (getDrupalInfo as jest.Mock).mockResolvedValueOnce(null);
+    (getNoPlatformInfo as jest.Mock).mockResolvedValueOnce({ name: 'none' });
+
+    const result = await getPlatformInfo();
+    expect(result).toEqual({ name: 'none' });
   });
 });

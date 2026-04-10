@@ -234,4 +234,16 @@ describe('init', () => {
       1,
     );
   });
+
+  it('should prompt for all info if name is missing', async () => {
+    (input as jest.Mock)
+      .mockResolvedValueOnce('new-project')
+      .mockResolvedValueOnce(root)
+      .mockResolvedValueOnce('drupal');
+
+    await init(progress)();
+
+    expect(input).toHaveBeenCalledTimes(3);
+    expect(gitCloneMock).toHaveBeenCalled();
+  });
 });
