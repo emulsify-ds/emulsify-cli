@@ -1,9 +1,9 @@
-name: Lint
+name: Test
 on:
   push:
-    branches: [develop, main]
+    branches: [main, develop]
   pull_request:
-    branches: [develop, main]
+    branches: [main, develop]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,5 +18,5 @@ jobs:
           node-version: 20
       - name: Install
         run: npm install
-      - name: Lint
-        run: npm run lint
+      - name: Test
+        run: npm run test
