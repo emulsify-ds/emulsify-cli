@@ -11,8 +11,11 @@ module.exports = {
     },
   },
   transform: {
-    '\\.[jt]sx?$': ['ts-jest', { useESM: true }],
+    '\\.[jt]sx?$': ['ts-jest', { useESM: false }],
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(inquirer|@inquirer|fast-.+)/)',
+  ],
   "moduleNameMapper": {
     "^(\\.\\.?\\/.+)\\.js$": "$1",
   },
@@ -21,5 +24,4 @@ module.exports = {
     '<rootDir>/src/index.ts',
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
-  extensionsToTreatAsEsm: ['.ts'],
 };

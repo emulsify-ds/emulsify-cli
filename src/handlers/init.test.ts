@@ -3,18 +3,18 @@ jest.mock('../util/platform/getPlatformInfo', () => jest.fn());
 jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 jest.mock('../util/fs/executeScript', () => jest.fn());
 jest.mock('../util/project/installDependencies', () => jest.fn());
-jest.mock('inquirer');
+jest.mock('@inquirer/prompts');
 
 import fs from 'fs';
 import git from 'simple-git';
 import log from '../lib/log.js';
-import inquirer from 'inquirer';
+import { input } from '@inquirer/prompts';
 import ProgressBar from 'progress';
 import installDependencies from '../util/project/installDependencies.js';
 import getPlatformInfo from '../util/platform/getPlatformInfo.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
 import executeScript from '../util/fs/executeScript.js';
-import init, { DIRECTORY, questions } from './init.js';
+import init from './init.js';
 import { EXIT_ERROR } from '../lib/constants.js';
 
 const root = '/home/uname/Projects/cornflake';
@@ -40,6 +40,7 @@ describe('init', () => {
     logMock.mockClear();
     gitCloneMock.mockClear();
     progressMock.tick.mockClear();
+    (input as jest.Mock).mockClear();
   });
 
   it('should execute the returned function', async () => {
@@ -52,17 +53,26 @@ describe('init', () => {
   });
 
   it('should prompt for the name if not provided', async () => {
-    expect.assertions(1);
-    const mockPrompt = jest.spyOn(inquirer, 'prompt').mockResolvedValueOnce({
-      name: 'cornflake',
-      platform: 'drupal',
-      targetDirectory: root,
-    });
+    expect.assertions(4);
+    (input as jest.Mock)
+      .mockResolvedValueOnce('cornflake')
+      .mockResolvedValueOnce(root)
+      .mockResolvedValueOnce('drupal');
 
     await init(progress)();
-    questions[DIRECTORY].default = root;
-    expect(mockPrompt).toHaveBeenCalledWith(questions);
-    mockPrompt.mockRestore();
+    expect(input).toHaveBeenCalledTimes(3);
+    expect(input).toHaveBeenNthCalledWith(1, {
+      message: 'Project name:',
+      default: 'emulsifyTheme',
+    });
+    expect(input).toHaveBeenNthCalledWith(2, {
+      message: 'Target directory:',
+      default: root,
+    });
+    expect(input).toHaveBeenNthCalledWith(3, {
+      message: 'Platform:',
+      default: 'drupal',
+    });
   });
 
   it('can detect the platform, and use information about the platform to autodetect the target directory and Emulsify starter', async () => {

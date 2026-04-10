@@ -62,6 +62,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.4.1",
     "@types/progress": "^2.0.5",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

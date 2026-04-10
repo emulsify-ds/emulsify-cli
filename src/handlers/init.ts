@@ -2,7 +2,7 @@ import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import simpleGit from 'simple-git';
 import ProgressBar from 'progress';
-import inquirer, { type Question } from 'inquirer';
+import { input } from '@inquirer/prompts';
 
 import type {
   EmulsifyProjectConfiguration,
@@ -27,26 +27,6 @@ import { EXIT_ERROR } from '../lib/constants.js';
 const git = simpleGit();
 
 export const DIRECTORY = 1;
-export const questions: Question[] = [
-  {
-    type: 'input',
-    name: 'name',
-    message: 'Project name:',
-    default: 'emulsifyTheme',
-  },
-  {
-    type: 'input',
-    name: 'targetDirectory',
-    message: 'Target directory:',
-    default: './',
-  },
-  {
-    type: 'input',
-    name: 'platform',
-    message: 'Platform:',
-    default: 'drupal',
-  },
-];
 
 /**
  * Handler for the initialization command.
@@ -68,11 +48,19 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       (await getPlatformInfo()) || {};
 
     if (typeof name === 'undefined') {
-      questions[DIRECTORY].default = emulsifyParentDirectory;
-      const response = await inquirer.prompt(questions as any);
-      if (response?.targetDirectory) targetDirectory = response.targetDirectory;
-      if (response?.platform) options = { platform: response.platform };
-      if (response?.name) name = response.name;
+      name = await input({
+        message: 'Project name:',
+        default: 'emulsifyTheme',
+      });
+      targetDirectory = await input({
+        message: 'Target directory:',
+        default: emulsifyParentDirectory || './',
+      });
+      const platform = await input({
+        message: 'Platform:',
+        default: 'drupal',
+      });
+      options = { ...options, platform: platform as Platform };
     }
     if (!name) {
       return log(

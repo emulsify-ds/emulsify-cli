@@ -1,11 +1,11 @@
 jest.mock('fs-extra', () => ({
   pathExists: jest.fn(),
 }));
-jest.mock('inquirer');
+jest.mock('@inquirer/prompts');
 jest.mock('../../lib/log.js');
 jest.mock('../fs/findFileInCurrentPath.js');
 
-import inquirer from 'inquirer';
+import { select } from '@inquirer/prompts';
 import { pathExists } from 'fs-extra';
 import generateComponent from './generateComponent.js';
 import { EmulsifyVariant } from '@emulsify-cli/config';
@@ -47,18 +47,16 @@ describe('generateComponent', () => {
 
   it('should prompt for the directory if not provided', async () => {
     expect.assertions(1);
-    const mockPrompt = jest.spyOn(inquirer, 'prompt').mockResolvedValueOnce({
-      directory: 'base',
-    });
+    (select as jest.Mock).mockResolvedValueOnce('base');
 
     await generateComponent(variant, 'button');
-    expect(mockPrompt).toHaveBeenCalledWith({
-      type: 'list',
-      name: 'directory',
+    expect(select).toHaveBeenCalledWith({
       message: 'Choose a directory for the new component:',
-      choices: variant.structureImplementations,
+      choices: variant.structureImplementations.map((structure) => ({
+        name: structure.name,
+        value: structure.name,
+      })),
     });
-    mockPrompt.mockRestore();
   });
 
   it('throws an error if the component structure is invalid', async () => {
