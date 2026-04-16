@@ -11,55 +11,59 @@ import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 
 const storiesTemplate = (
-  componentName: string,
+  camelName: string,
   filename: string,
+  humanName: string,
   directory: string,
 ) =>
-  `import ${componentName}Twig from './${filename}.twig';
-import ${componentName}Data from './${filename}.yml';
+  `import ${camelName}Twig from './${filename}.twig';
+import ${camelName}Data from './${filename}.yml';
 
 /**
  * Storybook Definition.
  */
-export default { title: '${directory[0].toUpperCase() + directory.slice(1)}/${
-    componentName[0].toUpperCase() + componentName.slice(1)
-  }' };
+export default { title: '${directory[0].toUpperCase() + directory.slice(1)}/${humanName}' };
 
-export const ${componentName} = () => ${componentName}Twig(${componentName}Data);
+export const ${camelName} = () => ${camelName}Twig(${camelName}Data);
 `;
 
 const sdcStoriesTemplate = (
-  componentName: string,
+  camelName: string,
   filename: string,
+  snakeName: string,
+  humanName: string,
   directory: string,
 ) =>
-  `import ${componentName}Twig from './${filename}.twig';
+  `import ${camelName}Twig from './${filename}.twig';
 import { props } from './${filename}.component.yml';
 import './${filename}';
 
-const ${componentName}Data = props.properties;
+const ${camelName}Data = props.properties;
 
 /**
  * Storybook Definition.
  */
 export default { 
-  title: '${directory[0].toUpperCase() + directory.slice(1)}/${
-    componentName[0].toUpperCase() + componentName.slice(1)
-  }',
+  title: '${directory[0].toUpperCase() + directory.slice(1)}/${humanName}',
   args: {
-    heading: ${componentName}Data.${filename}__heading.data,
-    content: ${componentName}Data.${filename}__content.data,
+    heading: ${camelName}Data.${snakeName}__heading.data,
+    content: ${camelName}Data.${snakeName}__content.data,
   },
 };
 
-export const ${componentName} = ({ heading, content }) => 
-  ${componentName}Twig({
-    ${filename}__heading: heading,
-    ${filename}__content: content,
+export const ${camelName} = ({ heading, content }) => 
+  ${camelName}Twig({
+    ${snakeName}__heading: heading,
+    ${snakeName}__content: content,
   });
 `;
 
-const twigTemplate = (filename: string, className: string, format: string) => {
+const twigTemplate = (
+  filename: string,
+  snakeName: string,
+  className: string,
+  format: string,
+) => {
   const label = format === 'DEFAULT' ? 'STANDARD' : format;
   return `{#
 /**
@@ -68,136 +72,94 @@ const twigTemplate = (filename: string, className: string, format: string) => {
  * Format: ${label}
  *
  * Available variables:
- * - ${filename}__heading - the content of the heading (UPPERCASE by default)
- * - ${filename}__content - the content of the component (typically text)
- * 
+ * - ${snakeName}__heading - the heading text for this component
+ * - ${snakeName}__content - the body content of this component (typically text)
+ *
  * Available blocks:
- * - ${filename}__content - used to replace the content with something other than text
- *   for example: to insert an icon
+ * - ${snakeName}__content - override the content area with custom markup,
+ *   for example: to embed an image or icon
  */
  #}
-{% set ${filename}__base_class = '${className}' %}
+{% set ${snakeName}__base_class = '${className}' %}
 
-<article class="${className}">
-  <div class="${className}__badge">
-    <span>${label}</span>
-  </div>
-  <div class="${className}__main">
-    {% if ${filename}__heading %}
-      <h2 class="${className}__heading">{{ ${filename}__heading }}</h2>
-    {% endif %}
-    {% block ${filename}__content %}
-      <div class="${className}__content">
-        {{ ${filename}__content }}
-      </div>
-    {% endblock %}
-  </div>
+<article class="{{ ${snakeName}__base_class }}">
+  {% if ${snakeName}__heading %}
+    <h2 class="{{ ${snakeName}__base_class }}__heading">{{ ${snakeName}__heading }}</h2>
+  {% endif %}
+  {% block ${snakeName}__content %}
+    <div class="{{ ${snakeName}__base_class }}__content">
+      {{ ${snakeName}__content }}
+    </div>
+  {% endblock %}
 </article>
 `;
 };
 
 const scssTemplate = (className: string, format: string) => {
   const label = format === 'DEFAULT' ? 'STANDARD' : format;
-  const isSdc = format === 'SDC';
   return `/*
  * Base Styles for ${className} (${label})
  *
- * These styles are provided as a professional starting point. 
- * Please replace or extend them to align with your project's 
- * unique design system and requirements.
+ * These styles are provided as a starting point.
+ * Replace or extend them to match your project's design system.
  */
 .${className} {
-  position: relative;
-  display: flex;
-  min-height: 120px;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  background-color: #ffffff;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   font-family: system-ui, -apple-system, sans-serif;
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  margin: 1rem 2rem;
+  width: 100%;
+  max-width: 85ch;
+  margin: 4rem auto;
+}
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  }
+.${className}__heading {
+  margin: 0 0 0.75rem 0;
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.3;
+}
 
-  &__badge {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    background-color: ${isSdc ? '#2563eb' : '#f8fafc'};
-    border-right: 1px solid #e2e8f0;
-    flex-shrink: 0;
-
-    span {
-      transform: rotate(-90deg);
-      white-space: nowrap;
-      font-size: 10px;
-      font-weight: 800;
-      color: ${isSdc ? '#ffffff' : '#64748b'};
-      text-transform: uppercase;
-      letter-spacing: 0.15em;
-    }
-  }
-
-  &__main {
-    padding: 1.5rem 1.5rem 1.5rem 1.25rem;
-    flex-grow: 1;
-  }
-
-  &__heading {
-    margin: 0 0 1rem 0;
-    font-size: 1.25rem;
-    font-weight: 800;
-    color: #1e293b;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    line-height: 1.2;
-  }
-
-  &__content {
-    color: #475569;
-    font-size: 1rem;
-    line-height: 1.7;
-  }
+.${className}__content {
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1.7;
 }
 `;
 };
 
-const ymlTemplate = (filename: string, componentName: string) =>
-  `${filename}__heading: '${componentName.toUpperCase()}'
-${filename}__content: 'This is the content for the ${componentName} component, using the Standard Emulsify component pattern.'
+const ymlTemplate = (filename: string, humanName: string) =>
+  `${filename}__heading: '${humanName} Component'
+${filename}__content: 'This is the content area of the ${humanName} component, created using the standard Emulsify format. Replace with your markup and data.'
 `;
 
-const sdcMetadataTemplate = (filename: string, componentName: string) =>
+const sdcMetadataTemplate = (snakeName: string, humanName: string) =>
   `$schema: https://git.drupalcode.org/project/drupal/-/raw/11.x/core/modules/sdc/src/metadata.schema.json
-name: ${componentName}
+name: ${humanName}
 group: Custom
 status: stable
 props:
   type: object
   properties:
-    ${filename}__heading:
+    ${snakeName}__heading:
       type: string
       title: Heading
-      data: '${componentName.toUpperCase()}'
-    ${filename}__content:
+      data: '${humanName} Component'
+    ${snakeName}__content:
       type: string
       title: Content
-      data: 'This is the content for the ${componentName} component, using the Single Directory Component pattern.'
+      data: 'This is the content area of the ${humanName} component, created using the Single Directory Component (SDC) format for Drupal. Replace with your markup and data.'
 `;
 
-const sdcJsTemplate = (filename: string, className: string) =>
+const sdcJsTemplate = (
+  camelName: string,
+  filename: string,
+  className: string,
+) =>
   `/**
  * @file
  * JavaScript for the ${filename} component.
  */
 // eslint-disable-next-line
-Drupal.behaviors.${filename} = {
+Drupal.behaviors.${camelName} = {
   attach(context) {
     const elements = context.querySelectorAll('.${className}');
     elements.forEach((el) => {
@@ -277,9 +239,33 @@ export default async function generateComponent(
     await fs.mkdir(parentPath, { recursive: true });
   }
 
-  // Calculate the destination path based on the path to the Emulsify project, the structure of the
-  // component, and the component's name.
-  const destination = join(dirname(path), structure.directory, componentName);
+  // Derive all name variants from componentName up-front so every part of the
+  // function (including the overwrite prompt) can use the correct form.
+
+  // kebab-case filename: featuredItem → featured-item, featured-item → featured-item
+  const filename = componentName
+    .replace(/([a-z])([A-Z])/g, '$1-$2')
+    .toLowerCase();
+
+  // CSS class name is the same as the filename (kebab-case).
+  const className = filename;
+
+  // camelCase identifier for JS variables (featured-item → featuredItem).
+  const camelName = filename.replace(/-([a-z])/g, (_, c: string) =>
+    c.toUpperCase(),
+  );
+
+  // snake_case for YAML prop keys (featured-item → featured_item).
+  const snakeName = filename.replace(/-/g, '_');
+
+  // Human-readable title (featured-item → Featured Item).
+  const humanName = filename
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+
+  // Calculate the destination path (always kebab-case folder name).
+  const destination = join(dirname(path), structure.directory, filename);
 
   // If the component already exists within the project,
   // ask the user if they want to replace it.
@@ -287,7 +273,7 @@ export default async function generateComponent(
   if (componentExists) {
     const shouldReplace = await confirm({
       message: yellow(
-        `The component "${componentName}" already exists in ${structure.directory}. Would you like to replace it?`,
+        `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
       ),
       default: false,
     });
@@ -300,20 +286,13 @@ export default async function generateComponent(
     await remove(destination);
   }
 
-  const filename = componentName
-    .replace(/([a-z])([A-Z])/g, '$1_$2')
-    .toLowerCase();
-
-  const className = componentName
-    .replace(/([a-z])([A-Z])/g, '$1-$2')
-    .toLowerCase();
-
   // Create the component directory
   await fs.mkdir(destination, { recursive: true });
 
   // Generate twig template file
   const twigTemplateFile = twigTemplate(
     filename,
+    snakeName,
     className,
     format.toUpperCase(),
   );
@@ -327,30 +306,33 @@ export default async function generateComponent(
 
   if (format === 'sdc') {
     // SDC Specific files
-    const metadataTemplateFile = sdcMetadataTemplate(filename, componentName);
+    const metadataTemplateFile = sdcMetadataTemplate(snakeName, humanName);
     const metadataTemplatePath = join(destination, `${filename}.component.yml`);
     await fs.writeFile(metadataTemplatePath, metadataTemplateFile);
 
-    const jsTemplateFile = sdcJsTemplate(filename, className);
+    const jsTemplateFile = sdcJsTemplate(camelName, filename, className);
     const jsTemplatePath = join(destination, `${filename}.js`);
     await fs.writeFile(jsTemplatePath, jsTemplateFile);
 
     const storiesTemplateFile = sdcStoriesTemplate(
-      componentName,
+      camelName,
       filename,
+      snakeName,
+      humanName,
       directory,
     );
     const storiesTemplatePath = join(destination, `${filename}.stories.js`);
     await fs.writeFile(storiesTemplatePath, storiesTemplateFile);
   } else {
     // Default format files
-    const ymlTemplateFile = ymlTemplate(filename, componentName);
+    const ymlTemplateFile = ymlTemplate(snakeName, humanName);
     const ymlTemplatePath = join(destination, `${filename}.yml`);
     await fs.writeFile(ymlTemplatePath, ymlTemplateFile);
 
     const storiesTemplateFile = storiesTemplate(
-      componentName,
+      camelName,
       filename,
+      humanName,
       directory,
     );
     const storiesTemplatePath = join(destination, `${filename}.stories.js`);
