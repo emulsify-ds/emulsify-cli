@@ -103,21 +103,24 @@ export default async function componentInstall(
   }
 
   // If all components are to be installed, spawn promises for installing all available components.
-  const components: [string, Promise<void>][] = [];
+  const components: [string, boolean, Promise<void>][] = [];
   if (all) {
     components.push(
-      ...variantConf.components.map((component): [string, Promise<void>] => [
-        component.name,
-        catchLater(
-          installComponentFromCache(
-            systemConf,
-            variantConf,
-            component.name,
-            // Force install all components.
-            true,
+      ...variantConf.components.map(
+        (component): [string, boolean, Promise<void>] => [
+          component.name,
+          false,
+          catchLater(
+            installComponentFromCache(
+              systemConf,
+              variantConf,
+              component.name,
+              // Force install all components.
+              true,
+            ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
   // If there is only one component to install, add one single promise for the single component.
@@ -138,14 +141,16 @@ export default async function componentInstall(
     );
 
     for (const componentName of componentsWithDependencies) {
+      const isDependency = componentName !== name;
       let currentForce = force;
       const destination = projectConfigPath
         ? getComponentDestination(variantConf, componentName, projectConfigPath)
         : undefined;
 
       if (destination && (await pathExists(destination)) && !force) {
+        const dependencyNote = isDependency ? ` (required by "${name}")` : '';
         const result = await confirm({
-          message: `The component "${componentName}" already exists. Would you like to replace it?`,
+          message: `The component "${componentName}"${dependencyNote} already exists. Would you like to replace it?`,
           default: false,
         });
 
@@ -159,6 +164,7 @@ export default async function componentInstall(
 
       components.push([
         componentName,
+        isDependency,
         catchLater(
           installComponentFromCache(
             systemConf,
@@ -171,15 +177,39 @@ export default async function componentInstall(
     }
   }
 
-  for (const [cname, promise] of components) {
+  const installedDeps: string[] = [];
+  const failedDeps: string[] = [];
+
+  for (const [cname, isDependency, promise] of components) {
     try {
       await promise;
-      log(
-        'success',
-        `Success! The ${cname} component has been added to your project.`,
-      );
+      if (isDependency) {
+        installedDeps.push(cname);
+      } else {
+        log(
+          'success',
+          `Success! The ${cname} component has been added to your project.`,
+        );
+      }
     } catch (e) {
-      log('warn', `Unable to install ${cname}: ${(e as Error).toString()}`);
+      if ((e as Error) && components.find(([c]) => c === cname)?.[1]) {
+        failedDeps.push(cname);
+      } else {
+        log('warn', `Unable to install ${cname}: ${(e as Error).toString()}`);
+      }
     }
+  }
+
+  if (installedDeps.length > 0) {
+    const depList = installedDeps.map((d) => `  → ${d}`).join('\n');
+    log('info', `The following dependencies were also installed:\n${depList}`);
+  }
+
+  if (failedDeps.length > 0) {
+    const failList = failedDeps.map((d) => `  → ${d}`).join('\n');
+    log(
+      'warn',
+      `The following dependencies could not be installed:\n${failList}`,
+    );
   }
 }
