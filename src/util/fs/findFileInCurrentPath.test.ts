@@ -1,6 +1,6 @@
 import process from 'process';
 import fs from 'fs';
-import findFileInCurrentPath from './findFileInCurrentPath';
+import findFileInCurrentPath from './findFileInCurrentPath.js';
 
 const cwd = jest
   .spyOn(process, 'cwd')

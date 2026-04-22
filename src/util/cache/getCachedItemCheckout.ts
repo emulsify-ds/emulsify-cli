@@ -1,7 +1,7 @@
 import type { CacheBucket, CacheItemPath } from '@emulsify-cli/cache';
 
 import simpleGit from 'simple-git';
-import getCachedItemPath from './getCachedItemPath';
+import getCachedItemPath from './getCachedItemPath.js';
 
 /**
  * Takes a cache bucket and item path, and returns the checkout value (git branch/tag/commit)

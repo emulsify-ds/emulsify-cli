@@ -1,7 +1,7 @@
 import type { EmulsifyProjectConfiguration } from '@emulsify-cli/config';
-import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import loadJsonFile from '../fs/loadJsonFile';
+import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import loadJsonFile from '../fs/loadJsonFile.js';
 
 /**
  * Finds the Emulsify project configuration, loads, and returns it.

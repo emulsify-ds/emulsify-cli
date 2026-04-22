@@ -1,9 +1,9 @@
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
 import { join, dirname } from 'path';
-import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import copyItemFromCache from '../cache/copyItemFromCache';
-import catchLater from '../catchLater';
+import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import copyItemFromCache from '../cache/copyItemFromCache.js';
+import catchLater from '../catchLater.js';
 
 /**
  * Reads system/variant configuration, and installs the general directories and files

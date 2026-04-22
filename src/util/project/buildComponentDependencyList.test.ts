@@ -1,5 +1,5 @@
 import type { Components } from '@emulsify-cli/config';
-import buildComponentDependencyList from './buildComponentDependencyList';
+import buildComponentDependencyList from './buildComponentDependencyList.js';
 
 describe('buildComponentDependencyList', () => {
   const components = [

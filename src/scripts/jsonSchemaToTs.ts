@@ -1,6 +1,7 @@
 import { join, resolve } from 'path';
 import { writeFileSync } from 'fs';
 import { compileFromFile } from 'json-schema-to-typescript';
+import { resolveCurrentPath } from '../util/fs/resolveCurrentPath.js';
 
 /**
  * Takes a list of schema names that have corresponding schema files in
@@ -11,8 +12,9 @@ import { compileFromFile } from 'json-schema-to-typescript';
  * @param schemas array containing the names of schemas within src/schemas.
  */
 export default async function main(schemas: string[]): Promise<void[]> {
-  const schemaDir = resolve(__dirname, '..', 'schemas');
-  const typesDir = resolve(__dirname, '..', 'types');
+  const { directoryPath } = resolveCurrentPath();
+  const typesDir = resolve(directoryPath, '..', 'types');
+  const schemaDir = resolve(directoryPath, '..', 'schemas');
 
   return await Promise.all(
     schemas.map((name) =>

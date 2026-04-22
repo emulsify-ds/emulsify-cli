@@ -9,19 +9,17 @@ export default function buildComponentDependencyList(
   );
   if (rootComponent.length == 0) return [];
   let finalList = [name];
-  if (rootComponent.length > 0) {
-    const list = rootComponent[0].dependency as string[];
-    if (list && list.length > 0) {
-      list.forEach((componentName: string) => {
-        finalList = [
-          ...new Set(
-            finalList.concat(
-              buildComponentDependencyList(components, componentName),
-            ),
+  const list = rootComponent[0].dependency as string[];
+  if (list && list.length > 0) {
+    list.forEach((componentName: string) => {
+      finalList = [
+        ...new Set(
+          finalList.concat(
+            buildComponentDependencyList(components, componentName),
           ),
-        ];
-      });
-    }
+        ),
+      ];
+    });
   }
   return finalList;
 }

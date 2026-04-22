@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import writeToJsonFile from './writeToJsonFile';
+import writeToJsonFile from './writeToJsonFile.js';
 
 const writeFileMock = (fs.writeFile as jest.Mock).mockResolvedValue(true);
 

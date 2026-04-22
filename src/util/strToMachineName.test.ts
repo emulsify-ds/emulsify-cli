@@ -1,4 +1,4 @@
-import strToMachineName from './strToMachineName';
+import strToMachineName from './strToMachineName.js';
 
 describe('strToMachineName', () => {
   it('can convert a given string to a machine-friendly string', () => {

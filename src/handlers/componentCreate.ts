@@ -5,15 +5,20 @@ import {
   EMULSIFY_PROJECT_CONFIG_FILE,
 } from '../lib/constants.js';
 import type { EmulsifySystem } from '@emulsify-cli/config';
+import type { CreateComponentHandlerOptions } from '@emulsify-cli/handlers';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
+import generateComponent from '../util/project/generateComponent.js';
 
 /**
- * Handler for the `component list` command.
+ * Handler for the `component create` command.
  */
-export default async function componentList(): Promise<void> {
+export default async function componentCreate(
+  name: string,
+  { directory }: CreateComponentHandlerOptions,
+): Promise<void> {
   const emulsifyConfig = await getEmulsifyConfig();
   if (!emulsifyConfig) {
     return log(
@@ -27,7 +32,7 @@ export default async function componentList(): Promise<void> {
   if (!emulsifyConfig.system || !emulsifyConfig.variant) {
     return log(
       'error',
-      'You must select and install a system before you can list components. To see a list of out-of-the-box systems, run "emulsify system list". You can install a system by running "emulsify system install [name]"',
+      'You must select and install a system before you can create components. To see a list of out-of-the-box systems, run "emulsify system list". You can install a system by running "emulsify system install [name]"',
       EXIT_ERROR,
     );
   }
@@ -46,7 +51,6 @@ export default async function componentList(): Promise<void> {
   try {
     await cloneIntoCache('systems', [systemName])(emulsifyConfig.system);
   } catch (e) {
-    console.log(e);
     return log(
       'error',
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
@@ -63,9 +67,6 @@ export default async function componentList(): Promise<void> {
   );
 
   // If no systemConf is present, error with a helpful message.
-  // @TODO: We definitely need a mechanism to pull in the system, cache it, and make sure it's
-  // checked out version is correct. This should likely be done with a HOF that can be applied
-  // to any command handler: R.compose(withCachedSystem, withEmulsifySystemRequirement)(componentInstall).
   if (!systemConf) {
     return log(
       'error',
@@ -87,7 +88,16 @@ export default async function componentList(): Promise<void> {
     );
   }
 
-  variantConf.components.map(({ name, structure }) => {
-    log('info', `${structure} -> ${name}`);
-  });
+  if (!name) {
+    return log('error', 'Please specify a name for the new component.');
+  }
+
+  try {
+    await generateComponent(variantConf, name, directory);
+  } catch (e) {
+    log(
+      'error',
+      `Unable to create the ${name} component: ${(e as Error).toString()}`,
+    );
+  }
 }

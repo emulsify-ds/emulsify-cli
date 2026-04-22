@@ -1,18 +1,23 @@
-import log from '../lib/log';
+import { pathExists } from 'fs-extra';
+import { confirm } from '@inquirer/prompts';
+import log from '../lib/log.js';
 import {
   EXIT_ERROR,
   EMULSIFY_SYSTEM_CONFIG_FILE,
   EMULSIFY_PROJECT_CONFIG_FILE,
-} from '../lib/constants';
+} from '../lib/constants.js';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import type { InstallComponentHandlerOptions } from '@emulsify-cli/handlers';
-import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl';
-import getEmulsifyConfig from '../util/project/getEmulsifyConfig';
-import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile';
-import installComponentFromCache from '../util/project/installComponentFromCache';
-import buildComponentDependencyList from '../util/project/buildComponentDependencyList';
-import cloneIntoCache from '../util/cache/cloneIntoCache';
-import catchLater from '../util/catchLater';
+import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl.js';
+import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
+import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
+import installComponentFromCache, {
+  getComponentDestination,
+} from '../util/project/installComponentFromCache.js';
+import buildComponentDependencyList from '../util/project/buildComponentDependencyList.js';
+import cloneIntoCache from '../util/cache/cloneIntoCache.js';
+import catchLater from '../util/catchLater.js';
+import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 
 /**
  * Handler for the `component install` command.
@@ -98,21 +103,24 @@ export default async function componentInstall(
   }
 
   // If all components are to be installed, spawn promises for installing all available components.
-  const components: [string, Promise<void>][] = [];
+  const components: [string, boolean, Promise<void>][] = [];
   if (all) {
     components.push(
-      ...variantConf.components.map((component): [string, Promise<void>] => [
-        component.name,
-        catchLater(
-          installComponentFromCache(
-            systemConf,
-            variantConf,
-            component.name,
-            // Force install all components.
-            true,
+      ...variantConf.components.map(
+        (component): [string, boolean, Promise<void>] => [
+          component.name,
+          false,
+          catchLater(
+            installComponentFromCache(
+              systemConf,
+              variantConf,
+              component.name,
+              // Force install all components.
+              true,
+            ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
   // If there is only one component to install, add one single promise for the single component.
@@ -121,30 +129,87 @@ export default async function componentInstall(
       variantConf.components,
       name,
     );
-    componentsWithDependencies.forEach((componentName) => {
+    if (componentsWithDependencies.length === 0) {
+      return log(
+        'warn',
+        `Cannot find the definition for component "${name}".\n\nRun "emulsify component list" to see the full list.`,
+        EXIT_ERROR,
+      );
+    }
+    const projectConfigPath = findFileInCurrentPath(
+      EMULSIFY_PROJECT_CONFIG_FILE,
+    );
+
+    for (const componentName of componentsWithDependencies) {
+      const isDependency = componentName !== name;
+      let currentForce = force;
+      const destination = projectConfigPath
+        ? getComponentDestination(variantConf, componentName, projectConfigPath)
+        : undefined;
+
+      if (destination && (await pathExists(destination)) && !force) {
+        const dependencyNote = isDependency ? ` (required by "${name}")` : '';
+        const result = await confirm({
+          message: `The component "${componentName}"${dependencyNote} already exists. Would you like to replace it?`,
+          default: false,
+        });
+
+        if (result) {
+          currentForce = true;
+        } else {
+          log('info', `Skipping installation of component "${componentName}".`);
+          continue;
+        }
+      }
+
       components.push([
         componentName,
+        isDependency,
         catchLater(
           installComponentFromCache(
             systemConf,
             variantConf,
             componentName,
-            force,
+            currentForce,
           ),
         ),
       ]);
-    });
+    }
   }
 
-  for (const [cname, promise] of components) {
+  const installedDeps: string[] = [];
+  const failedDeps: string[] = [];
+
+  for (const [cname, isDependency, promise] of components) {
     try {
       await promise;
-      log(
-        'success',
-        `Success! The ${cname} component has been added to your project.`,
-      );
+      if (isDependency) {
+        installedDeps.push(cname);
+      } else {
+        log(
+          'success',
+          `Success! The ${cname} component has been added to your project.`,
+        );
+      }
     } catch (e) {
-      log('error', `Unable to install ${cname}: ${(e as Error).toString()}`);
+      if ((e as Error) && components.find(([c]) => c === cname)?.[1]) {
+        failedDeps.push(cname);
+      } else {
+        log('warn', `Unable to install ${cname}: ${(e as Error).toString()}`);
+      }
     }
+  }
+
+  if (installedDeps.length > 0) {
+    const depList = installedDeps.map((d) => `  → ${d}`).join('\n');
+    log('info', `The following dependencies were also installed:\n${depList}`);
+  }
+
+  if (failedDeps.length > 0) {
+    const failList = failedDeps.map((d) => `  → ${d}`).join('\n');
+    log(
+      'warn',
+      `The following dependencies could not be installed:\n${failList}`,
+    );
   }
 }

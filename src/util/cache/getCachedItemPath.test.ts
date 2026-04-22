@@ -4,8 +4,8 @@ jest.mock('../../lib/constants', () => ({
 }));
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import getCachedItemPath from './getCachedItemPath';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import getCachedItemPath from './getCachedItemPath.js';
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/home/uname/projects/emulsify',

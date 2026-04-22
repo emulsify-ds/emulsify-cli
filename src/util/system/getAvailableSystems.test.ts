@@ -1,4 +1,4 @@
-import getAvailableSystems from './getAvailableSystems';
+import getAvailableSystems from './getAvailableSystems.js';
 
 describe('getAvailableSystems', () => {
   it('returns the available systems', async () => {
@@ -7,7 +7,12 @@ describe('getAvailableSystems', () => {
       {
         name: 'compound',
         repository: 'https://github.com/emulsify-ds/compound.git',
-        platforms: ['drupal'],
+        platforms: ['none', 'drupal'],
+      },
+      {
+        name: 'emulsify-ui-kit',
+        repository: 'https://github.com/emulsify-ds/emulsify-ui-kit.git',
+        platforms: ['none', 'drupal'],
       },
       {
         name: 'emulsify-ui-kit',
