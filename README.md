@@ -1,5 +1,6 @@
 [![Emulsify Design System](https://user-images.githubusercontent.com/409903/170579210-327abcdd-2c98-4922-87bb-36446a4cc013.svg)](https://www.emulsify.info/)
 ![npm](https://img.shields.io/npm/dm/@emulsify/cli?style=flat-square)
+
 # emulsify-cli
 
 Command line interface for Emulsify.
@@ -101,9 +102,9 @@ This project is automatically built and deployed to NPM via a GitHub Actions wor
 <tr>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
         <a href=https://github.com/robherba>
-            <img src=https://avatars.githubusercontent.com/u/9342274?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Roberto Henández Badilla/>
+            <img src=https://avatars.githubusercontent.com/u/9342274?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Roberto Hernández Badilla/>
             <br />
-            <sub style="font-size:14px"><b>Roberto Henández Badilla</b></sub>
+            <sub style="font-size:14px"><b>Roberto Hernández Badilla</b></sub>
         </a>
     </td>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
