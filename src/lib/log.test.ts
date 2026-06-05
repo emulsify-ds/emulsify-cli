@@ -1,11 +1,19 @@
 import R from 'ramda';
 import consolaGlobalInstance from 'consola';
 
-jest.spyOn(consolaGlobalInstance, 'log').mockImplementation(R.identity);
-jest.spyOn(consolaGlobalInstance, 'info').mockImplementation(R.identity);
-jest.spyOn(consolaGlobalInstance, 'error').mockImplementation(R.identity);
-jest.spyOn(consolaGlobalInstance, 'warn').mockImplementation(R.identity);
-jest
+const consolaLogMock = jest
+  .spyOn(consolaGlobalInstance, 'log')
+  .mockImplementation(R.identity);
+const consolaInfoMock = jest
+  .spyOn(consolaGlobalInstance, 'info')
+  .mockImplementation(R.identity);
+const consolaErrorMock = jest
+  .spyOn(consolaGlobalInstance, 'error')
+  .mockImplementation(R.identity);
+const consolaWarnMock = jest
+  .spyOn(consolaGlobalInstance, 'warn')
+  .mockImplementation(R.identity);
+const exitMock = jest
   .spyOn(global.process, 'exit')
   .mockImplementation(R.identity as () => never);
 
@@ -15,41 +23,39 @@ describe('log', () => {
   it('can log info messages', () => {
     expect.assertions(1);
     log('info', 'information');
-    expect(consolaGlobalInstance.info as jest.Mock).toHaveBeenCalledTimes(1);
+    expect(consolaInfoMock).toHaveBeenCalledTimes(1);
   });
 
   it('can log error messages', () => {
     expect.assertions(1);
     log('error', 'error message');
-    expect(consolaGlobalInstance.error as jest.Mock).toHaveBeenCalledTimes(1);
+    expect(consolaErrorMock).toHaveBeenCalledTimes(1);
   });
 
   it('can log warning messages', () => {
     expect.assertions(1);
     log('warn', 'warn message');
-    expect(consolaGlobalInstance.warn as jest.Mock).toHaveBeenCalledTimes(1);
+    expect(consolaWarnMock).toHaveBeenCalledTimes(1);
   });
 
   it('can write other types of messages', () => {
     expect.assertions(1);
     log('success', 'success message');
-    expect(consolaGlobalInstance.log as jest.Mock).toHaveBeenCalledTimes(1);
+    expect(consolaLogMock).toHaveBeenCalledTimes(1);
   });
 
   it('exits with the given code if one is provided', () => {
     log('error', 'big oof', 1);
-    expect(global.process.exit as unknown as jest.Mock).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(exitMock).toHaveBeenCalledTimes(1);
   });
 
   it('can log debug messages', () => {
     log('debug', 'debug message');
-    expect(consolaGlobalInstance.log as jest.Mock).toHaveBeenCalled();
+    expect(consolaLogMock).toHaveBeenCalled();
   });
 
   it('can log verbose messages', () => {
     log('verbose', 'verbose message');
-    expect(consolaGlobalInstance.log as jest.Mock).toHaveBeenCalled();
+    expect(consolaLogMock).toHaveBeenCalled();
   });
 });

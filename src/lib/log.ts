@@ -5,7 +5,7 @@
 
 import { cyan, red, yellow, green, dim, bold } from 'colorette';
 import R from 'ramda';
-import consolaGlobalInstance, { Consola } from 'consola';
+import consolaGlobalInstance, { type ConsolaInstance } from 'consola';
 
 export type LogMethod =
   | 'info'
@@ -27,7 +27,7 @@ const logMethodColorMap: {
 };
 
 const withColor =
-  (logger: Consola['log'] | Consola['info'] | Consola['error']) =>
+  (logger: ConsolaInstance['log']) =>
   (method: LogMethod, message: string): void =>
     /* eslint-disable-next-line security/detect-object-injection */
     logger(logMethodColorMap[method](message));
