@@ -9,7 +9,6 @@ import type { EmulsifySystemReference } from '@emulsify-cli/internal';
  *
  * @todo integrate with npm.
  */
-/* eslint-disable-next-line @typescript-eslint/require-await */
 export default async function getAvailableSystems(): Promise<
   EmulsifySystemReference[]
 > {

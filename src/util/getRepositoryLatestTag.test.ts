@@ -1,5 +1,5 @@
 import getRepositoryLatestTag from './getRepositoryLatestTag.js';
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 
 jest.mock('simple-git');
 

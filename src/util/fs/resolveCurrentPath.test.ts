@@ -1,5 +1,5 @@
 import { expect } from '@jest/globals';
-import { resolveCurrentPath } from './resolveCurrentPath';
+import { resolveCurrentPath } from './resolveCurrentPath.js';
 import { resolve, dirname } from 'path';
 
 // Mocks

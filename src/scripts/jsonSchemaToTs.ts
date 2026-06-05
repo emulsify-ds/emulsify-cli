@@ -28,6 +28,5 @@ export default async function main(schemas: string[]): Promise<void[]> {
   );
 }
 
-// Ignoring the require-await for now. This is a script that will be run with ts-node.
-/* eslint-disable-next-line @typescript-eslint/no-floating-promises */
+// Run schema generation when this script is invoked.
 main(['system', 'variant', 'emulsifyProjectConfig']);

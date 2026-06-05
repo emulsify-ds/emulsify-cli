@@ -1,21 +1,29 @@
-import R from 'ramda';
 import consolaGlobalInstance from 'consola';
+
+/**
+ * Return the provided value unchanged.
+ *
+ * @param value value to return.
+ *
+ * @returns the provided value.
+ */
+const identity = <T>(value: T): T => value;
 
 const consolaLogMock = jest
   .spyOn(consolaGlobalInstance, 'log')
-  .mockImplementation(R.identity);
+  .mockImplementation(identity);
 const consolaInfoMock = jest
   .spyOn(consolaGlobalInstance, 'info')
-  .mockImplementation(R.identity);
+  .mockImplementation(identity);
 const consolaErrorMock = jest
   .spyOn(consolaGlobalInstance, 'error')
-  .mockImplementation(R.identity);
+  .mockImplementation(identity);
 const consolaWarnMock = jest
   .spyOn(consolaGlobalInstance, 'warn')
-  .mockImplementation(R.identity);
+  .mockImplementation(identity);
 const exitMock = jest
   .spyOn(global.process, 'exit')
-  .mockImplementation(R.identity as () => never);
+  .mockImplementation(identity as () => never);
 
 import log from './log.js';
 
@@ -44,9 +52,10 @@ describe('log', () => {
     expect(consolaLogMock).toHaveBeenCalledTimes(1);
   });
 
-  it('exits with the given code if one is provided', () => {
-    log('error', 'big oof', 1);
-    expect(exitMock).toHaveBeenCalledTimes(1);
+  it('does not exit when logging', () => {
+    exitMock.mockClear();
+    log('error', 'big oof');
+    expect(exitMock).not.toHaveBeenCalled();
   });
 
   it('can log debug messages', () => {

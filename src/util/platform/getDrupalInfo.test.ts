@@ -23,7 +23,7 @@ describe('getDrupalInfo', () => {
     expect.assertions(1);
     await expect(getDrupalInfo()).resolves.toEqual({
       name: 'drupal',
-      platformMajorVersion: 9,
+      platformMajorVersion: 11,
       emulsifyParentDirectory:
         '/home/uname/Projects/cornflake/web/themes/custom',
       root: '/home/uname/Projects/cornflake/web/',

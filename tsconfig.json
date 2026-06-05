@@ -1,9 +1,9 @@
 {
 	"compilerOptions": {
-		"module": "ESNext",
+		"module": "NodeNext",
 		"target": "ESNext",
 		"strict": true,
-		"moduleResolution": "bundler",
+		"moduleResolution": "NodeNext",
 		"sourceMap": false,
 		"outDir": "dist",
 		"rootDir": "src",

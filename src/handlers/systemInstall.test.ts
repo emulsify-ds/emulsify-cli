@@ -1,0 +1,460 @@
+/**
+ * @file Unit tests for the system install handler.
+ */
+
+jest.mock('../lib/log', () => jest.fn());
+jest.mock('../util/system/getAvailableSystems', () => jest.fn());
+jest.mock('../util/cache/cloneIntoCache', () => jest.fn());
+jest.mock('../util/cache/getCachedItemCheckout', () => jest.fn());
+jest.mock('../util/getRepositoryLatestTag', () => jest.fn());
+jest.mock('../util/project/installComponentFromCache', () => jest.fn());
+jest.mock('../util/project/installGeneralAssetsFromCache', () => jest.fn());
+jest.mock('../util/cache/getJsonFromCachedFile', () => jest.fn());
+jest.mock('../util/project/setEmulsifyConfig', () => jest.fn());
+jest.mock('../util/project/getEmulsifyConfig', () => jest.fn());
+jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
+jest.mock('../util/fs/executeScript', () => jest.fn());
+
+import fs from 'fs';
+import type { EmulsifySystem } from '@emulsify-cli/config';
+import log from '../lib/log.js';
+import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
+import getAvailableSystems from '../util/system/getAvailableSystems.js';
+import cloneIntoCache from '../util/cache/cloneIntoCache.js';
+import getCachedItemCheckout from '../util/cache/getCachedItemCheckout.js';
+import getRepositoryLatestTag from '../util/getRepositoryLatestTag.js';
+import installComponentFromCache from '../util/project/installComponentFromCache.js';
+import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache.js';
+import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
+import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
+import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
+import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
+import executeScript from '../util/fs/executeScript.js';
+import systemInstall, { getSystemRepoInfo } from './systemInstall.js';
+
+const logMock = log as jest.Mock;
+const getAvailableSystemsMock = getAvailableSystems as jest.Mock;
+const cloneIntoCacheMock = cloneIntoCache as jest.Mock;
+const cloneSystemMock = jest.fn();
+const getCachedItemCheckoutMock = getCachedItemCheckout as jest.Mock;
+const getRepositoryLatestTagMock = getRepositoryLatestTag as jest.Mock;
+const installComponentFromCacheMock = installComponentFromCache as jest.Mock;
+const installGeneralAssetsFromCacheMock =
+  installGeneralAssetsFromCache as jest.Mock;
+const getJsonFromCachedFileMock = getJsonFromCachedFile as jest.Mock;
+const setEmulsifyConfigMock = setEmulsifyConfig as jest.Mock;
+const getEmulsifyConfigMock = getEmulsifyConfig as jest.Mock;
+const findFileInCurrentPathMock = findFileInCurrentPath as jest.Mock;
+const executeScriptMock = executeScript as jest.Mock;
+const existsSyncMock = fs.existsSync as jest.Mock;
+
+const projectConfig = {
+  project: {
+    platform: 'drupal',
+    name: 'Cornflake',
+    machineName: 'cornflake',
+  },
+  starter: {
+    repository: 'https://github.com/emulsify-ds/emulsify-starter',
+  },
+};
+
+const variant = {
+  platform: 'drupal',
+  structureImplementations: [
+    {
+      name: 'base',
+      directory: 'components/00-base',
+    },
+  ],
+  components: [
+    {
+      name: 'button',
+      structure: 'base',
+      required: true,
+    },
+    {
+      name: 'card',
+      structure: 'base',
+    },
+  ],
+};
+
+const system = {
+  name: 'compound',
+  homepage: 'https://example.com/compound',
+  repository: 'https://github.com/emulsify-ds/compound.git',
+  structure: [
+    {
+      name: 'base',
+      description: 'Base components',
+    },
+  ],
+  variants: [variant],
+} as EmulsifySystem;
+
+describe('getSystemRepoInfo', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getAvailableSystemsMock.mockResolvedValue([
+      {
+        name: 'compound',
+        repository: 'https://github.com/emulsify-ds/compound.git',
+      },
+    ]);
+  });
+
+  it('returns repository information from explicit repository options', async () => {
+    await expect(
+      getSystemRepoInfo(undefined, {
+        repository: 'https://github.com/example/custom-system.git',
+        checkout: 'v1.0.0',
+      }),
+    ).resolves.toEqual({
+      name: 'custom-system',
+      repository: 'https://github.com/example/custom-system.git',
+      checkout: 'v1.0.0',
+    });
+  });
+
+  it('throws invalid explicit repository URLs', async () => {
+    await expect(
+      getSystemRepoInfo(undefined, {
+        repository: 'https://github.com/example/custom-system',
+        checkout: 'v1.0.0',
+      }),
+    ).rejects.toThrow('The repository URL must end in .git.');
+  });
+
+  it('returns nothing when an explicit repository has no parseable name', async () => {
+    await expect(
+      getSystemRepoInfo(undefined, {
+        repository: 'https://github.com/example/.git',
+        checkout: 'v1.0.0',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('returns repository information from an available system name', async () => {
+    await expect(getSystemRepoInfo('compound', {})).resolves.toEqual({
+      name: 'compound',
+      repository: 'https://github.com/emulsify-ds/compound.git',
+    });
+  });
+});
+
+describe('systemInstall', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // The handler clones systems through a higher-order cache helper.
+    cloneIntoCacheMock.mockReturnValue(cloneSystemMock);
+    cloneSystemMock.mockResolvedValue(undefined);
+    getAvailableSystemsMock.mockResolvedValue([
+      {
+        name: 'compound',
+        repository: 'https://github.com/emulsify-ds/compound.git',
+      },
+    ]);
+    getCachedItemCheckoutMock.mockResolvedValue('main');
+    getRepositoryLatestTagMock.mockResolvedValue('v1.0.0');
+    installComponentFromCacheMock.mockResolvedValue(undefined);
+    installGeneralAssetsFromCacheMock.mockResolvedValue(undefined);
+    getJsonFromCachedFileMock.mockResolvedValue(system);
+    setEmulsifyConfigMock.mockResolvedValue(undefined);
+    getEmulsifyConfigMock.mockResolvedValue(projectConfig);
+    // A found system config plus an existing hook covers the optional hook branch.
+    findFileInCurrentPathMock.mockReturnValue('/project/system.emulsify.json');
+    existsSyncMock.mockReturnValue(true);
+    executeScriptMock.mockResolvedValue(undefined);
+  });
+
+  it('throws when no Emulsify project is detected', async () => {
+    getEmulsifyConfigMock.mockResolvedValueOnce(undefined);
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'No Emulsify project detected. You must run this command within an existing Emulsify project. For more information about creating Emulsify projects, run "emulsify init --help"',
+    );
+  });
+
+  it('throws when a system is already configured', async () => {
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      system: {
+        repository: 'https://github.com/emulsify-ds/compound.git',
+        checkout: 'main',
+      },
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'You have already selected a system within this Emulsify project.',
+    );
+  });
+
+  it('throws when no variant can be determined', async () => {
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: '',
+      },
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'Unable to determine a variant for the specified system. Please either pass in a valid variant using the --variant flag.',
+    );
+  });
+
+  it('rejects when the system is not clone-able', async () => {
+    cloneSystemMock.mockRejectedValueOnce(new Error('clone failed'));
+
+    await expect(systemInstall('compound', {})).rejects.toThrow('clone failed');
+  });
+
+  it('throws when the cached system configuration is invalid', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce(undefined);
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'The system you attempted to install (compound) is invalid, as it does not contain a valid configuration file.',
+    );
+  });
+
+  it('throws validation errors from malformed system configuration', async () => {
+    const consoleErrorMock = jest
+      .spyOn(console, 'error')
+      .mockImplementation(jest.fn());
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      homepage: 'not-a-uri',
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'The system install failed due to the validation errors reported above. Please fix the the errors in the "compound" configuration and try again.',
+    );
+
+    expect(consoleErrorMock).toHaveBeenCalled();
+
+    consoleErrorMock.mockRestore();
+  });
+
+  it('throws when the requested variant is not found', async () => {
+    await expect(
+      systemInstall('compound', { variant: 'none' }),
+    ).rejects.toThrow(
+      'Unable to find a variant (none) within the system (compound). Please check your Emulsify project config and make sure the project.platform value is correct, or select a system with a variant that is compatible with the platform you are using.',
+    );
+  });
+
+  it('throws when the system has no variants', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: undefined,
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'Unable to find a variant (drupal) within the system (compound). Please check your Emulsify project config and make sure the project.platform value is correct, or select a system with a variant that is compatible with the platform you are using.',
+    );
+  });
+
+  it('installs the required components and global assets on the happy path', async () => {
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith({
+      system: {
+        repository: 'https://github.com/emulsify-ds/compound.git',
+        checkout: 'v1.0.0',
+      },
+      variant: {
+        platform: 'drupal',
+        structureImplementations: variant.structureImplementations,
+      },
+    });
+    expect(installComponentFromCacheMock).toHaveBeenCalledWith(
+      system,
+      variant,
+      'button',
+      true,
+    );
+    expect(installGeneralAssetsFromCacheMock).toHaveBeenCalledWith(
+      system,
+      variant,
+    );
+    expect(executeScriptMock).toHaveBeenCalledWith(
+      '/project/system.emulsify.json/.cli/systemInstall.js',
+    );
+    expect(logMock).toHaveBeenCalledWith(
+      'success',
+      'Successfully installed the compound system using the drupal variant.',
+    );
+  });
+
+  it('installs all components when the all option is passed', async () => {
+    await systemInstall('compound', { all: true });
+
+    expect(installComponentFromCacheMock).toHaveBeenCalledTimes(2);
+    expect(installComponentFromCacheMock).toHaveBeenNthCalledWith(
+      2,
+      system,
+      variant,
+      'card',
+      true,
+    );
+  });
+
+  it('uses an explicit variant on the happy path', async () => {
+    await systemInstall('compound', { variant: 'drupal' });
+
+    expect(logMock).toHaveBeenCalledWith(
+      'success',
+      'Successfully installed the compound system using the drupal variant.',
+    );
+  });
+
+  it('installs no required components when none are marked required', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [
+        {
+          ...variant,
+          components: [
+            {
+              name: 'card',
+              structure: 'base',
+            },
+          ],
+        },
+      ],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(installComponentFromCacheMock).not.toHaveBeenCalled();
+    expect(installGeneralAssetsFromCacheMock).toHaveBeenCalled();
+  });
+
+  it('fetches the latest tag when a named system has no checkout', async () => {
+    await systemInstall('compound', {});
+
+    expect(getRepositoryLatestTagMock).toHaveBeenCalledWith(
+      'https://github.com/emulsify-ds/compound.git',
+    );
+    expect(cloneSystemMock).toHaveBeenCalledWith({
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: 'v1.0.0',
+    });
+  });
+
+  it('uses a configured system checkout without fetching the latest tag', async () => {
+    getAvailableSystemsMock.mockResolvedValueOnce([
+      {
+        name: 'compound',
+        repository: 'https://github.com/emulsify-ds/compound.git',
+        checkout: 'main',
+      },
+    ]);
+
+    await systemInstall('compound', {});
+
+    expect(getRepositoryLatestTagMock).not.toHaveBeenCalled();
+    expect(cloneSystemMock).toHaveBeenCalledWith({
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: 'main',
+    });
+  });
+
+  it('throws when no matching system repository is found', async () => {
+    await expect(systemInstall('missing', {})).rejects.toThrow(
+      'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
+    );
+  });
+
+  it('throws when an explicit repository has no parseable system name', async () => {
+    await expect(
+      systemInstall(undefined, {
+        repository: 'https://github.com/example/.git',
+        checkout: 'main',
+      }),
+    ).rejects.toThrow(
+      'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
+    );
+  });
+
+  it('throws when project configuration cannot be updated', async () => {
+    setEmulsifyConfigMock.mockRejectedValueOnce(new Error('write failed'));
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'Unable to update your Emulsify project configuration.',
+    );
+  });
+
+  it('throws when required components or assets cannot be installed', async () => {
+    installComponentFromCacheMock.mockRejectedValueOnce(
+      new Error('copy failed'),
+    );
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'Unable to install system assets and/or required components: Error: copy failed',
+    );
+  });
+
+  it('throws when global assets cannot be installed', async () => {
+    installGeneralAssetsFromCacheMock.mockRejectedValueOnce(
+      new Error('asset failed'),
+    );
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'Unable to install system assets and/or required components: Error: asset failed',
+    );
+  });
+
+  it('uses explicit repository options when provided', async () => {
+    await systemInstall(undefined, {
+      repository: 'https://github.com/example/custom-system.git',
+      checkout: 'release',
+    });
+
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', [
+      'custom-system',
+    ]);
+    expect(cloneSystemMock).toHaveBeenCalledWith({
+      repository: 'https://github.com/example/custom-system.git',
+      checkout: 'release',
+    });
+  });
+
+  it('uses a cached checkout when no checkout is available after installation', async () => {
+    getRepositoryLatestTagMock.mockResolvedValueOnce(undefined);
+
+    await systemInstall('compound', {});
+
+    expect(getCachedItemCheckoutMock).toHaveBeenCalledWith('systems', [
+      'compound',
+    ]);
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: {
+          repository: 'https://github.com/emulsify-ds/compound.git',
+          checkout: 'main',
+        },
+      }),
+    );
+  });
+
+  it('skips the install hook when no system config path is found', async () => {
+    findFileInCurrentPathMock.mockReturnValueOnce(undefined);
+
+    await systemInstall('compound', {});
+
+    expect(executeScriptMock).not.toHaveBeenCalled();
+    expect(findFileInCurrentPathMock).toHaveBeenCalledWith(
+      EMULSIFY_SYSTEM_CONFIG_FILE,
+    );
+  });
+
+  it('skips the install hook when the hook file does not exist', async () => {
+    existsSyncMock.mockReturnValueOnce(false);
+
+    await systemInstall('compound', {});
+
+    expect(executeScriptMock).not.toHaveBeenCalled();
+  });
+});

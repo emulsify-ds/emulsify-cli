@@ -28,8 +28,8 @@ export default async function getDrupalInfo(): Promise<PlatformInstanceInfo | vo
         root,
         name: 'drupal',
         emulsifyParentDirectory: join(root, 'themes', 'custom'),
-        // @TODO: parse composer lock file and determine drupal core version.
-        platformMajorVersion: 9,
+        // @TODO: Drupal starter targets 11; parse composer.lock to determine the exact core version.
+        platformMajorVersion: 11,
       };
     }
   } catch {

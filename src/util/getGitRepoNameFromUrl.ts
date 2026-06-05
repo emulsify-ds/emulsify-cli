@@ -1,5 +1,3 @@
-import R from 'ramda';
-
 /**
  * Helper function that takes a .git url (ssh or https) and returns the name
  * of the repository contained within the url.
@@ -10,11 +8,11 @@ import R from 'ramda';
  */
 export default function getGitRepoNameFromUrl(url: string): string | void {
   const parts = url.split('/');
-  const gitName = R.last(parts) as string;
+  const gitName = parts.at(-1) as string;
 
   // If no .git extension is provided, then this is an invalid git url.
   if (!gitName.includes('.git')) {
     throw new Error('The repository URL must end in .git.');
   }
-  return R.head(gitName.split('.'));
+  return gitName.split('.').at(0);
 }

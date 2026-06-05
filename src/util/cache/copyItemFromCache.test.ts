@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 jest.mock('./getCachedItemPath', () =>
   jest.fn(
     () =>
@@ -6,8 +5,8 @@ jest.mock('./getCachedItemPath', () =>
   ),
 );
 import { copy, remove } from 'fs-extra';
-import getEmulsifyConfig from '../project/getEmulsifyConfig';
-import copyItemFromCache from './copyItemFromCache';
+import getEmulsifyConfig from '../project/getEmulsifyConfig.js';
+import copyItemFromCache from './copyItemFromCache.js';
 
 // Mock the getEmulsifyConfig function
 jest.mock('../project/getEmulsifyConfig', () => jest.fn());

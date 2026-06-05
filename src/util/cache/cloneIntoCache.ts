@@ -1,7 +1,7 @@
 import type { CacheBucket, CacheItemPath } from '@emulsify-cli/cache';
 import type { GitCloneOptions } from '@emulsify-cli/git';
 
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 import { existsSync, promises as fs } from 'fs';
 import { dirname } from 'path';
 

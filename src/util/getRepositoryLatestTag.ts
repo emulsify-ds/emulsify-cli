@@ -1,4 +1,4 @@
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 
 const getRepositoryLatestTag = async (repoUrl: string): Promise<string> => {
   const git = simpleGit();

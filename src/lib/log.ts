@@ -4,7 +4,6 @@
  */
 
 import { cyan, red, yellow, green, dim, bold } from 'colorette';
-import R from 'ramda';
 import consolaGlobalInstance, { type ConsolaInstance } from 'consola';
 
 export type LogMethod =
@@ -29,39 +28,33 @@ const logMethodColorMap: {
 const withColor =
   (logger: ConsolaInstance['log']) =>
   (method: LogMethod, message: string): void =>
-    /* eslint-disable-next-line security/detect-object-injection */
     logger(logMethodColorMap[method](message));
-
-const logMethodEq =
-  (potentialMethod: LogMethod) =>
-  (method: LogMethod, _: string): boolean =>
-    potentialMethod === method;
 
 /**
  * Lib function that allows for info, error, warn, debug, verbose, and success messages
- * to be written to the console with consistent methods and colors.
+ * to be written to the console with consistent methods and colors. This function
+ * only writes log output and never exits the process.
  *
- * @param message string containing message to be logged.
  * @param method method that should be used to log, such as 'error', or 'warn'.
+ * @param message string containing message to be logged.
  */
-export default function log(
-  method: LogMethod,
-  message: string,
-  exitCode?: number,
-): void {
+export default function log(method: LogMethod, message: string): void {
   // @TODO: add support for --verbose flag, and suppress verbose messages
   // by default when --verbose is false or void.
 
   // emit log message based off of method.
-  R.cond([
-    [logMethodEq('error'), withColor(consolaGlobalInstance.error)],
-    [logMethodEq('info'), withColor(consolaGlobalInstance.info)],
-    [logMethodEq('warn'), withColor(consolaGlobalInstance.warn)],
-    [R.T, withColor(consolaGlobalInstance.log)],
-  ])(method, message);
-
-  if (exitCode) {
-    process.exit(exitCode);
+  switch (method) {
+    case 'error':
+      withColor(consolaGlobalInstance.error)(method, message);
+      break;
+    case 'info':
+      withColor(consolaGlobalInstance.info)(method, message);
+      break;
+    case 'warn':
+      withColor(consolaGlobalInstance.warn)(method, message);
+      break;
+    default:
+      withColor(consolaGlobalInstance.log)(method, message);
   }
 
   return;

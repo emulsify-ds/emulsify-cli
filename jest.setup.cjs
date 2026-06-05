@@ -12,7 +12,13 @@ jest.mock('simple-git', () => {
     }),
   };
 
-  return jest.fn(() => mockGit);
+  const simpleGit = jest.fn(() => mockGit);
+
+  return {
+    __esModule: true,
+    default: simpleGit,
+    simpleGit,
+  };
 });
 
 jest.mock('fs', () => ({

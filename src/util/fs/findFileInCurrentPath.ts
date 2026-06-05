@@ -1,6 +1,7 @@
 import { existsSync } from 'fs';
 import { join, dirname, sep } from 'path';
-import R from 'ramda';
+
+const foundFileCache = new Map<string, string | void>();
 
 /**
  * Helper method that finds the given file by name in the current directory,
@@ -10,24 +11,19 @@ import R from 'ramda';
  *
  * @returns string containing the path to the file, or undefined if the file is not found.
  */
-const findFileInCurrentPath = R.memoizeWith(
-  R.identity,
-  (fileName: string): string | void => {
-    const directoryContainsFile = (path: string): boolean =>
-      existsSync(join(path, fileName));
-    const reachedCwdRoot = (path: string): boolean => path === sep;
-    const incrementLeftTraversal = (path: string): string => dirname(path);
+export default function findFileInCurrentPath(fileName: string): string | void {
+  if (foundFileCache.has(fileName)) {
+    return foundFileCache.get(fileName);
+  }
 
-    const path: string = R.until(
-      R.either(directoryContainsFile, reachedCwdRoot),
-      incrementLeftTraversal,
-    )(process.cwd());
+  let currentPath = process.cwd();
+  while (currentPath !== sep && !existsSync(join(currentPath, fileName))) {
+    currentPath = dirname(currentPath);
+  }
 
-    if (!reachedCwdRoot(path)) {
-      return join(path, fileName);
-    }
+  const foundPath =
+    currentPath !== sep ? join(currentPath, fileName) : undefined;
+  foundFileCache.set(fileName, foundPath);
 
-    return undefined;
-  },
-);
-export default findFileInCurrentPath;
+  return foundPath;
+}

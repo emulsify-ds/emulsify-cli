@@ -7,6 +7,8 @@ import systemInstall from './handlers/systemInstall.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
 import componentCreate from './handlers/componentCreate.js';
+import CliError from './lib/CliError.js';
+import log from './lib/log.js';
 import { createRequire } from 'module';
 import { cyan, green } from 'colorette';
 import boxen from 'boxen';
@@ -33,7 +35,6 @@ program
   .option(
     '-s --starter <repository>',
     'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-starter',
-    // 'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-drupal-starter.git',
   )
   .option(
     '-c --checkout <commit/branch/tag>',
@@ -42,6 +43,10 @@ program
   .option(
     '-p --platform <drupal/wordpress/etc>',
     'Name of the platform Emulsify is being within. In some cases, Emulsify is able to automatically detect this. If it is not, Emulsify will prompt you to specify.',
+  )
+  .option(
+    '-y --yes',
+    'Accept default init values for any missing options without prompting.',
   )
   .action(withProgressBar(init));
 
@@ -111,6 +116,14 @@ component
     '-d --directory <directory>',
     'Used to set the directory where the new component is to be created',
   )
+  .option(
+    '-f --format <format>',
+    'Component format to generate. Supported values: default, sdc.',
+  )
+  .option(
+    '-y --yes',
+    'Skip overwrite confirmation prompts and replace existing components.',
+  )
   .alias('c')
   .description(
     "Create a component from within the current project's system and variant",
@@ -140,4 +153,17 @@ const boxedMessage = boxen(message, {
 });
 
 program.version(boxedMessage);
-void program.parseAsync(process.argv);
+try {
+  await program.parseAsync(process.argv);
+} catch (err) {
+  // Expected CliError failures map their message and exitCode to the process;
+  // unexpected failures still produce a message and a generic non-zero exit.
+  if (err instanceof CliError) {
+    log('error', err.message);
+    process.exitCode = err.exitCode;
+  } else {
+    const message = err instanceof Error ? err.message : String(err);
+    log('error', message);
+    process.exitCode = 1;
+  }
+}

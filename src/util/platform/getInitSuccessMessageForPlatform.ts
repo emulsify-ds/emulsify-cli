@@ -1,4 +1,4 @@
-import { LogMethod } from 'src/lib/log';
+import { LogMethod } from 'src/lib/log.js';
 import { cyan } from 'colorette';
 
 /**

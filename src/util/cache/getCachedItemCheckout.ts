@@ -1,6 +1,6 @@
 import type { CacheBucket, CacheItemPath } from '@emulsify-cli/cache';
 
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 import getCachedItemPath from './getCachedItemPath.js';
 
 /**

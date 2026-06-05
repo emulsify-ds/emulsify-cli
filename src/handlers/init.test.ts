@@ -6,7 +6,7 @@ jest.mock('../util/project/installDependencies', () => jest.fn());
 jest.mock('@inquirer/prompts');
 
 import fs from 'fs';
-import git from 'simple-git';
+import { simpleGit as git } from 'simple-git';
 import log from '../lib/log.js';
 import { input } from '@inquirer/prompts';
 import ProgressBar from 'progress';
@@ -15,7 +15,6 @@ import getPlatformInfo from '../util/platform/getPlatformInfo.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
 import executeScript from '../util/fs/executeScript.js';
 import init from './init.js';
-import { EXIT_ERROR } from '../lib/constants.js';
 
 const root = '/home/uname/Projects/cornflake';
 
@@ -34,44 +33,45 @@ const progressMock = {
   tick: jest.fn(),
 };
 const progress = progressMock as unknown as InstanceType<typeof ProgressBar>;
+const inputMock = input as jest.Mock;
+const originalStdinIsTTY = process.stdin.isTTY;
+
+function setStdinIsTTY(value: boolean | undefined) {
+  Object.defineProperty(process.stdin, 'isTTY', {
+    value,
+    configurable: true,
+  });
+}
 
 describe('init', () => {
   beforeEach(() => {
     logMock.mockClear();
     gitCloneMock.mockClear();
     progressMock.tick.mockClear();
-    (input as jest.Mock).mockClear();
+    inputMock.mockClear();
+    setStdinIsTTY(false);
+  });
+
+  afterAll(() => {
+    setStdinIsTTY(originalStdinIsTTY);
   });
 
   it('should execute the returned function', async () => {
-    await init(progress)();
-    expect(logMock).toHaveBeenCalledWith(
-      'error',
+    await expect(init(progress)()).rejects.toThrow(
       'Unable to determine the project name. Please provide a valid project name.',
-      EXIT_ERROR,
     );
   });
 
-  it('should prompt for the name if not provided', async () => {
-    expect.assertions(4);
-    (input as jest.Mock)
-      .mockResolvedValueOnce('cornflake')
-      .mockResolvedValueOnce(root)
-      .mockResolvedValueOnce('drupal');
+  it('should prompt for the name if not provided in an interactive terminal', async () => {
+    expect.assertions(2);
+    setStdinIsTTY(true);
+    inputMock.mockResolvedValueOnce('cornflake');
 
     await init(progress)();
-    expect(input).toHaveBeenCalledTimes(3);
+    expect(input).toHaveBeenCalledTimes(1);
     expect(input).toHaveBeenNthCalledWith(1, {
       message: 'Project name:',
       default: 'emulsifyTheme',
-    });
-    expect(input).toHaveBeenNthCalledWith(2, {
-      message: 'Target directory:',
-      default: root,
-    });
-    expect(input).toHaveBeenNthCalledWith(3, {
-      message: 'Platform:',
-      default: 'drupal',
     });
   });
 
@@ -81,8 +81,6 @@ describe('init', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-starter',
       '/home/uname/Projects/cornflake/cornflake',
-      // 'https://github.com/emulsify-ds/emulsify-drupal-starter.git',
-      // '/home/uname/Projects/cornflake/themes/cornflake',
       { '--branch': 'main' },
     );
     expect(rmMock).toHaveBeenCalledWith(
@@ -99,8 +97,6 @@ describe('init', () => {
         },
         starter: {
           repository: 'https://github.com/emulsify-ds/emulsify-starter',
-          // repository:
-          //   'https://github.com/emulsify-ds/emulsify-drupal-starter.git',
         },
       },
     );
@@ -156,6 +152,67 @@ describe('init', () => {
     );
   });
 
+  it('uses flag-provided values without prompting in non-interactive mode', async () => {
+    expect.assertions(3);
+    getPlatformInfoMock.mockReturnValueOnce(undefined);
+
+    await init(progress)(undefined, root, {
+      machineName: 'cornflake',
+      starter: 'https://github.com/emulsify-ds/emulsify-starter',
+      platform: 'drupal',
+    });
+
+    expect(inputMock).not.toHaveBeenCalled();
+    expect(gitCloneMock).toHaveBeenCalledWith(
+      'https://github.com/emulsify-ds/emulsify-starter',
+      '/home/uname/Projects/cornflake/cornflake',
+      { '--branch': 'main' },
+    );
+    expect(writeJsonFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/cornflake/project.emulsify.json',
+      {
+        project: {
+          platform: 'drupal',
+          machineName: 'cornflake',
+          name: 'cornflake',
+        },
+        starter: {
+          repository: 'https://github.com/emulsify-ds/emulsify-starter',
+        },
+      },
+    );
+  });
+
+  it('accepts init defaults without prompting when yes is set', async () => {
+    expect.assertions(3);
+    getPlatformInfoMock.mockReturnValueOnce(undefined);
+
+    await init(progress)(undefined, undefined, {
+      starter: 'https://github.com/emulsify-ds/emulsify-starter',
+      yes: true,
+    });
+
+    expect(inputMock).not.toHaveBeenCalled();
+    expect(gitCloneMock).toHaveBeenCalledWith(
+      'https://github.com/emulsify-ds/emulsify-starter',
+      'emulsifytheme',
+      { '--branch': 'main' },
+    );
+    expect(writeJsonFileMock).toHaveBeenCalledWith(
+      'emulsifytheme/project.emulsify.json',
+      {
+        project: {
+          platform: 'drupal',
+          machineName: 'emulsifytheme',
+          name: 'emulsifyTheme',
+        },
+        starter: {
+          repository: 'https://github.com/emulsify-ds/emulsify-starter',
+        },
+      },
+    );
+  });
+
   it('installs the project dependencies', async () => {
     expect.assertions(1);
     await init(progress)('cornflake');
@@ -173,70 +230,55 @@ describe('init', () => {
     );
   });
 
-  it('logs an error and exits if no valid platform name is detectable', async () => {
+  it('throws if no valid platform name is detectable', async () => {
     expect.assertions(1);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
-    await init(progress)('cornflake');
-    expect(logMock).toHaveBeenCalledWith(
-      'error',
+    await expect(init(progress)('cornflake')).rejects.toThrow(
       'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
-      1,
     );
   });
 
-  it('logs a helpful error if the given Emulsify starter is not clone-able', async () => {
+  it('throws a helpful error if the given Emulsify starter is not clone-able', async () => {
     gitCloneMock.mockImplementationOnce(() => {
       throw new Error('Does not exist!');
     });
-    await init(progress)('cornflake');
-    expect(logMock).toHaveBeenCalledWith(
-      'error',
+    await expect(init(progress)('cornflake')).rejects.toThrow(
       'Unable to pull down https://github.com/emulsify-ds/emulsify-starter: Error: Does not exist!',
-      // 'Unable to pull down https://github.com/emulsify-ds/emulsify-drupal-starter.git: Error: Does not exist!',
-      1,
     );
   });
 
-  it('logs an error and exits if no target is found or specified', async () => {
+  it('throws if no target is found or specified', async () => {
     expect.assertions(1);
     getPlatformInfoMock.mockReturnValueOnce({
       name: 'drupal',
     });
-    await init(progress)('cornflake');
-    expect(logMock).toHaveBeenCalledWith(
-      'error',
+    await expect(init(progress)('cornflake')).rejects.toThrow(
       'Unable to find a directory to put Emulsify in. Please specify a directory using the "path" argument: emulsify init myTheme ./themes',
-      1,
     );
   });
 
-  it('logs an error and exits if no repository is found or specified', async () => {
+  it('throws if no repository is found or specified', async () => {
     expect.assertions(1);
     getPlatformInfoMock.mockReturnValueOnce({
       name: 'invalid',
     });
-    await init(progress)('cornflake', root);
-    expect(logMock).toHaveBeenCalledWith(
-      'error',
+    await expect(init(progress)('cornflake', root)).rejects.toThrow(
       'Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter https://github.com/emulsify-ds/emulsify-starter',
-      // 'Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter https://github.com/emulsify-ds/emulsify-drupal-starter.git',
-      1,
     );
   });
 
-  it('logs an error and exists if the target directory already exists', async () => {
+  it('throws if the target directory already exists', async () => {
     expect.assertions(1);
     existsSyncMock.mockReturnValueOnce(true);
-    await init(progress)('cornflake');
-    expect(logMock).toHaveBeenCalledWith(
-      'error',
+    await expect(init(progress)('cornflake')).rejects.toThrow(
       'The intended target is already occupied: /home/uname/Projects/cornflake/cornflake',
-      1,
     );
   });
 
   it('should prompt for all info if name is missing', async () => {
-    (input as jest.Mock)
+    setStdinIsTTY(true);
+    getPlatformInfoMock.mockReturnValueOnce(undefined);
+    inputMock
       .mockResolvedValueOnce('new-project')
       .mockResolvedValueOnce(root)
       .mockResolvedValueOnce('drupal');
@@ -244,6 +286,18 @@ describe('init', () => {
     await init(progress)();
 
     expect(input).toHaveBeenCalledTimes(3);
+    expect(input).toHaveBeenNthCalledWith(1, {
+      message: 'Project name:',
+      default: 'emulsifyTheme',
+    });
+    expect(input).toHaveBeenNthCalledWith(2, {
+      message: 'Target directory:',
+      default: './',
+    });
+    expect(input).toHaveBeenNthCalledWith(3, {
+      message: 'Platform:',
+      default: 'drupal',
+    });
     expect(gitCloneMock).toHaveBeenCalled();
   });
 });

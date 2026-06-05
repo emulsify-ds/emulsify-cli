@@ -1,4 +1,4 @@
-import catchLater from './catchLater';
+import catchLater from './catchLater.js';
 
 describe('catchLater', () => {
   it('should return a promise that resolves successfully', async () => {

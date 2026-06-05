@@ -7,7 +7,7 @@ import cloneIntoCache from './cloneIntoCache.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 
 import fs from 'fs';
-import git from 'simple-git';
+import { simpleGit as git } from 'simple-git';
 
 const existsSyncMock = fs.existsSync as jest.Mock;
 const mkdirMock = fs.promises.mkdir as jest.Mock;

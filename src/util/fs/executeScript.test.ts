@@ -1,4 +1,3 @@
-/* eslint @typescript-eslint/ban-ts-comment: 0 */
 // @ts-nocheck
 // This file is escaping ts checks for now, because the child_process.exec
 // mock fn is selecting a specific exec overload that is incorrect.
