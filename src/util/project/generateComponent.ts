@@ -11,6 +11,8 @@ import log from '../../lib/log.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 import deriveComponentNames from '../deriveComponentNames.js';
+import resolveComponentTemplate from './resolveComponentTemplate.js';
+import type { ComponentTemplateVars } from './renderTemplate.js';
 import {
   buildScssTemplate,
   buildSdcJsTemplate,
@@ -35,6 +37,12 @@ const COMPONENT_FORMAT_CHOICES = [
 const COMPONENT_FORMATS = ['default', 'sdc'] as const;
 
 type ComponentFormat = (typeof COMPONENT_FORMATS)[number];
+
+type ComponentArtifact = {
+  logicalName: string;
+  destinationName: string;
+  build: () => string;
+};
 
 /**
  * Validates and normalizes a component format option.
@@ -168,54 +176,84 @@ export default async function generateComponent(
   // Create the component directory
   await fs.mkdir(destination, { recursive: true });
 
-  // Generate twig template file
-  const twigTemplateFile = buildTwigTemplate(
+  const templateVars: ComponentTemplateVars = {
     filename,
-    snakeName,
     className,
-    format.toUpperCase(),
-  );
-  const twigTemplatePath = join(destination, `${filename}.twig`);
-  await fs.writeFile(twigTemplatePath, twigTemplateFile);
+    camelName,
+    snakeName,
+    humanName,
+    directory,
+    format,
+  };
+  const formatLabel = format.toUpperCase();
+  const sharedArtifacts: ComponentArtifact[] = [
+    {
+      logicalName: 'component.twig',
+      destinationName: `${filename}.twig`,
+      build: () =>
+        buildTwigTemplate(filename, snakeName, className, formatLabel),
+    },
+    {
+      logicalName: 'component.scss',
+      destinationName: `${filename}.scss`,
+      build: () => buildScssTemplate(className, formatLabel),
+    },
+  ];
+  const formatArtifacts: ComponentArtifact[] =
+    format === 'sdc'
+      ? [
+          {
+            logicalName: 'component.component.yml',
+            destinationName: `${filename}.component.yml`,
+            build: () => buildSdcMetadataTemplate(snakeName, humanName),
+          },
+          {
+            logicalName: 'component.js',
+            destinationName: `${filename}.js`,
+            build: () => buildSdcJsTemplate(camelName, filename, className),
+          },
+          {
+            logicalName: 'component.stories.js',
+            destinationName: `${filename}.stories.js`,
+            build: () =>
+              buildSdcStoriesTemplate(
+                camelName,
+                filename,
+                snakeName,
+                humanName,
+                directory,
+              ),
+          },
+        ]
+      : [
+          {
+            logicalName: 'component.yml',
+            destinationName: `${filename}.yml`,
+            build: () => buildYmlTemplate(snakeName, humanName),
+          },
+          {
+            logicalName: 'component.stories.js',
+            destinationName: `${filename}.stories.js`,
+            build: () =>
+              buildStoriesTemplate(camelName, filename, humanName, directory),
+          },
+        ];
 
-  // Generate scss template file
-  const scssTemplateFile = buildScssTemplate(className, format.toUpperCase());
-  const scssTemplatePath = join(destination, `${filename}.scss`);
-  await fs.writeFile(scssTemplatePath, scssTemplateFile);
+  for (const artifact of [...sharedArtifacts, ...formatArtifacts]) {
+    // Resolve a project override first; missing or empty overrides fall back to
+    // the byte-for-byte built-in builders for each known generated artifact.
+    const templateFile =
+      (await resolveComponentTemplate(
+        dirname(path),
+        format,
+        artifact.logicalName,
+        templateVars,
+      )) ?? artifact.build();
 
-  if (format === 'sdc') {
-    // SDC Specific files
-    const metadataTemplateFile = buildSdcMetadataTemplate(snakeName, humanName);
-    const metadataTemplatePath = join(destination, `${filename}.component.yml`);
-    await fs.writeFile(metadataTemplatePath, metadataTemplateFile);
-
-    const jsTemplateFile = buildSdcJsTemplate(camelName, filename, className);
-    const jsTemplatePath = join(destination, `${filename}.js`);
-    await fs.writeFile(jsTemplatePath, jsTemplateFile);
-
-    const storiesTemplateFile = buildSdcStoriesTemplate(
-      camelName,
-      filename,
-      snakeName,
-      humanName,
-      directory,
+    await fs.writeFile(
+      join(destination, artifact.destinationName),
+      templateFile,
     );
-    const storiesTemplatePath = join(destination, `${filename}.stories.js`);
-    await fs.writeFile(storiesTemplatePath, storiesTemplateFile);
-  } else {
-    // Default format files
-    const ymlTemplateFile = buildYmlTemplate(snakeName, humanName);
-    const ymlTemplatePath = join(destination, `${filename}.yml`);
-    await fs.writeFile(ymlTemplatePath, ymlTemplateFile);
-
-    const storiesTemplateFile = buildStoriesTemplate(
-      camelName,
-      filename,
-      humanName,
-      directory,
-    );
-    const storiesTemplatePath = join(destination, `${filename}.stories.js`);
-    await fs.writeFile(storiesTemplatePath, storiesTemplateFile);
   }
 
   return log(

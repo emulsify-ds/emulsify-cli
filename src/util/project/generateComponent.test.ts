@@ -44,6 +44,7 @@ const variant = {
 
 const pathExistsMock = (pathExists as jest.Mock).mockResolvedValue(true);
 const removeMock = remove as jest.Mock;
+const readFileMock = fs.readFile as jest.Mock;
 const writeFileMock = fs.writeFile as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
 
@@ -54,11 +55,45 @@ function setStdinIsTTY(value: boolean | undefined) {
   });
 }
 
+function isTemplatePath(path: unknown): boolean {
+  return String(path).includes('/.cli/templates/');
+}
+
+function mockTemplateOverrides(
+  overrides: Record<string, string>,
+  componentExists = false,
+) {
+  pathExistsMock.mockImplementation((path) => {
+    const value = String(path);
+
+    if (isTemplatePath(value)) {
+      return Object.keys(overrides).some((templatePath) =>
+        value.endsWith(templatePath),
+      );
+    }
+
+    if (value.includes('/components/00-base/')) {
+      return componentExists;
+    }
+
+    return true;
+  });
+  readFileMock.mockImplementation(async (path) => {
+    const value = String(path);
+    const templatePath = Object.keys(overrides).find((key) =>
+      value.endsWith(key),
+    );
+
+    return templatePath ? overrides[templatePath] : '';
+  });
+}
+
 describe('generateComponent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setStdinIsTTY(true);
-    pathExistsMock.mockResolvedValue(true);
+    pathExistsMock.mockImplementation((path) => !isTemplatePath(path));
+    readFileMock.mockResolvedValue('');
   });
 
   afterAll(() => {
@@ -197,8 +232,6 @@ describe('generateComponent', () => {
   it('should cancel component creation if user declines overwrite', async () => {
     expect.assertions(2);
     (select as jest.Mock).mockResolvedValueOnce('default'); // format
-    // Mock parent path exists, and destination exists
-    pathExistsMock.mockResolvedValue(true);
     (confirm as jest.Mock).mockResolvedValueOnce(false); // decline overwrite
 
     const result = await generateComponent(variant, 'link', {
@@ -215,7 +248,6 @@ describe('generateComponent', () => {
   it('skips the overwrite confirm and replaces the component when yes is set', async () => {
     expect.assertions(3);
     setStdinIsTTY(false);
-    pathExistsMock.mockResolvedValue(true);
 
     await generateComponent(variant, 'link', {
       directory: 'base',
@@ -236,7 +268,6 @@ describe('generateComponent', () => {
   it('should continue creation if user confirms overwrite', async () => {
     expect.assertions(2);
     (select as jest.Mock).mockResolvedValueOnce('default'); // format
-    pathExistsMock.mockResolvedValue(true);
     (confirm as jest.Mock).mockResolvedValueOnce(true); // confirm overwrite
 
     await generateComponent(variant, 'link', { directory: 'base' });
@@ -253,7 +284,9 @@ describe('generateComponent', () => {
       .mockResolvedValueOnce('sdc') // format
       .mockResolvedValueOnce('base'); // directory
     // Mock parent path exists, but destination does NOT exist
-    pathExistsMock.mockImplementation((p) => !p.endsWith('mario'));
+    pathExistsMock.mockImplementation(
+      (path) => !isTemplatePath(path) && !String(path).endsWith('mario'),
+    );
 
     await generateComponent(variant, 'mario');
     expect(log).toHaveBeenCalledWith(
@@ -273,6 +306,101 @@ describe('generateComponent', () => {
     expect(log).toHaveBeenCalledWith(
       'success',
       expect.stringContaining('Success!'),
+    );
+  });
+
+  it('uses a rendered project template override when present', async () => {
+    expect.assertions(4);
+    (select as jest.Mock).mockResolvedValueOnce('default');
+    mockTemplateOverrides({
+      'default/component.twig':
+        '<article class="{{ className }}">{{ humanName }} {{ filename }} {{ directory }} {{ format }}</article>',
+    });
+
+    await generateComponent(variant, 'featuredItem', {
+      directory: 'base',
+    });
+
+    expect(readFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/web/themes/custom/themename/.cli/templates/default/component.twig',
+      'utf8',
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.twig',
+      '<article class="featured-item">Featured Item featured-item base default</article>',
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.scss',
+      expect.stringContaining('Base Styles for featured-item (STANDARD)'),
+    );
+    expect(log).toHaveBeenCalledWith(
+      'success',
+      expect.stringContaining('Success!'),
+    );
+  });
+
+  it('allows partial project template overrides per artifact', async () => {
+    expect.assertions(2);
+    (select as jest.Mock).mockResolvedValueOnce('default');
+    mockTemplateOverrides({
+      'default/component.scss': '.{{ className }} { color: red; }\n',
+    });
+
+    await generateComponent(variant, 'featuredItem', {
+      directory: 'base',
+    });
+
+    expect(writeFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.twig',
+      expect.stringContaining('featured-item.twig'),
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.scss',
+      '.featured-item { color: red; }\n',
+    );
+  });
+
+  it('falls back to the built-in template and warns when an override is empty', async () => {
+    expect.assertions(2);
+    (select as jest.Mock).mockResolvedValueOnce('default');
+    mockTemplateOverrides({
+      'default/component.yml': '\n ',
+    });
+
+    await generateComponent(variant, 'featuredItem', {
+      directory: 'base',
+    });
+
+    expect(writeFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.yml',
+      `featured_item__heading: 'Featured Item Component'
+featured_item__content: 'This is the content area of the Featured Item component, created using the standard Emulsify format. Replace with your markup and data.'
+`,
+    );
+    expect(log).toHaveBeenCalledWith(
+      'warn',
+      'Component template override "/home/uname/Projects/cornflake/web/themes/custom/themename/.cli/templates/default/component.yml" is empty; using the built-in template instead.',
+    );
+  });
+
+  it('keeps unknown override tokens and logs a warning', async () => {
+    expect.assertions(2);
+    (select as jest.Mock).mockResolvedValueOnce('default');
+    mockTemplateOverrides({
+      'default/component.twig': '{{ humanName }} {{ unknownToken }}',
+    });
+
+    await generateComponent(variant, 'featuredItem', {
+      directory: 'base',
+    });
+
+    expect(writeFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.twig',
+      'Featured Item {{ unknownToken }}',
+    );
+    expect(log).toHaveBeenCalledWith(
+      'warn',
+      'Unknown component template token "{{ unknownToken }}" left unchanged.',
     );
   });
 

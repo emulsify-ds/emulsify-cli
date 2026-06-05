@@ -17,6 +17,29 @@ npm install -g @emulsify/cli
 
 For more information on how to use emulsify-cli, please see the [usage documentation](https://www.emulsify.info/docs/supporting-projects/emulsify-cli/emulsify-cli-usage).
 
+### Customizing component templates
+
+Projects can override the built-in `component create` templates by adding files under `.cli/templates/` at the Emulsify project root. Overrides replace only the known artifacts that the CLI already generates; they do not add extra files or change which files are created.
+
+Default component overrides:
+
+- `.cli/templates/default/component.twig`
+- `.cli/templates/default/component.scss`
+- `.cli/templates/default/component.yml`
+- `.cli/templates/default/component.stories.js`
+
+SDC component overrides:
+
+- `.cli/templates/sdc/component.twig`
+- `.cli/templates/sdc/component.scss`
+- `.cli/templates/sdc/component.component.yml`
+- `.cli/templates/sdc/component.js`
+- `.cli/templates/sdc/component.stories.js`
+
+Override files can use double-brace tokens. Supported tokens are `{{ filename }}`, `{{ className }}`, `{{ camelName }}`, `{{ snakeName }}`, `{{ humanName }}`, `{{ directory }}`, and `{{ format }}`. Unknown tokens are left unchanged and logged as warnings.
+
+For each generated artifact, the CLI first checks for the matching override file. If the override is missing or empty, the built-in template is used. Partial override sets are supported, so a project can override only `component.twig` and keep the built-in SCSS, data, and story templates. Arbitrary extra files and template ejection helpers are future work.
+
 ## Development
 
 Emulsify-cli is developed using TypeScript. You can find all of the source files in the `src` directory, which is organized in the following manner:
@@ -27,7 +50,7 @@ Emulsify-cli is developed using TypeScript. You can find all of the source files
 - `src/schemas` - contains JSON-Schema files that describe project, system, and variant configuration. These schema files are used to generate TypeScript types.
 - `src/scripts` - holds utility scripts for the project.
 - `src/types` - type modules live here, auto-generated ones are prefixed with an underscore (`_`).
-- `src/util` - contains utility functions that are used in handlers to do various things, such as caching systems.
+- `src/util` - contains utility functions that are used in handlers to do various things, such as caching systems and resolving component template overrides.
 
 ### Setup
 

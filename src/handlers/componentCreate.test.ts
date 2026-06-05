@@ -42,6 +42,12 @@ function setStdinIsTTY(value: boolean | undefined) {
   });
 }
 
+function mockComponentExistsWithoutTemplateOverrides() {
+  pathExistsMock.mockImplementation(
+    (path) => !String(path).includes('/.cli/templates/'),
+  );
+}
+
 const projectConfigPath = '/project/project.emulsify.json';
 
 const projectConfig = {
@@ -239,7 +245,7 @@ describe('componentCreate', () => {
   });
 
   it('cancels overwrite when the user declines the confirm prompt', async () => {
-    pathExistsMock.mockResolvedValue(true);
+    mockComponentExistsWithoutTemplateOverrides();
     confirmMock.mockResolvedValue(false);
 
     await componentCreate('button', { directory: 'base' });
@@ -258,7 +264,7 @@ describe('componentCreate', () => {
   });
 
   it('overwrites an existing component when the user accepts the confirm prompt', async () => {
-    pathExistsMock.mockResolvedValue(true);
+    mockComponentExistsWithoutTemplateOverrides();
     confirmMock.mockResolvedValue(true);
 
     await componentCreate('button', { directory: 'base' });
@@ -292,7 +298,7 @@ describe('componentCreate', () => {
 
   it('creates a component non-interactively when flags provide format, directory, and yes', async () => {
     setStdinIsTTY(false);
-    pathExistsMock.mockResolvedValue(true);
+    mockComponentExistsWithoutTemplateOverrides();
 
     await componentCreate('button', {
       directory: 'base',
