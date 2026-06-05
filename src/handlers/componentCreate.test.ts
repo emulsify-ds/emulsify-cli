@@ -14,6 +14,7 @@ import { pathExists, remove } from 'fs-extra';
 import { select, confirm } from '@inquirer/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
+import CliError from '../lib/CliError.js';
 import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
@@ -215,13 +216,13 @@ describe('componentCreate', () => {
     );
   });
 
-  it('logs when no component name is provided', async () => {
-    await componentCreate('', {});
-
-    expect(logMock).toHaveBeenCalledWith(
-      'error',
+  it('throws a CliError when no component name is provided', async () => {
+    await expect(componentCreate('', {})).rejects.toThrow(CliError);
+    await expect(componentCreate('', {})).rejects.toThrow(
       'Please specify a name for the new component.',
     );
+
+    expect(logMock).not.toHaveBeenCalled();
     expect(getEmulsifyConfigMock).not.toHaveBeenCalled();
   });
 

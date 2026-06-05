@@ -14,6 +14,7 @@ import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
+import CliError from '../lib/CliError.js';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_SYSTEM_CONFIG_FILE,
@@ -214,13 +215,14 @@ describe('componentInstall', () => {
     );
   });
 
-  it('logs when neither a component name nor all option is provided', async () => {
-    await componentInstall('', {});
-
-    expect(logMock).toHaveBeenCalledWith(
-      'error',
+  it('throws a CliError when neither a component name nor all option is provided', async () => {
+    await expect(componentInstall('', {})).rejects.toThrow(CliError);
+    await expect(componentInstall('', {})).rejects.toThrow(
       'Please specify a component to install, or pass --all to install all available components.',
     );
+
+    expect(logMock).not.toHaveBeenCalled();
+    expect(getEmulsifyConfigMock).not.toHaveBeenCalled();
   });
 
   it('throws when the requested component is not found', async () => {

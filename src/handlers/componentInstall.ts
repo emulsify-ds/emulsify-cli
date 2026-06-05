@@ -15,6 +15,7 @@ import { withEmulsifySystem } from './hofs/withEmulsifySystem.js';
 /**
  * Handler for the `component install` command.
  *
+ * @throws {CliError} if a component name is missing and all components were not requested.
  * @throws {CliError} if the current project does not have a usable system and variant configuration.
  * @throws {CliError} if the requested component cannot be found.
  */
@@ -22,16 +23,15 @@ export default async function componentInstall(
   name: string,
   { force, all }: InstallComponentHandlerOptions,
 ): Promise<void> {
-  // Load the configured system and variant before resolving component installs.
-  const { systemConf, variantConf } =
-    await withEmulsifySystem('install components');
-
   if (!name && !all) {
-    return log(
-      'error',
+    throw new CliError(
       'Please specify a component to install, or pass --all to install all available components.',
     );
   }
+
+  // Load the configured system and variant before resolving component installs.
+  const { systemConf, variantConf } =
+    await withEmulsifySystem('install components');
 
   // If all components are to be installed, spawn promises for installing all available components.
   const components: [string, boolean, Promise<void>][] = [];
