@@ -34,6 +34,7 @@
     "lint": "npm run test",
     "type": "tsc --noEmit",
     "twatch": "jest --no-coverage --watch --verbose",
+    "version:develop": "node --import ./src/register.mjs ./src/scripts/versionDevelop.ts",
     "semantic-release": "semantic-release --config ./release.config.cjs",
     "prepare": "husky install",
     "postbuild": "cp package.json dist/package.json && cd dist && npm install --only=production --ignore-scripts"
