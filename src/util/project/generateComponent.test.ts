@@ -498,14 +498,28 @@ export const featuredItem = () => featuredItemTwig(featuredItemData);
   });
 
   it('writes SDC component files with byte-for-byte template content', async () => {
-    expect.assertions(1);
+    expect.assertions(2);
     (select as jest.Mock).mockResolvedValueOnce('sdc');
     pathExistsMock.mockResolvedValue(false);
+    const expectedSdcJs = `/**
+ * @file
+ * JavaScript for the featured-item component.
+ */
+Drupal.behaviors.featuredItem = {
+  attach(context) {
+    const elements = context.querySelectorAll('.featured-item');
+    elements.forEach((el) => {
+      console.log('featured-item component attached:', el);
+    });
+  },
+};
+`;
 
     await generateComponent(variant, 'featuredItem', {
       directory: 'base',
     });
 
+    expect(expectedSdcJs).not.toContain('\t');
     expect(writeFileMock.mock.calls).toEqual([
       [
         '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.twig',
@@ -589,19 +603,7 @@ props:
       ],
       [
         '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.js',
-        `/**
- * @file
- * JavaScript for the featured-item component.
- */
-\tDrupal.behaviors.featuredItem = {
-  attach(context) {
-    const elements = context.querySelectorAll('.featured-item');
-    elements.forEach((el) => {
-\t      console.log('featured-item component attached:', el);
-    });
-  },
-};
-`,
+        expectedSdcJs,
       ],
       [
         '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.stories.js',

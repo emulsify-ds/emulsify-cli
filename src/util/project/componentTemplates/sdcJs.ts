@@ -19,11 +19,11 @@ export function buildSdcJsTemplate(
  * @file
  * JavaScript for the ${filename} component.
  */
-\tDrupal.behaviors.${camelName} = {
+Drupal.behaviors.${camelName} = {
   attach(context) {
     const elements = context.querySelectorAll('.${className}');
     elements.forEach((el) => {
-\t      console.log('${filename} component attached:', el);
+      console.log('${filename} component attached:', el);
     });
   },
 };
