@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 import { program } from 'commander';
-import withProgressBar from './handlers/hofs/withProgressBar';
-import init from './handlers/init';
-import systemList from './handlers/systemList';
-import systemInstall from './handlers/systemInstall';
-import componentList from './handlers/componentList';
-import componentInstall from './handlers/componentInstall';
+import withProgressBar from './handlers/hofs/withProgressBar.js';
+import init from './handlers/init.js';
+import systemList from './handlers/systemList.js';
+import systemInstall from './handlers/systemInstall.js';
+import componentList from './handlers/componentList.js';
+import componentInstall from './handlers/componentInstall.js';
+import componentCreate from './handlers/componentCreate.js';
+import CliError from './lib/CliError.js';
+import log from './lib/log.js';
+import { createRequire } from 'module';
+import { cyan, green } from 'colorette';
+import boxen from 'boxen';
+
+const packageInfo = createRequire(import.meta.url)('../package.json');
 
 // Main program commands.
 program
@@ -16,7 +24,7 @@ program
   );
 
 program
-  .command('init <name> [path]', {
+  .command('init [name] [path]', {
     isDefault: true,
   })
   .description('Initialize an Emulsify project')
@@ -26,7 +34,7 @@ program
   )
   .option(
     '-s --starter <repository>',
-    'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-drupal-starter.git',
+    'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-starter',
   )
   .option(
     '-c --checkout <commit/branch/tag>',
@@ -35,6 +43,10 @@ program
   .option(
     '-p --platform <drupal/wordpress/etc>',
     'Name of the platform Emulsify is being within. In some cases, Emulsify is able to automatically detect this. If it is not, Emulsify will prompt you to specify.',
+  )
+  .option(
+    '-y --yes',
+    'Accept default init values for any missing options without prompting.',
   )
   .action(withProgressBar(init));
 
@@ -98,9 +110,60 @@ component
   )
   .alias('i')
   .action(componentInstall);
+component
+  .command('create [name]')
+  .option(
+    '-d --directory <directory>',
+    'Used to set the directory where the new component is to be created',
+  )
+  .option(
+    '-f --format <format>',
+    'Component format to generate. Supported values: default, sdc.',
+  )
+  .option(
+    '-y --yes',
+    'Skip overwrite confirmation prompts and replace existing components.',
+  )
+  .alias('c')
+  .description(
+    "Create a component from within the current project's system and variant",
+  )
+  .action(componentCreate);
 
-// Because './package.json' is outside of our defined rootDir of ./src
-// in tsconfig, we need to disable the next line.
-// eslint-disable-next-line
-program.version(require('./package.json').version);
-void program.parseAsync(process.argv);
+/*
+ * Generate a styled version message using boxen and colorette.
+ * This displays the product name and version in a visually appealing format.
+ *
+ *  ╭ Emulsify CLI ──────╮
+ *  |                    │
+ *  │   Version: 2.0.0   │
+ *  │                    │
+ *  ╰────────────────────╯
+ */
+const title = cyan(packageInfo.productName);
+const message = `Version: ${green(packageInfo.version)}`;
+
+const boxedMessage = boxen(message, {
+  title: title,
+  backgroundColor: 'black',
+  borderStyle: 'round',
+  borderColor: 'blue',
+  padding: 1,
+  margin: 1,
+});
+
+program.version(boxedMessage);
+try {
+  await program.parseAsync(process.argv);
+} catch (err) {
+  // Expected CliError failures map their message and exitCode to the process;
+  // unexpected failures still produce a message and a generic non-zero exit.
+  if (err instanceof CliError) {
+    log('error', err.message);
+    process.exitCode = err.exitCode;
+  } else {
+    const message = err instanceof Error ? err.message : String(err);
+    log('error', message);
+    process.exitCode = 1;
+  }
+}

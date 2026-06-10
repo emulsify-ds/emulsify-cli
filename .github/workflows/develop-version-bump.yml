@@ -1,0 +1,47 @@
+# Updates package metadata when semantic commits land on develop.
+name: Develop Version Bump
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: develop-version-bump
+  cancel-in-progress: false
+
+jobs:
+  version-bump:
+    name: Update package version
+    if: github.ref == 'refs/heads/develop' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: 'npm'
+      - name: Install
+        run: npm ci
+      - name: Update version from semantic commits
+        run: npm run version:develop -- "${{ github.event.before }}" "${{ github.sha }}"
+      - name: Commit package version
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then
+            echo "No package version changes to commit."
+            exit 0
+          fi
+
+          NEXT_VERSION="$(node -p "require('./package.json').version")"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(release): bump version to ${NEXT_VERSION} [skip ci]"
+          git push origin HEAD:develop

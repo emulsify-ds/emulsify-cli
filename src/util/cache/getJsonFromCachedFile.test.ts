@@ -9,8 +9,8 @@ jest.mock('../../lib/constants', () => ({
 }));
 jest.mock('../fs/loadJsonFile', () => jest.fn());
 
-import loadJsonFile from '../fs/loadJsonFile';
-import getJsonFromCachedFile from './getJsonFromCachedFile';
+import loadJsonFile from '../fs/loadJsonFile.js';
+import getJsonFromCachedFile from './getJsonFromCachedFile.js';
 
 const loadJsonMock = (loadJsonFile as jest.Mock).mockResolvedValue({
   the: 'json',

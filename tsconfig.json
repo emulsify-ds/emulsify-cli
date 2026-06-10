@@ -1,19 +1,27 @@
 {
-  "compilerOptions": {
-    "module": "CommonJS",
-    "target": "ES2018",
-    "strict": true,
-    "moduleResolution": "node",
-    "sourceMap": false,
-    "outDir": "dist",
-    "rootDir": "src",
-    "baseUrl": "./",
-    "pretty": true,
-    "removeComments": true,
-    "resolveJsonModule": true,
-    "noUnusedParameters": true,
-    "noUnusedLocals": true,
-    "esModuleInterop": true
-  },
-  "include": ["src/**/*.ts"]
+	"compilerOptions": {
+		"module": "NodeNext",
+		"target": "ESNext",
+		"strict": true,
+		"moduleResolution": "NodeNext",
+		"sourceMap": false,
+		"outDir": "dist",
+		"rootDir": "src",
+		"paths": {
+			"src/*": ["./src/*"]
+		},
+		"pretty": true,
+		"removeComments": true,
+		"resolveJsonModule": true,
+		"types": ["jest", "node"],
+		"noUnusedParameters": true,
+		"noUnusedLocals": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"allowJs": true
+	},
+	"ts-node": {
+		"esm": true
+	},
+	"include": ["src/**/*.ts"]
 }

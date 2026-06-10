@@ -9,7 +9,6 @@ import type { EmulsifySystemReference } from '@emulsify-cli/internal';
  *
  * @todo integrate with npm.
  */
-/* eslint-disable-next-line @typescript-eslint/require-await */
 export default async function getAvailableSystems(): Promise<
   EmulsifySystemReference[]
 > {
@@ -17,7 +16,12 @@ export default async function getAvailableSystems(): Promise<
     {
       name: 'compound',
       repository: 'https://github.com/emulsify-ds/compound.git',
-      platforms: ['drupal'],
+      platforms: ['none', 'drupal'],
+    },
+    {
+      name: 'emulsify-ui-kit',
+      repository: 'https://github.com/emulsify-ds/emulsify-ui-kit.git',
+      platforms: ['none', 'drupal'],
     },
     {
       name: 'emulsify-ui-kit',

@@ -3,8 +3,8 @@ import type {
   PlatformInstanceInfo,
 } from '@emulsify-cli/internal';
 import { dirname, join } from 'path';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import loadJsonFile from '../fs/loadJsonFile';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import loadJsonFile from '../fs/loadJsonFile.js';
 
 /**
  * Looks for a Drupal project within the cwd, and returns information about the
@@ -28,8 +28,8 @@ export default async function getDrupalInfo(): Promise<PlatformInstanceInfo | vo
         root,
         name: 'drupal',
         emulsifyParentDirectory: join(root, 'themes', 'custom'),
-        // @TODO: parse composer lock file and determine drupal core version.
-        platformMajorVersion: 9,
+        // @TODO: Drupal starter targets 11; parse composer.lock to determine the exact core version.
+        platformMajorVersion: 11,
       };
     }
   } catch {

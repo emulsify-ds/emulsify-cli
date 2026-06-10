@@ -12,7 +12,13 @@ jest.mock('simple-git', () => {
     }),
   };
 
-  return jest.fn(() => mockGit);
+  const simpleGit = jest.fn(() => mockGit);
+
+  return {
+    __esModule: true,
+    default: simpleGit,
+    simpleGit,
+  };
 });
 
 jest.mock('fs', () => ({
@@ -21,7 +27,7 @@ jest.mock('fs', () => ({
   promises: {
     writeFile: jest.fn(),
     readFile: jest.fn(),
-    rmdir: jest.fn(),
+    rm: jest.fn(),
     mkdir: jest.fn(),
     copyFile: jest.fn(),
   },

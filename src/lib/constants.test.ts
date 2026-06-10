@@ -1,24 +1,26 @@
 import {
-  EXIT_ERROR,
-  EXIT_SUCCESS,
   UTIL_DIR,
   CACHE_DIR,
   EMULSIFY_PROJECT_CONFIG_FILE,
-} from './constants';
+  EMULSIFY_PROJECT_TEMPLATES_FOLDER,
+} from './constants.js';
 
 jest.mock('os', () => ({
   homedir: () => '/home/username',
 }));
 
 const map = [
-  ['EXIT_ERROR', EXIT_ERROR, 1],
-  ['EXIT_SUCCESS', EXIT_SUCCESS, 0],
   ['UTIL_DIR', UTIL_DIR, '/home/username/.emulsify'],
   ['CACHE_DIR', CACHE_DIR, '/home/username/.emulsify/cache'],
   [
     'EMULSIFY_PROJECT_CONFIG_FILE',
     EMULSIFY_PROJECT_CONFIG_FILE,
     'project.emulsify.json',
+  ],
+  [
+    'EMULSIFY_PROJECT_TEMPLATES_FOLDER',
+    EMULSIFY_PROJECT_TEMPLATES_FOLDER,
+    '.cli/templates',
   ],
 ];
 

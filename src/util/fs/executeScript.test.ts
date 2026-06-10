@@ -1,11 +1,10 @@
-/* eslint @typescript-eslint/ban-ts-comment: 0 */
 // @ts-nocheck
 // This file is escaping ts checks for now, because the child_process.exec
 // mock fn is selecting a specific exec overload that is incorrect.
 // @TODO: dig into this and figure out how to get typescript to use
 // the correct overload.
 import childproc from 'child_process';
-import executeScript from './executeScript';
+import executeScript from './executeScript.js';
 
 const execMock = jest.spyOn(childproc, 'exec');
 

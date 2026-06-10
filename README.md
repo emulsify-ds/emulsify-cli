@@ -1,5 +1,6 @@
 [![Emulsify Design System](https://user-images.githubusercontent.com/409903/170579210-327abcdd-2c98-4922-87bb-36446a4cc013.svg)](https://www.emulsify.info/)
 ![npm](https://img.shields.io/npm/dm/@emulsify/cli?style=flat-square)
+
 # emulsify-cli
 
 Command line interface for Emulsify.
@@ -16,6 +17,29 @@ npm install -g @emulsify/cli
 
 For more information on how to use emulsify-cli, please see the [usage documentation](https://www.emulsify.info/docs/supporting-projects/emulsify-cli/emulsify-cli-usage).
 
+### Customizing component templates
+
+Projects can override the built-in `component create` templates by adding files under `.cli/templates/` at the Emulsify project root. Overrides replace only the known artifacts that the CLI already generates; they do not add extra files or change which files are created.
+
+Default component overrides:
+
+- `.cli/templates/default/component.twig`
+- `.cli/templates/default/component.scss`
+- `.cli/templates/default/component.yml`
+- `.cli/templates/default/component.stories.js`
+
+SDC component overrides:
+
+- `.cli/templates/sdc/component.twig`
+- `.cli/templates/sdc/component.scss`
+- `.cli/templates/sdc/component.component.yml`
+- `.cli/templates/sdc/component.js`
+- `.cli/templates/sdc/component.stories.js`
+
+Override files can use double-brace tokens. Supported tokens are `{{ filename }}`, `{{ className }}`, `{{ camelName }}`, `{{ snakeName }}`, `{{ humanName }}`, `{{ directory }}`, and `{{ format }}`. Unknown tokens are left unchanged and logged as warnings.
+
+For each generated artifact, the CLI first checks for the matching override file. If the override is missing or empty, the built-in template is used. Partial override sets are supported, so a project can override only `component.twig` and keep the built-in SCSS, data, and story templates. Arbitrary extra files and template ejection helpers are future work.
+
 ## Development
 
 Emulsify-cli is developed using TypeScript. You can find all of the source files in the `src` directory, which is organized in the following manner:
@@ -26,7 +50,7 @@ Emulsify-cli is developed using TypeScript. You can find all of the source files
 - `src/schemas` - contains JSON-Schema files that describe project, system, and variant configuration. These schema files are used to generate TypeScript types.
 - `src/scripts` - holds utility scripts for the project.
 - `src/types` - type modules live here, auto-generated ones are prefixed with an underscore (`_`).
-- `src/util` - contains utility functions that are used in handlers to do various things, such as caching systems.
+- `src/util` - contains utility functions that are used in handlers to do various things, such as caching systems and resolving component template overrides.
 
 ### Setup
 
@@ -42,14 +66,15 @@ Emulsify-cli is developed using TypeScript. You can find all of the source files
 - `npm run build-schema-types`: Compiles the json-schema definitions within this project into ts types.
 - `npm run watch`: watches the codebase, and re-compiles every time a change is made.
 - `npm run format`: uses prettier to format all ts files within the codebase.
-- `npm run lint`: uses eslint to lint the codebase.
+- `npm run lint`: runs the Jest test suite via the `test` script.
 - `npm run test`: runs Jest on the codebase. You can specify a path to a single test, and add any flags supported by Jest's CLI.
 - `npm run type`: uses typescript to check all type signatures.
 - `npm run twatch`: runs Jest without coverage, in verbose and watch mode. This is useful for running a single test during active development.
+- `npm run semantic-release`: publishes a release using `release.config.cjs`.
 
 ## Deployment
 
-This project is automatically built and deployed to NPM via a GitHub Actions workflow. In order to deploy changes merged into the `develop` branch, simply merge `develop` into `main`, and call it a day.
+This project is automatically built and deployed to NPM via the release GitHub Actions workflow. Pushes to `main` run `npm run build` and then `npm run semantic-release`.
 
 ### Contributors
 
@@ -101,9 +126,9 @@ This project is automatically built and deployed to NPM via a GitHub Actions wor
 <tr>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">
         <a href=https://github.com/robherba>
-            <img src=https://avatars.githubusercontent.com/u/9342274?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Roberto Henández Badilla/>
+            <img src=https://avatars.githubusercontent.com/u/9342274?v=4 width="100;"  style="border-radius:50%;align-items:center;justify-content:center;overflow:hidden;padding-top:10px" alt=Roberto Hernández Badilla/>
             <br />
-            <sub style="font-size:14px"><b>Roberto Henández Badilla</b></sub>
+            <sub style="font-size:14px"><b>Roberto Hernández Badilla</b></sub>
         </a>
     </td>
     <td align="center" style="word-wrap: break-word; width: 150.0; height: 150.0">

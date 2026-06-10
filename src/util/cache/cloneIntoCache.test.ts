@@ -3,11 +3,11 @@ jest.mock('../../lib/constants', () => ({
 }));
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
-import cloneIntoCache from './cloneIntoCache';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
+import cloneIntoCache from './cloneIntoCache.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 
 import fs from 'fs';
-import git from 'simple-git';
+import { simpleGit as git } from 'simple-git';
 
 const existsSyncMock = fs.existsSync as jest.Mock;
 const mkdirMock = fs.promises.mkdir as jest.Mock;
@@ -64,7 +64,7 @@ describe('cloneIntoCache', () => {
     await cloneIntoCache('systems', ['cornflake'])({ repository: 'repo-path' });
     expect(gitCloneMock).toHaveBeenCalledWith(
       'repo-path',
-      'home/uname/.emulsify/cache/systems/6342daf21717ab9c095fcddf7943e4e1/cornflake',
+      'home/uname/.emulsify/cache/systems/6ce9bab2a26010442d0708dc5ec76cf7/cornflake',
       {},
     );
   });

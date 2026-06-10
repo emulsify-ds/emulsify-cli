@@ -1,9 +1,44 @@
 import { pathExists } from 'fs-extra';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
 import { join, dirname } from 'path';
-import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants';
-import findFileInCurrentPath from '../fs/findFileInCurrentPath';
-import copyItemFromCache from '../cache/copyItemFromCache';
+import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
+import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import copyItemFromCache from '../cache/copyItemFromCache.js';
+
+/**
+ * Utility function to calculate the destination path of a component.
+ *
+ * @param variant EmulsifyVariant object containing information about the component.
+ * @param componentName string name of the component.
+ * @param projectConfigPath absolute path to the project configuration file.
+ *
+ * @returns absolute path to the component's destination directory.
+ */
+export function getComponentDestination(
+  variant: EmulsifyVariant,
+  componentName: string,
+  projectConfigPath: string,
+): string {
+  const component = variant.components.find(
+    ({ name }) => name === componentName,
+  );
+  if (!component) {
+    throw new Error(
+      `The specified component (${componentName}) does not exist within the given system variant.`,
+    );
+  }
+
+  const structure = variant.structureImplementations.find(
+    ({ name }) => name === component.structure,
+  );
+  if (!structure) {
+    throw new Error(
+      `The structure (${component.structure}) specified within the component ${componentName} is invalid.`,
+    );
+  }
+
+  return join(dirname(projectConfigPath), structure.directory, component.name);
+}
 
 /**
  * Installs a specified component within the Emulsify project the user is currently within.
@@ -29,37 +64,21 @@ export default async function installComponentFromCache(
     );
   }
 
-  // Find the specified component within the given variant configuration. If the
-  // component is not found, throw an error.
+  const destination = getComponentDestination(variant, componentName, path);
+
+  // Since getComponentDestination didn't throw, we know these exist.
   const component = variant.components.find(
     ({ name }) => name === componentName,
-  );
-  if (!component) {
-    throw new Error(
-      `The specified component (${componentName}) does not exist within the given system variant.`,
-    );
-  }
-
-  // Find the component's parent structure within the given variant configuration. If the
-  // component's parent structure does not exist, throw an error.
+  )!;
   const structure = variant.structureImplementations.find(
     ({ name }) => name === component.structure,
-  );
-  if (!structure) {
-    throw new Error(
-      `The structure (${component.structure}) specified within the component ${componentName} is invalid.`,
-    );
-  }
-
-  // Calculate the destination path based on the path to the Emulsify project, the structure of the
-  // component, and the component's name.
-  const destination = join(dirname(path), structure.directory, component.name);
+  )!;
 
   // If the component already exists within the project, and force is not true,
   // throw an error.
   if ((await pathExists(destination)) && !force) {
     throw new Error(
-      `The component "${component.name}" already exists, and force was not passed (--force).`,
+      `The component "${componentName}" already exists, and force was not passed (--force).`,
     );
   }
 
