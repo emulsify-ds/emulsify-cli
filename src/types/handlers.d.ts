@@ -34,5 +34,7 @@ declare module '@emulsify-cli/handlers' {
     format?: string;
     /** Skip overwrite confirmation prompts and replace existing components. */
     yes?: boolean;
+    /** Preview planned component operations without writing, copying, or removing files. */
+    dryRun?: boolean;
   };
 }

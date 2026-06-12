@@ -124,6 +124,10 @@ component
     '-y --yes',
     'Skip overwrite confirmation prompts and replace existing components.',
   )
+  .option(
+    '--dry-run',
+    'Preview generated component files without writing or removing files.',
+  )
   .alias('c')
   .description(
     "Create a component from within the current project's system and variant",
