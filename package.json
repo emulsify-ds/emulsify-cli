@@ -69,7 +69,6 @@
     "colorette": "^2.0.20",
     "commander": "^15.0.0",
     "consola": "^3.4.2",
-    "cosmiconfig": "^9.0.1",
     "fs-extra": "^11.3.5",
     "progress": "^2.0.3",
     "simple-git": "^3.36.0"
