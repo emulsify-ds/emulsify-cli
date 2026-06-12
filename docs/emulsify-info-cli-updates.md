@@ -88,11 +88,13 @@ Options:
 
 - `--force`: Replaces an installed component.
 - `--all`: Installs all available components instead of one named component.
+- `--dry-run`: Previews planned component installs, dependencies, destinations, and overwrite behavior without copying or removing files.
 
 Examples:
 
 ```bash
 emulsify component install button
+emulsify component install card --dry-run
 emulsify component i card --force
 emulsify component install --all
 ```
@@ -104,6 +106,7 @@ Options:
 - `--directory <directory>`: Sets the variant structure directory where the component is created.
 - `--format <format>`: Sets the component format. Supported values are `default` and `sdc`.
 - `--yes`: Replaces an existing component without an overwrite confirmation prompt.
+- `--dry-run`: Previews the destination and generated files without writing, removing, or creating files.
 
 In non-interactive environments, pass both `--directory` and `--format`.
 
@@ -111,7 +114,9 @@ Examples:
 
 ```bash
 emulsify component create card --directory base --format default
+emulsify component create card --directory base --format default --dry-run
 emulsify component create teaser --directory molecules --format sdc --yes
+emulsify component create teaser --directory molecules --format sdc --dry-run
 ```
 
 ## Component Template Overrides
