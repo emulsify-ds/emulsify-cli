@@ -11,8 +11,17 @@ const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',
 );
 const pathExistsMock = (pathExists as jest.Mock).mockResolvedValue(false);
+const copyItemMock = copyItemFromCache as jest.Mock;
 
 describe('installComponentFromCache', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findFileMock.mockReturnValue(
+      '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',
+    );
+    pathExistsMock.mockResolvedValue(false);
+  });
+
   const system = {
     name: 'compound',
   } as EmulsifySystem;
@@ -71,6 +80,32 @@ describe('installComponentFromCache', () => {
     );
   });
 
+  it('rejects unsafe component destinations before checking or copying files', async () => {
+    expect.assertions(3);
+
+    await expect(
+      installComponentFromCache(
+        system,
+        {
+          ...variant,
+          structureImplementations: [
+            {
+              name: 'base',
+              directory: '../../outside',
+            },
+          ],
+        } as EmulsifyVariant,
+        'link',
+        true,
+      ),
+    ).rejects.toThrow(
+      'Component destination "../../outside/link" resolves to "/home/username/Projects/drupal-project/web/themes/outside/link", which is outside the expected root "/home/username/Projects/drupal-project/web/themes/custom/themename".',
+    );
+
+    expect(pathExistsMock).not.toHaveBeenCalled();
+    expect(copyItemMock).not.toHaveBeenCalled();
+  });
+
   it('throws an error if the component is already installed, and force is false', async () => {
     expect.assertions(1);
     pathExistsMock.mockResolvedValueOnce(true);
@@ -84,7 +119,7 @@ describe('installComponentFromCache', () => {
   it('copies the component from the cached item into the correct destination', async () => {
     expect.assertions(1);
     await installComponentFromCache(system, variant, 'link');
-    expect(copyItemFromCache as jest.Mock).toHaveBeenCalledWith(
+    expect(copyItemMock).toHaveBeenCalledWith(
       'systems',
       ['compound', './components/00-base', 'link'],
       '/home/username/Projects/drupal-project/web/themes/custom/themename/components/00-base/link',

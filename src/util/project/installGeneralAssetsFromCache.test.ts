@@ -13,8 +13,13 @@ const copyItemMock = (copyItemFromCache as jest.Mock).mockResolvedValue(true);
 
 describe('installGeneralAssetsFromCache', () => {
   beforeEach(() => {
-    copyItemMock.mockClear();
+    jest.clearAllMocks();
+    findFileMock.mockReturnValue(
+      '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',
+    );
+    copyItemMock.mockResolvedValue(true);
   });
+
   const system = {
     name: 'compound',
   } as EmulsifySystem;
@@ -43,6 +48,26 @@ describe('installGeneralAssetsFromCache', () => {
     ).rejects.toThrow(
       'Unable to find an Emulsify project to install assets into.',
     );
+  });
+
+  it('rejects unsafe general asset destination paths before copying files', async () => {
+    expect.assertions(2);
+
+    await expect(
+      installGeneralAssetsFromCache(system, {
+        directories: [
+          {
+            name: 'unsafe',
+            path: './components/unsafe',
+            destinationPath: '../../outside',
+          },
+        ],
+      } as EmulsifyVariant),
+    ).rejects.toThrow(
+      'General asset destination "../../outside" resolves to "/home/username/Projects/drupal-project/web/themes/outside", which is outside the expected root "/home/username/Projects/drupal-project/web/themes/custom/themename".',
+    );
+
+    expect(copyItemMock).not.toHaveBeenCalled();
   });
 
   it('copies all general files and directories into the Emulsify project', async () => {

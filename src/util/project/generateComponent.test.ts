@@ -46,6 +46,7 @@ const pathExistsMock = (pathExists as jest.Mock).mockResolvedValue(true);
 const removeMock = remove as jest.Mock;
 const readFileMock = fs.readFile as jest.Mock;
 const writeFileMock = fs.writeFile as jest.Mock;
+const mkdirMock = fs.mkdir as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
 
 function setStdinIsTTY(value: boolean | undefined) {
@@ -175,6 +176,95 @@ describe('generateComponent', () => {
     );
   });
 
+  it('previews a default component without writing files in dry-run mode', async () => {
+    expect.assertions(6);
+    setStdinIsTTY(false);
+    pathExistsMock.mockImplementation((path) => {
+      const value = String(path);
+      return (
+        !isTemplatePath(value) && !value.endsWith('/components/00-base/card')
+      );
+    });
+
+    await generateComponent(variant, 'card', {
+      directory: 'base',
+      format: 'default',
+      dryRun: true,
+    });
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
+    expect(mkdirMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('Dry run: component create "card"'),
+    );
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining(
+        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/card/card.stories.js',
+      ),
+    );
+  });
+
+  it('previews an SDC component without writing files in dry-run mode', async () => {
+    expect.assertions(5);
+    setStdinIsTTY(false);
+    pathExistsMock.mockImplementation((path) => {
+      const value = String(path);
+      return (
+        !isTemplatePath(value) && !value.endsWith('/components/00-base/teaser')
+      );
+    });
+
+    await generateComponent(variant, 'teaser', {
+      directory: 'base',
+      format: 'sdc',
+      dryRun: true,
+    });
+
+    expect(removeMock).not.toHaveBeenCalled();
+    expect(mkdirMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('Format: sdc'),
+    );
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining(
+        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/teaser/teaser.component.yml',
+      ),
+    );
+  });
+
+  it('previews an existing destination without prompting or removing in dry-run mode', async () => {
+    expect.assertions(5);
+    setStdinIsTTY(false);
+    pathExistsMock.mockImplementation((path) => !isTemplatePath(path));
+
+    await generateComponent(variant, 'link', {
+      directory: 'base',
+      format: 'default',
+      dryRun: true,
+    });
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(removeMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('Destination exists: yes'),
+    );
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining(
+        'Real run would: prompt before replacing the existing component directory',
+      ),
+    );
+  });
+
   it('throws a clear error when a provided format is invalid', async () => {
     expect.assertions(4);
     setStdinIsTTY(false);
@@ -227,6 +317,37 @@ describe('generateComponent', () => {
     ).rejects.toThrow(
       'The structure (cornpop) specified within the component button is invalid.',
     );
+  });
+
+  it('rejects unsafe structure directories before writing or removing files', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+    pathExistsMock.mockResolvedValue(true);
+
+    await expect(
+      generateComponent(
+        {
+          ...variant,
+          structureImplementations: [
+            {
+              name: 'base',
+              directory: '../../outside',
+            },
+          ],
+        } as EmulsifyVariant,
+        'link',
+        {
+          directory: 'base',
+          format: 'default',
+          yes: true,
+        },
+      ),
+    ).rejects.toThrow(
+      'Component structure directory "../../outside" resolves to "/home/uname/Projects/cornflake/web/themes/outside", which is outside the expected root "/home/uname/Projects/cornflake/web/themes/custom/themename".',
+    );
+
+    expect(removeMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
   });
 
   it('should cancel component creation if user declines overwrite', async () => {

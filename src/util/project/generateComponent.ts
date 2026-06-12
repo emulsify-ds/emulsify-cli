@@ -3,12 +3,13 @@ import type { CreateComponentHandlerOptions } from '@emulsify-cli/handlers';
 
 import { select, confirm } from '@inquirer/prompts';
 import { promises as fs } from 'fs';
-import { join, dirname } from 'path';
+import { dirname } from 'path';
 import { pathExists, remove } from 'fs-extra';
 import { cyan, green, bold, yellow } from 'colorette';
 
 import log from '../../lib/log.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import safeResolveWithin from '../fs/safeResolveWithin.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 import deriveComponentNames from '../deriveComponentNames.js';
 import resolveComponentTemplate from './resolveComponentTemplate.js';
@@ -72,6 +73,7 @@ function getComponentFormat(format: string): ComponentFormat {
  * @param options.directory string name of the directory where the component should be created.
  * @param options.format component format to generate. Supported values are "default" and "sdc".
  * @param options.yes whether to skip overwrite confirmation prompts and replace existing components.
+ * @param options.dryRun whether to preview generated files without changing the project.
  * @returns
  * @throws {Error} if the component name is invalid, the current path is not within an Emulsify project, the requested structure is invalid, or required non-interactive options are missing.
  */
@@ -96,6 +98,7 @@ export default async function generateComponent(
       'Unable to find an Emulsify project to create the component into.',
     );
   }
+  const projectRoot = dirname(path);
 
   // Prompts are only used for interactive TTY sessions; CI must provide flags so
   // the command never waits for input it cannot receive.
@@ -141,41 +144,24 @@ export default async function generateComponent(
   }
 
   // Calculate the parent path based on the path to the Emulsify project and the component's structure.
-  const parentPath = join(dirname(path), structure.directory);
-  if (!(await pathExists(parentPath))) {
-    // Create the component's parent directory.
-    await fs.mkdir(parentPath, { recursive: true });
-  }
+  const parentPath = safeResolveWithin(
+    projectRoot,
+    structure.directory,
+    'Component structure directory',
+    { allowRoot: true },
+  );
+  const parentExists = await pathExists(parentPath);
 
   // Calculate the destination path (always kebab-case folder name).
-  const destination = join(dirname(path), structure.directory, filename);
+  const destination = safeResolveWithin(
+    projectRoot,
+    [structure.directory, filename],
+    'Component destination',
+  );
 
   // If the component already exists within the project,
   // ask the user if they want to replace it.
   const componentExists = await pathExists(destination);
-  if (componentExists) {
-    const shouldReplace =
-      options.yes ||
-      (canPrompt
-        ? await confirm({
-            message: yellow(
-              `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
-            ),
-            default: false,
-          })
-        : false);
-
-    if (!shouldReplace) {
-      return log('info', `Component creation canceled.`);
-    }
-
-    // Remove the existing component directory to ensure a clean start.
-    await remove(destination);
-  }
-
-  // Create the component directory
-  await fs.mkdir(destination, { recursive: true });
-
   const templateVars: ComponentTemplateVars = {
     filename,
     className,
@@ -239,21 +225,84 @@ export default async function generateComponent(
           },
         ];
 
-  for (const artifact of [...sharedArtifacts, ...formatArtifacts]) {
+  const artifacts = [...sharedArtifacts, ...formatArtifacts];
+  const artifactDestinations = artifacts.map((artifact) =>
+    safeResolveWithin(
+      projectRoot,
+      [structure.directory, filename, artifact.destinationName],
+      'Component file destination',
+    ),
+  );
+
+  if (options.dryRun) {
+    const realRunAction = componentExists
+      ? options.yes
+        ? 'replace the existing component directory'
+        : 'prompt before replacing the existing component directory'
+      : 'create the component directory';
+    const generatedFiles = artifactDestinations
+      .map((filePath) => `  - ${filePath}`)
+      .join('\n');
+
+    return log(
+      'info',
+      [
+        `Dry run: component create "${filename}"`,
+        `Format: ${format}`,
+        `Directory: ${directory}`,
+        `Structure path: ${structure.directory}`,
+        `Parent directory: ${parentPath} (${parentExists ? 'exists' : 'would be created'})`,
+        `Destination: ${destination}`,
+        `Destination exists: ${componentExists ? 'yes' : 'no'}`,
+        `Real run would: ${realRunAction}`,
+        'Generated files:',
+        generatedFiles,
+        'No files were written, removed, or created.',
+      ].join('\n'),
+    );
+  }
+
+  if (!parentExists) {
+    // Create the component's parent directory.
+    await fs.mkdir(parentPath, { recursive: true });
+  }
+
+  if (componentExists) {
+    const shouldReplace =
+      options.yes ||
+      (canPrompt
+        ? await confirm({
+            message: yellow(
+              `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
+            ),
+            default: false,
+          })
+        : false);
+
+    if (!shouldReplace) {
+      return log('info', `Component creation canceled.`);
+    }
+
+    // Remove the existing component directory to ensure a clean start.
+    await remove(destination);
+  }
+
+  // Create the component directory
+  await fs.mkdir(destination, { recursive: true });
+
+  for (const [index, artifact] of artifacts.entries()) {
     // Resolve a project override first; missing or empty overrides fall back to
     // the byte-for-byte built-in builders for each known generated artifact.
     const templateFile =
       (await resolveComponentTemplate(
-        dirname(path),
+        projectRoot,
         format,
         artifact.logicalName,
         templateVars,
       )) ?? artifact.build();
+    const artifactDestination = artifactDestinations[index];
 
-    await fs.writeFile(
-      join(destination, artifact.destinationName),
-      templateFile,
-    );
+    await fs.writeFile(artifactDestination, templateFile);
   }
 
   return log(

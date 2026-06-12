@@ -14,11 +14,15 @@ describe('getAvailableSystems', () => {
         repository: 'https://github.com/emulsify-ds/emulsify-ui-kit.git',
         platforms: ['none', 'drupal'],
       },
-      {
-        name: 'emulsify-ui-kit',
-        repository: 'https://github.com/emulsify-ds/emulsify-ui-kit.git',
-        platforms: ['drupal'],
-      },
     ]);
+  });
+
+  it('returns unique system names', async () => {
+    expect.assertions(2);
+    const systems = await getAvailableSystems();
+    const systemNames = systems.map(({ name }) => name);
+
+    expect(systemNames).toEqual(['compound', 'emulsify-ui-kit']);
+    expect(new Set(systemNames).size).toBe(systemNames.length);
   });
 });
