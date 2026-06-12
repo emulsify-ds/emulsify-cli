@@ -3,12 +3,13 @@ import type { CreateComponentHandlerOptions } from '@emulsify-cli/handlers';
 
 import { select, confirm } from '@inquirer/prompts';
 import { promises as fs } from 'fs';
-import { join, dirname } from 'path';
+import { dirname } from 'path';
 import { pathExists, remove } from 'fs-extra';
 import { cyan, green, bold, yellow } from 'colorette';
 
 import log from '../../lib/log.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import safeResolveWithin from '../fs/safeResolveWithin.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 import deriveComponentNames from '../deriveComponentNames.js';
 import resolveComponentTemplate from './resolveComponentTemplate.js';
@@ -96,6 +97,7 @@ export default async function generateComponent(
       'Unable to find an Emulsify project to create the component into.',
     );
   }
+  const projectRoot = dirname(path);
 
   // Prompts are only used for interactive TTY sessions; CI must provide flags so
   // the command never waits for input it cannot receive.
@@ -141,14 +143,23 @@ export default async function generateComponent(
   }
 
   // Calculate the parent path based on the path to the Emulsify project and the component's structure.
-  const parentPath = join(dirname(path), structure.directory);
+  const parentPath = safeResolveWithin(
+    projectRoot,
+    structure.directory,
+    'Component structure directory',
+    { allowRoot: true },
+  );
   if (!(await pathExists(parentPath))) {
     // Create the component's parent directory.
     await fs.mkdir(parentPath, { recursive: true });
   }
 
   // Calculate the destination path (always kebab-case folder name).
-  const destination = join(dirname(path), structure.directory, filename);
+  const destination = safeResolveWithin(
+    projectRoot,
+    [structure.directory, filename],
+    'Component destination',
+  );
 
   // If the component already exists within the project,
   // ask the user if they want to replace it.
@@ -244,16 +255,19 @@ export default async function generateComponent(
     // the byte-for-byte built-in builders for each known generated artifact.
     const templateFile =
       (await resolveComponentTemplate(
-        dirname(path),
+        projectRoot,
         format,
         artifact.logicalName,
         templateVars,
       )) ?? artifact.build();
 
-    await fs.writeFile(
-      join(destination, artifact.destinationName),
-      templateFile,
+    const artifactDestination = safeResolveWithin(
+      projectRoot,
+      [structure.directory, filename, artifact.destinationName],
+      'Component file destination',
     );
+
+    await fs.writeFile(artifactDestination, templateFile);
   }
 
   return log(
