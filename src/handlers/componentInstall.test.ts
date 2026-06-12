@@ -278,6 +278,63 @@ describe('componentInstall', () => {
     );
   });
 
+  it('previews a single component install without copying in dry-run mode', async () => {
+    await componentInstall('card', { dryRun: true });
+
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+    expect(logMock).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('Dry run: component install "card"'),
+    );
+    expect(logMock).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('/project/components/00-base/card'),
+    );
+    expect(logMock).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('Real run would: copy component'),
+    );
+  });
+
+  it('previews dependency installs without copying in dry-run mode', async () => {
+    await componentInstall('button', { dryRun: true });
+
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+    expect(logMock).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('Dependencies:\n  - icon'),
+    );
+    expect(logMock).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('  - icon (dependency of "button")'),
+    );
+    expect(logMock).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('/project/components/00-base/icon'),
+    );
+  });
+
+  it('previews existing component destinations without prompting in dry-run mode', async () => {
+    pathExistsMock.mockResolvedValue(true);
+
+    await componentInstall('card', { dryRun: true });
+
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+    expect(logMock).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('Destination exists: yes'),
+    );
+    expect(logMock).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining(
+        'Real run would: prompt before replacing or skipping',
+      ),
+    );
+  });
+
   it('installs a component when no project config path is found for destination checks', async () => {
     findFileInCurrentPathMock.mockReturnValueOnce(undefined);
 

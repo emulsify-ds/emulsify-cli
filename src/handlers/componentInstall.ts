@@ -4,6 +4,7 @@ import log from '../lib/log.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants.js';
 import CliError from '../lib/CliError.js';
 import type { InstallComponentHandlerOptions } from '@emulsify-cli/handlers';
+import type { EmulsifyVariant } from '@emulsify-cli/config';
 import installComponentFromCache, {
   getComponentDestination,
 } from '../util/project/installComponentFromCache.js';
@@ -11,6 +12,95 @@ import buildComponentDependencyList from '../util/project/buildComponentDependen
 import catchLater from '../util/catchLater.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import { withEmulsifySystem } from './hofs/withEmulsifySystem.js';
+
+type ComponentInstallPlanItem = {
+  name: string;
+  isDependency: boolean;
+  destination: string;
+  exists: boolean;
+  action: string;
+};
+
+function getDryRunInstallAction(exists: boolean, force: boolean): string {
+  if (!exists) {
+    return 'copy component';
+  }
+
+  if (force) {
+    return 'replace existing destination';
+  }
+
+  return 'prompt before replacing or skipping';
+}
+
+async function buildComponentInstallPlan(
+  variant: EmulsifyVariant,
+  componentNames: string[],
+  rootComponentName: string | undefined,
+  force: boolean,
+): Promise<ComponentInstallPlanItem[]> {
+  const projectConfigPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
+  if (!projectConfigPath) {
+    throw new CliError(
+      'Unable to find an Emulsify project to preview component installation into.',
+    );
+  }
+
+  const plan: ComponentInstallPlanItem[] = [];
+  for (const componentName of componentNames) {
+    const destination = getComponentDestination(
+      variant,
+      componentName,
+      projectConfigPath,
+    );
+    const exists = await pathExists(destination);
+
+    plan.push({
+      name: componentName,
+      isDependency: Boolean(
+        rootComponentName && componentName !== rootComponentName,
+      ),
+      destination,
+      exists,
+      action: getDryRunInstallAction(exists, force),
+    });
+  }
+
+  return plan;
+}
+
+function logComponentInstallDryRun(
+  targetLabel: string,
+  dependencies: string[],
+  plan: ComponentInstallPlanItem[],
+): void {
+  const dependencyList =
+    dependencies.length > 0
+      ? dependencies.map((dependency) => `  - ${dependency}`).join('\n')
+      : '  - none';
+  const plannedInstalls = plan
+    .map((item) =>
+      [
+        `  - ${item.name}${item.isDependency ? ` (dependency of "${targetLabel}")` : ''}`,
+        `    Destination: ${item.destination}`,
+        `    Destination exists: ${item.exists ? 'yes' : 'no'}`,
+        `    Real run would: ${item.action}`,
+      ].join('\n'),
+    )
+    .join('\n');
+
+  log(
+    'info',
+    [
+      `Dry run: component install "${targetLabel}"`,
+      'Dependencies:',
+      dependencyList,
+      'Planned component installs:',
+      plannedInstalls,
+      'No files were copied, removed, or overwritten.',
+    ].join('\n'),
+  );
+}
 
 /**
  * Handler for the `component install` command.
@@ -21,7 +111,7 @@ import { withEmulsifySystem } from './hofs/withEmulsifySystem.js';
  */
 export default async function componentInstall(
   name: string,
-  { force, all }: InstallComponentHandlerOptions,
+  { force, all, dryRun }: InstallComponentHandlerOptions,
 ): Promise<void> {
   if (!name && !all) {
     throw new CliError(
@@ -36,22 +126,34 @@ export default async function componentInstall(
   // If all components are to be installed, spawn promises for installing all available components.
   const components: [string, boolean, Promise<void>][] = [];
   if (all) {
+    const componentNames = variantConf.components.map(
+      (component) => component.name,
+    );
+    if (dryRun) {
+      const plan = await buildComponentInstallPlan(
+        variantConf,
+        componentNames,
+        undefined,
+        true,
+      );
+      logComponentInstallDryRun('all components', [], plan);
+      return;
+    }
+
     components.push(
-      ...variantConf.components.map(
-        (component): [string, boolean, Promise<void>] => [
-          component.name,
-          false,
-          catchLater(
-            installComponentFromCache(
-              systemConf,
-              variantConf,
-              component.name,
-              // Force install all components.
-              true,
-            ),
+      ...componentNames.map((component): [string, boolean, Promise<void>] => [
+        component,
+        false,
+        catchLater(
+          installComponentFromCache(
+            systemConf,
+            variantConf,
+            component,
+            // Force install all components.
+            true,
           ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
   // If there is only one component to install, add one single promise for the single component.
@@ -65,6 +167,21 @@ export default async function componentInstall(
         `Cannot find the definition for component "${name}".\n\nRun "emulsify component list" to see the full list.`,
       );
     }
+
+    if (dryRun) {
+      const dependencies = componentsWithDependencies.filter(
+        (componentName) => componentName !== name,
+      );
+      const plan = await buildComponentInstallPlan(
+        variantConf,
+        componentsWithDependencies,
+        name,
+        Boolean(force),
+      );
+      logComponentInstallDryRun(name, dependencies, plan);
+      return;
+    }
+
     const projectConfigPath = findFileInCurrentPath(
       EMULSIFY_PROJECT_CONFIG_FILE,
     );

@@ -108,6 +108,10 @@ component
     '-a --all',
     'Use this to install all available components, rather than specifying a single component to install',
   )
+  .option(
+    '--dry-run',
+    'Preview component installs without copying or removing files.',
+  )
   .alias('i')
   .action(componentInstall);
 component

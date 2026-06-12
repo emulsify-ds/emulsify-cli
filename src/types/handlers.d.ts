@@ -25,6 +25,7 @@ declare module '@emulsify-cli/handlers' {
   export type InstallComponentHandlerOptions = {
     force?: boolean;
     all?: boolean;
+    dryRun?: boolean;
   };
 
   export type CreateComponentHandlerOptions = {
