@@ -1,7 +1,8 @@
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
-import { join, dirname } from 'path';
+import { dirname } from 'path';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import safeResolveWithin from '../fs/safeResolveWithin.js';
 import copyItemFromCache from '../cache/copyItemFromCache.js';
 import catchLater from '../catchLater.js';
 
@@ -24,11 +25,16 @@ export default async function installGeneralAssetsFromCache(
       'Unable to find an Emulsify project to install assets into.',
     );
   }
+  const projectRoot = dirname(path);
 
   const assets = [...(variant.directories || []), ...(variant.files || [])];
   const promises = [];
   for (const asset of assets) {
-    const destination = join(dirname(path), asset.destinationPath);
+    const destination = safeResolveWithin(
+      projectRoot,
+      asset.destinationPath,
+      'General asset destination',
+    );
     promises.push(
       catchLater(
         copyItemFromCache(

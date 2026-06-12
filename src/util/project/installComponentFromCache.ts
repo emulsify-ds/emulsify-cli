@@ -1,8 +1,9 @@
 import { pathExists } from 'fs-extra';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
-import { join, dirname } from 'path';
+import { dirname } from 'path';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import safeResolveWithin from '../fs/safeResolveWithin.js';
 import copyItemFromCache from '../cache/copyItemFromCache.js';
 
 /**
@@ -37,7 +38,11 @@ export function getComponentDestination(
     );
   }
 
-  return join(dirname(projectConfigPath), structure.directory, component.name);
+  return safeResolveWithin(
+    dirname(projectConfigPath),
+    [structure.directory, component.name],
+    'Component destination',
+  );
 }
 
 /**

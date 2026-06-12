@@ -229,6 +229,37 @@ describe('generateComponent', () => {
     );
   });
 
+  it('rejects unsafe structure directories before writing or removing files', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+    pathExistsMock.mockResolvedValue(true);
+
+    await expect(
+      generateComponent(
+        {
+          ...variant,
+          structureImplementations: [
+            {
+              name: 'base',
+              directory: '../../outside',
+            },
+          ],
+        } as EmulsifyVariant,
+        'link',
+        {
+          directory: 'base',
+          format: 'default',
+          yes: true,
+        },
+      ),
+    ).rejects.toThrow(
+      'Component structure directory "../../outside" resolves to "/home/uname/Projects/cornflake/web/themes/outside", which is outside the expected root "/home/uname/Projects/cornflake/web/themes/custom/themename".',
+    );
+
+    expect(removeMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+  });
+
   it('should cancel component creation if user declines overwrite', async () => {
     expect.assertions(2);
     (select as jest.Mock).mockResolvedValueOnce('default'); // format
