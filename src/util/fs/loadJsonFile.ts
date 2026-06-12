@@ -11,12 +11,25 @@ export default async function loadJsonFile<Output>(
   path: string,
 ): Promise<Output | void> {
   try {
-    return JSON.parse(
-      await fs.readFile(path, {
-        encoding: 'utf-8',
-      }),
-    ) as Output;
-  } catch {
-    return undefined;
+    const json = await fs.readFile(path, {
+      encoding: 'utf-8',
+    });
+
+    return JSON.parse(json) as Output;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid JSON in "${path}": ${error.message}`);
+    }
+
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    ) {
+      return undefined;
+    }
+
+    throw error;
   }
 }

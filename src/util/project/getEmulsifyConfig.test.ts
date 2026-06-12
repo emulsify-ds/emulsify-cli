@@ -8,15 +8,27 @@ import getEmulsifyConfig from './getEmulsifyConfig.js';
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
   '/projects/project.emulsify.json',
 );
-(loadJsonFile as jest.Mock).mockResolvedValue({
-  emulsify: 'config',
-});
+const loadJsonFileMock = loadJsonFile as jest.Mock;
+const projectConfig = {
+  project: {
+    platform: 'drupal',
+    name: 'Cornflake',
+    machineName: 'cornflake',
+  },
+  starter: {
+    repository: 'https://github.com/emulsify-ds/emulsify-starter',
+  },
+};
 
 describe('getEmulsifyConfig', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findFileMock.mockReturnValue('/projects/project.emulsify.json');
+    loadJsonFileMock.mockResolvedValue(projectConfig);
+  });
+
   it('can load the Emulsify configuration for the project within the users cwd', async () => {
-    await expect(getEmulsifyConfig()).resolves.toEqual({
-      emulsify: 'config',
-    });
+    await expect(getEmulsifyConfig()).resolves.toEqual(projectConfig);
   });
 
   it('returns void if no Emulsify config file is found within the users cwd', async () => {
@@ -32,14 +44,39 @@ describe('getEmulsifyConfig', () => {
   });
 
   it('handles errors thrown by loadJsonFile', async () => {
-    (loadJsonFile as jest.Mock).mockImplementationOnce(() => {
+    loadJsonFileMock.mockImplementationOnce(() => {
       throw new Error('loadJsonFile error');
     });
     await expect(getEmulsifyConfig()).rejects.toThrow('loadJsonFile error');
   });
 
-  it('handles invalid JSON structure', async () => {
-    (loadJsonFile as jest.Mock).mockResolvedValueOnce({});
-    await expect(getEmulsifyConfig()).resolves.toEqual({});
+  it('reports schema-invalid config missing required project settings', async () => {
+    loadJsonFileMock.mockResolvedValueOnce({
+      starter: {
+        repository: 'https://github.com/emulsify-ds/emulsify-starter',
+      },
+    });
+
+    await expect(getEmulsifyConfig()).rejects.toThrow(
+      'Invalid Emulsify project configuration in "/projects/project.emulsify.json": / must have required property \'project\'',
+    );
+  });
+
+  it('reports schema-invalid variant platform values', async () => {
+    loadJsonFileMock.mockResolvedValueOnce({
+      ...projectConfig,
+      system: {
+        repository: 'https://github.com/emulsify-ds/compound.git',
+        checkout: 'main',
+      },
+      variant: {
+        platform: 'wordpress',
+        structureImplementations: [],
+      },
+    });
+
+    await expect(getEmulsifyConfig()).rejects.toThrow(
+      'Invalid Emulsify project configuration in "/projects/project.emulsify.json": /variant/platform must be equal to one of the allowed values',
+    );
   });
 });
