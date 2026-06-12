@@ -4,63 +4,98 @@ import buildComponentDependencyList from './buildComponentDependencyList.js';
 describe('buildComponentDependencyList', () => {
   const components = [
     {
-      name: 'buttons',
+      name: 'button',
       structure: 'base',
-      dependency: [],
+      dependency: ['icon'],
     },
     {
-      name: 'images',
+      name: 'icon',
       structure: 'base',
-      dependency: [],
-    },
-    {
-      name: 'links',
-      structure: 'base',
-      dependency: [],
-    },
-    {
-      name: 'text',
-      structure: 'base',
-      dependency: ['links'],
     },
     {
       name: 'card',
       structure: 'base',
-      dependency: ['images', 'text', 'links', 'buttons'],
+      dependency: ['teaser'],
     },
     {
-      name: 'menus',
+      name: 'teaser',
+      structure: 'base',
+      dependency: ['image'],
+    },
+    {
+      name: 'image',
+      structure: 'base',
+    },
+    {
+      name: 'gallery',
       structure: 'molecules',
-      dependency: ['images', 'text'],
+      dependency: ['teaser', 'image'],
     },
   ] as Components;
 
-  it('Build list of components without dependency', () => {
-    expect(buildComponentDependencyList(components, 'buttons')).toEqual([
-      'buttons',
+  it('returns the root component followed by direct dependencies', () => {
+    expect(buildComponentDependencyList(components, 'button')).toEqual([
+      'button',
+      'icon',
     ]);
   });
 
-  it('Build all components dependency for not existing component', () => {
+  it('returns an empty dependency list for a missing root component', () => {
     expect(buildComponentDependencyList(components, 'test')).toEqual([]);
   });
 
-  it('Build all components dependency tree returning flat list without duplicates', () => {
+  it('returns nested dependencies in deterministic preorder', () => {
     expect(buildComponentDependencyList(components, 'card')).toEqual([
       'card',
-      'images',
-      'text',
-      'links',
-      'buttons',
+      'teaser',
+      'image',
     ]);
   });
 
-  it('Build all components dependency tree with hierarchical dependency', () => {
-    expect(buildComponentDependencyList(components, 'menus')).toEqual([
-      'menus',
-      'images',
-      'text',
-      'links',
+  it('returns duplicate nested dependencies only once', () => {
+    expect(buildComponentDependencyList(components, 'gallery')).toEqual([
+      'gallery',
+      'teaser',
+      'image',
     ]);
+  });
+
+  it('throws a clear error when a dependency is missing', () => {
+    expect(() =>
+      buildComponentDependencyList(
+        [
+          {
+            name: 'button',
+            structure: 'base',
+            dependency: ['missing'],
+          },
+        ] as Components,
+        'button',
+      ),
+    ).toThrow(
+      'Cannot resolve component dependency "missing" referenced by "button" while resolving "button". Dependency path: button -> missing.',
+    );
+  });
+
+  it('throws a clear error when dependencies are circular', () => {
+    expect(() =>
+      buildComponentDependencyList(
+        [
+          {
+            name: 'a',
+            structure: 'base',
+            dependency: ['b'],
+          },
+          {
+            name: 'b',
+            structure: 'base',
+            dependency: ['a'],
+          },
+        ] as Components,
+        'a',
+      ),
+    ).toThrow(
+      'Circular component dependency detected while resolving "a": a -> b -> a.',
+    );
   });
 });
