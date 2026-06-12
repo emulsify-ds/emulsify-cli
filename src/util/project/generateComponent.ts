@@ -73,6 +73,7 @@ function getComponentFormat(format: string): ComponentFormat {
  * @param options.directory string name of the directory where the component should be created.
  * @param options.format component format to generate. Supported values are "default" and "sdc".
  * @param options.yes whether to skip overwrite confirmation prompts and replace existing components.
+ * @param options.dryRun whether to preview generated files without changing the project.
  * @returns
  * @throws {Error} if the component name is invalid, the current path is not within an Emulsify project, the requested structure is invalid, or required non-interactive options are missing.
  */
@@ -149,10 +150,7 @@ export default async function generateComponent(
     'Component structure directory',
     { allowRoot: true },
   );
-  if (!(await pathExists(parentPath))) {
-    // Create the component's parent directory.
-    await fs.mkdir(parentPath, { recursive: true });
-  }
+  const parentExists = await pathExists(parentPath);
 
   // Calculate the destination path (always kebab-case folder name).
   const destination = safeResolveWithin(
@@ -164,29 +162,6 @@ export default async function generateComponent(
   // If the component already exists within the project,
   // ask the user if they want to replace it.
   const componentExists = await pathExists(destination);
-  if (componentExists) {
-    const shouldReplace =
-      options.yes ||
-      (canPrompt
-        ? await confirm({
-            message: yellow(
-              `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
-            ),
-            default: false,
-          })
-        : false);
-
-    if (!shouldReplace) {
-      return log('info', `Component creation canceled.`);
-    }
-
-    // Remove the existing component directory to ensure a clean start.
-    await remove(destination);
-  }
-
-  // Create the component directory
-  await fs.mkdir(destination, { recursive: true });
-
   const templateVars: ComponentTemplateVars = {
     filename,
     className,
@@ -250,7 +225,72 @@ export default async function generateComponent(
           },
         ];
 
-  for (const artifact of [...sharedArtifacts, ...formatArtifacts]) {
+  const artifacts = [...sharedArtifacts, ...formatArtifacts];
+  const artifactDestinations = artifacts.map((artifact) =>
+    safeResolveWithin(
+      projectRoot,
+      [structure.directory, filename, artifact.destinationName],
+      'Component file destination',
+    ),
+  );
+
+  if (options.dryRun) {
+    const realRunAction = componentExists
+      ? options.yes
+        ? 'replace the existing component directory'
+        : 'prompt before replacing the existing component directory'
+      : 'create the component directory';
+    const generatedFiles = artifactDestinations
+      .map((filePath) => `  - ${filePath}`)
+      .join('\n');
+
+    return log(
+      'info',
+      [
+        `Dry run: component create "${filename}"`,
+        `Format: ${format}`,
+        `Directory: ${directory}`,
+        `Structure path: ${structure.directory}`,
+        `Parent directory: ${parentPath} (${parentExists ? 'exists' : 'would be created'})`,
+        `Destination: ${destination}`,
+        `Destination exists: ${componentExists ? 'yes' : 'no'}`,
+        `Real run would: ${realRunAction}`,
+        'Generated files:',
+        generatedFiles,
+        'No files were written, removed, or created.',
+      ].join('\n'),
+    );
+  }
+
+  if (!parentExists) {
+    // Create the component's parent directory.
+    await fs.mkdir(parentPath, { recursive: true });
+  }
+
+  if (componentExists) {
+    const shouldReplace =
+      options.yes ||
+      (canPrompt
+        ? await confirm({
+            message: yellow(
+              `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
+            ),
+            default: false,
+          })
+        : false);
+
+    if (!shouldReplace) {
+      return log('info', `Component creation canceled.`);
+    }
+
+    // Remove the existing component directory to ensure a clean start.
+    await remove(destination);
+  }
+
+  // Create the component directory
+  await fs.mkdir(destination, { recursive: true });
+
+  for (const [index, artifact] of artifacts.entries()) {
     // Resolve a project override first; missing or empty overrides fall back to
     // the byte-for-byte built-in builders for each known generated artifact.
     const templateFile =
@@ -260,12 +300,7 @@ export default async function generateComponent(
         artifact.logicalName,
         templateVars,
       )) ?? artifact.build();
-
-    const artifactDestination = safeResolveWithin(
-      projectRoot,
-      [structure.directory, filename, artifact.destinationName],
-      'Component file destination',
-    );
+    const artifactDestination = artifactDestinations[index];
 
     await fs.writeFile(artifactDestination, templateFile);
   }

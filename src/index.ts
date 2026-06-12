@@ -108,6 +108,10 @@ component
     '-a --all',
     'Use this to install all available components, rather than specifying a single component to install',
   )
+  .option(
+    '--dry-run',
+    'Preview component installs without copying or removing files.',
+  )
   .alias('i')
   .action(componentInstall);
 component
@@ -123,6 +127,10 @@ component
   .option(
     '-y --yes',
     'Skip overwrite confirmation prompts and replace existing components.',
+  )
+  .option(
+    '--dry-run',
+    'Preview generated component files without writing or removing files.',
   )
   .alias('c')
   .description(
