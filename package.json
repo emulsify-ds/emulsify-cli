@@ -49,6 +49,7 @@
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.9.1",
+    "@types/progress": "^2.0.7",
     "husky": "^9.1.7",
     "jest": "^30.4.2",
     "json-schema-to-typescript": "^15.0.4",
@@ -62,7 +63,6 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^8.5.2",
-    "@types/progress": "^2.0.7",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "boxen": "^8.0.1",
