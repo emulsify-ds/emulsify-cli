@@ -1,5 +1,5 @@
 import { execFile } from 'child_process';
-import { dirname } from 'path';
+import { dirname, resolve as resolvePath } from 'path';
 
 /**
  * Takes a path to a script, and executes it.
@@ -9,14 +9,16 @@ import { dirname } from 'path';
 export default async function executeScript(
   scriptPath: string,
 ): Promise<string> {
+  const resolvedScriptPath = resolvePath(scriptPath);
+
   return new Promise((resolve, reject) => {
     execFile(
       process.execPath,
-      [scriptPath],
+      [resolvedScriptPath],
       {
         // Run from the hook directory so hook-relative file operations do not
         // depend on the shell location that invoked the CLI.
-        cwd: dirname(scriptPath),
+        cwd: dirname(resolvedScriptPath),
         encoding: 'utf8',
       },
       (error, stdout, stderr) => {
@@ -25,7 +27,7 @@ export default async function executeScript(
 
           return reject(
             new Error(
-              `Unable to execute hook script "${scriptPath}": ${output}`,
+              `Unable to execute hook script "${resolvedScriptPath}": ${output}`,
             ),
           );
         }
