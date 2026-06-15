@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import { resolve } from 'path';
 import executeScript from './executeScript.js';
 
 jest.mock('child_process', () => ({
@@ -64,6 +65,25 @@ describe('executeScript', () => {
       [scriptPath],
       {
         cwd: '/project with spaces/.cli',
+        encoding: 'utf8',
+      },
+      expect.any(Function),
+    );
+  });
+
+  it('resolves relative hook paths before changing the working directory', async () => {
+    expect.assertions(1);
+    const scriptPath = 'project/.cli/init.js';
+    const resolvedScriptPath = resolve(scriptPath);
+    mockExecFileResult(null, 'done');
+
+    await executeScript(scriptPath);
+
+    expect(execFileMock).toHaveBeenCalledWith(
+      process.execPath,
+      [resolvedScriptPath],
+      {
+        cwd: resolve('project/.cli'),
         encoding: 'utf8',
       },
       expect.any(Function),
