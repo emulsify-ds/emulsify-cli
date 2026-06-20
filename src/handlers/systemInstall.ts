@@ -1,13 +1,18 @@
 import type { InstallSystemHandlerOptions } from '@emulsify-cli/handlers';
 import type { GitCloneOptions } from '@emulsify-cli/git';
-import type { EmulsifySystem } from '@emulsify-cli/config';
+import type {
+  EmulsifyProjectConfiguration,
+  EmulsifySystem,
+  Platform,
+} from '@emulsify-cli/config';
 
 import { Ajv } from 'ajv';
 import addFormats from 'ajv-formats';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { select } from '@inquirer/prompts';
 import {
+  EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_SYSTEM_CONFIG_FILE,
   EMULSIFY_PROJECT_HOOK_FOLDER,
   EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
@@ -26,6 +31,7 @@ import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import executeScript from '../util/fs/executeScript.js';
+import writeToJsonFile from '../util/fs/writeToJsonFile.js';
 
 const CREATE_NEW_SYSTEM_CHOICE = 'create a new system';
 const CANCEL_SYSTEM_INSTALL_CHOICE = 'cancel';
@@ -106,11 +112,71 @@ async function promptForSystemInstallChoice(): Promise<string | void> {
     return;
   }
 
-  if (selectedSystem === CREATE_NEW_SYSTEM_CHOICE) {
-    throw new CliError('Creating a new system is not supported yet.');
+  return selectedSystem;
+}
+
+function getCustomSystemPlatform(platform: string): Platform {
+  return platform === 'drupal' || platform === 'none' ? platform : 'none';
+}
+
+function buildCustomSystemDefinition(platform: Platform): EmulsifySystem {
+  return {
+    name: 'custom-system',
+    homepage: 'https://example.com/custom-system',
+    repository: 'https://github.com/example/custom-system.git',
+    structure: [
+      {
+        name: 'components',
+        description: 'Project component library',
+      },
+    ],
+    variants: [
+      {
+        platform,
+        structureImplementations: [
+          {
+            name: 'components',
+            directory: './src/components',
+          },
+        ],
+        components: [],
+      },
+    ],
+  };
+}
+
+async function scaffoldCustomSystemDefinition(
+  projectConfig: EmulsifyProjectConfiguration,
+): Promise<void> {
+  const projectConfigPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
+  if (!projectConfigPath) {
+    throw new CliError(
+      `Unable to find ${EMULSIFY_PROJECT_CONFIG_FILE}. Run this command from within an Emulsify project.`,
+    );
   }
 
-  return selectedSystem;
+  const systemConfigPath = join(
+    dirname(projectConfigPath),
+    EMULSIFY_SYSTEM_CONFIG_FILE,
+  );
+  if (existsSync(systemConfigPath)) {
+    throw new CliError(
+      `${EMULSIFY_SYSTEM_CONFIG_FILE} already exists. Remove or rename it before creating a new custom system definition.`,
+    );
+  }
+
+  await writeToJsonFile<EmulsifySystem>(
+    systemConfigPath,
+    buildCustomSystemDefinition(
+      getCustomSystemPlatform(projectConfig.project.platform),
+    ),
+  );
+
+  log('success', `Created ${EMULSIFY_SYSTEM_CONFIG_FILE}.`);
+  log(
+    'info',
+    'Add your real system name, repository, structures, variants, and components before using this system to install or generate components.',
+  );
 }
 
 /**
@@ -147,6 +213,11 @@ export default async function systemInstall(
   if (!selectedName && !options.repository && process.stdin.isTTY === true) {
     selectedName = await promptForSystemInstallChoice();
     if (!selectedName) {
+      return;
+    }
+
+    if (selectedName === CREATE_NEW_SYSTEM_CHOICE) {
+      await scaffoldCustomSystemDefinition(projectConfig);
       return;
     }
   }
