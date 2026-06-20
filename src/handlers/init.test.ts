@@ -196,6 +196,22 @@ describe('init', () => {
     );
   });
 
+  it('clones a custom starter without a checkout so Git uses the repository default branch', async () => {
+    expect.assertions(1);
+    getPlatformInfoMock.mockReturnValueOnce(undefined);
+
+    await init(progress)('cornflake', `${root}`, {
+      starter: 'git@github.com:example/custom-starter.git',
+      platform: 'drupal',
+    });
+
+    expect(gitCloneMock).toHaveBeenCalledWith(
+      'git@github.com:example/custom-starter.git',
+      '/home/uname/Projects/cornflake/cornflake',
+      {},
+    );
+  });
+
   it('uses flag-provided values without prompting in non-interactive mode', async () => {
     expect.assertions(5);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
@@ -211,7 +227,7 @@ describe('init', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-starter',
       '/home/uname/Projects/cornflake/cornflake',
-      { '--branch': 'main' },
+      {},
     );
     expect(writeJsonFileMock).toHaveBeenCalledWith(
       '/home/uname/Projects/cornflake/cornflake/project.emulsify.json',
@@ -282,7 +298,7 @@ describe('init', () => {
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-starter',
       'emulsifytheme',
-      { '--branch': 'main' },
+      {},
     );
     expect(writeJsonFileMock).toHaveBeenCalledWith(
       'emulsifytheme/project.emulsify.json',

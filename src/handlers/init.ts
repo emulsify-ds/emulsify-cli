@@ -131,7 +131,8 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     const target = targetParent ? join(targetParent, machineName) : undefined;
 
     const repository = options?.starter || starter?.repository;
-    const checkout = options?.checkout || starter?.checkout;
+    const checkout =
+      options?.checkout || (options?.starter ? undefined : starter?.checkout);
 
     if (!target) {
       throw new CliError(
