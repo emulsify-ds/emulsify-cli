@@ -18,15 +18,31 @@ Built-in systems in this CLI version:
 
 The list is currently hard-coded in the CLI. Future versions may resolve systems from a registry. Installation still depends on the variants defined by the selected system's `system.emulsify.json`.
 
-## Install A Built-In System
+## Install A System
 
 Run `system install` from inside an Emulsify project.
 
 ```bash
-emulsify system install compound
+emulsify system install
 ```
 
-The command:
+In an interactive terminal, the CLI prompts for a system:
+
+```text
+? Choose a component system:
+❯ compound
+  emulsify-ui-kit
+  create a new system
+  cancel
+```
+
+Choosing `compound` or `emulsify-ui-kit` installs that built-in system. Choosing `cancel` exits without changing files:
+
+```text
+System install cancelled.
+```
+
+For a built-in system, the command:
 
 1. Finds and validates the nearest `project.emulsify.json`.
 2. Resolves the named system repository.
@@ -37,6 +53,13 @@ The command:
 7. Writes `system` and `variant` entries into `project.emulsify.json`.
 8. Installs components marked `required: true`.
 9. Installs variant-level general files and directories.
+
+If you already know the system name, pass it directly:
+
+```bash
+emulsify system install compound
+emulsify system install emulsify-ui-kit
+```
 
 Use `--all` to install every component in the selected variant during system installation:
 
@@ -57,6 +80,48 @@ emulsify system install \
 Custom system repository URLs must end in `.git`, because the CLI parses the system name from the repository filename.
 
 Prefer tags or commit hashes for `--checkout` so subsequent installs use the same system version.
+
+## Create A New System Definition
+
+Choose `create a new system` from the interactive prompt to scaffold a local `system.emulsify.json` in the current Emulsify project root.
+
+```text
+Created system.emulsify.json.
+
+Add your real system name, repository, structures, variants, and components before using this system to install or generate components.
+```
+
+The scaffold is intentionally minimal and must be completed before it represents a real component system:
+
+```json
+{
+  "name": "custom-system",
+  "homepage": "https://example.com/custom-system",
+  "repository": "https://github.com/example/custom-system.git",
+  "structure": [
+    {
+      "name": "components",
+      "description": "Project component library"
+    }
+  ],
+  "variants": [
+    {
+      "platform": "drupal",
+      "structureImplementations": [
+        {
+          "name": "components",
+          "directory": "./src/components"
+        }
+      ],
+      "components": []
+    }
+  ]
+}
+```
+
+The generated variant platform follows the current project platform when it is `drupal` or `none`. If `system.emulsify.json` already exists, the CLI stops rather than overwrite it.
+
+Creating a new system definition does not clone a remote system, install components, install general assets, run install hooks, or update `project.emulsify.json`.
 
 ## Project Config After Install
 

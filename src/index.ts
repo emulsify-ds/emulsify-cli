@@ -15,8 +15,82 @@ import boxen from 'boxen';
 
 const packageInfo = createRequire(import.meta.url)('../package.json');
 
+function getRootHelp(): string {
+  return [
+    `${packageInfo.productName} ${packageInfo.version}`,
+    '',
+    'Create Emulsify projects, choose component systems, install components, and generate local components.',
+    '',
+    'Usage:',
+    '  emulsify',
+    '  emulsify --help',
+    '  emulsify <command> --help',
+    '  emulsify init [name] [path] [options]',
+    '  emulsify system install [name] [options]',
+    '  emulsify component <command> [options]',
+    '',
+    'Common workflow:',
+    '  emulsify init',
+    '  emulsify system install',
+    '  emulsify component list',
+    '  emulsify component install <name>',
+    '  emulsify component create <name>',
+    '',
+    'Commands:',
+    '  init [name] [path]',
+    '    Create a project from a starter repository. Prompts for project name, target directory,',
+    '    and platform when values are missing in an interactive terminal.',
+    '    Options:',
+    '      -m, --machineName <machineName>     Set the project folder/config machine name.',
+    '      -s, --starter <repository>          Use a custom starter repository.',
+    '      -c, --checkout <commit/branch/tag>  Checkout for the starter repository.',
+    '      -p, --platform <drupal|none>        Select the project platform when auto-detection is unavailable.',
+    '      -y, --yes                           Accept defaults for missing init values without prompting.',
+    '',
+    '  system list',
+    '    List built-in component systems available for installation. Alias: system ls.',
+    '',
+    '  system install [name]',
+    '    Install a built-in or repository-backed component system. With no name or repository in',
+    '    an interactive terminal, prompts for compound, emulsify-ui-kit, create a new system,',
+    '    or cancel.',
+    '    Options:',
+    '      -r, --repository <repository>       Install from a custom system repository ending in .git.',
+    '      -c, --checkout <commit/branch/tag>  Checkout to use with --repository.',
+    '      -a, --all                           Install every component in the selected variant.',
+    '',
+    '  component list',
+    '    List components available from the installed system and selected variant. Alias: component ls.',
+    '',
+    '  component install [name]',
+    '    Install one component, dependencies, or all components from the installed system. Alias: component i.',
+    '    Options:',
+    '      -f, --force                         Replace an existing component destination.',
+    '      -a, --all                           Install all available components.',
+    '          --dry-run                       Preview installs without writing files.',
+    '',
+    '  component create [name]',
+    '    Generate a new local component in this project. Alias: component c.',
+    '    Options:',
+    '      -d, --directory <directory>         Variant structure where the component should be created.',
+    '      -f, --format <default|sdc>          Component format to generate.',
+    '      -y, --yes                           Replace existing generated components without prompting.',
+    '          --dry-run                       Preview generated files without writing them.',
+    '',
+    '  help [command]',
+    '    Show help for a command.',
+    '',
+    'Global options:',
+    '  -c, --checkout <commit/branch/tag>      Shared checkout option for commands that clone repositories.',
+    '  -V, --version                           Show the installed CLI version.',
+    '  -h, --help                              Show this help output.',
+    '',
+  ].join('\n');
+}
+
 // Main program commands.
 program
+  .name('emulsify')
   .enablePositionalOptions()
   .option(
     '-c --checkout <commit/branch/tag>',
@@ -24,25 +98,20 @@ program
   );
 
 program
-  .command('init [name] [path]', {
-    isDefault: true,
-  })
-  .description('Initialize an Emulsify project')
+  .command('init [name] [path]')
+  .description('Create a new Emulsify project from a starter repository')
   .option(
     '-m --machineName <machineName>',
-    'Machine-friendly name of the project you are initializing. If not provided, this will be automatically generated.',
+    'Machine-friendly project folder and config name. If omitted, this is generated from the project name.',
   )
-  .option(
-    '-s --starter <repository>',
-    'Git repository of the Emulsify starter you would like to use, such as the Emulsify Drupal theme: https://github.com/emulsify-ds/emulsify-starter',
-  )
+  .option('-s --starter <repository>', 'Starter Git repository to clone.')
   .option(
     '-c --checkout <commit/branch/tag>',
-    'Commit, branch or tag of the base repository that should be checked out',
+    'Starter commit, branch, or tag to check out after clone.',
   )
   .option(
-    '-p --platform <drupal/wordpress/etc>',
-    'Name of the platform Emulsify is being within. In some cases, Emulsify is able to automatically detect this. If it is not, Emulsify will prompt you to specify.',
+    '-p --platform <drupal|none>',
+    'Project platform to use when auto-detection is unavailable or should be overridden.',
   )
   .option(
     '-y --yes',
@@ -53,60 +122,49 @@ program
 // System sub-commands.
 const system = program
   .command('system')
-  .description(
-    'Parent command that contains sub-commands pertaining to systems',
-  );
+  .description('List, install, or scaffold component systems');
 system
   .command('list')
-  .description(
-    'Lists all of the available systems that Emulsify supports out-of-the-box',
-  )
+  .description('List built-in systems available for installation')
   .alias('ls')
   .action(systemList);
 system
   .command('install [name]')
   .description(
-    'Install a system within an Emulsify project. You must specify either the name of an out-of-the-box system (such as compound), or a link to a git repository containing the system you want to install',
+    'Install a component system, prompt for a system, or scaffold a local system definition',
   )
   .option(
     '-r --repository <repository>',
-    'Git repository containing the system you would like to install',
+    'Git repository containing the system to install. Custom repository URLs must end in .git.',
   )
   .option(
     '-c --checkout <commit/branch/tag>',
-    'Commit, branch or tag of the base repository that should be checked out. MUST be provided if you are passing along a repository (-r or --repository). Tags or commit hashes are strongly preferable, because you want to ensure that you are using the same version of the system every time you install components, etc',
+    'Commit, branch, or tag to check out. Required when --repository is used.',
   )
   .option(
     '-a --all',
-    'Use this to install all available components within the specified system. Without this flag, only the required system components will be installed.',
+    'Install every component in the selected variant. Without this flag, only required components are installed.',
   )
   .action(systemInstall);
 
 // Component sub-commands.
 const component = program
   .command('component')
-  .description(
-    'Parent command that contains sub-commands pertaining to components',
-  );
+  .description('List, install, or create components');
 component
   .command('list')
   .description(
-    'Lists all of the components that are available for installation within your project based on the system and variant you selected',
+    'List components available from the installed system and variant',
   )
   .alias('ls')
   .action(componentList);
 component
   .command('install [name]')
-  .description(
-    "Install a component from within the current project's system and variant",
-  )
-  .option(
-    '-f --force',
-    'Use this to overwrite a component that is already installed',
-  )
+  .description('Install one component from the installed system and variant')
+  .option('-f --force', 'Replace an existing component destination.')
   .option(
     '-a --all',
-    'Use this to install all available components, rather than specifying a single component to install',
+    'Install all available components instead of one named component.',
   )
   .option(
     '--dry-run',
@@ -118,7 +176,7 @@ component
   .command('create [name]')
   .option(
     '-d --directory <directory>',
-    'Used to set the directory where the new component is to be created',
+    'Variant structure name where the component should be created.',
   )
   .option(
     '-f --format <format>',
@@ -133,9 +191,7 @@ component
     'Preview generated component files without writing or removing files.',
   )
   .alias('c')
-  .description(
-    "Create a component from within the current project's system and variant",
-  )
+  .description('Generate a new local component in the current project')
   .action(componentCreate);
 
 /*
@@ -161,11 +217,21 @@ const boxedMessage = boxen(message, {
 });
 
 program.version(boxedMessage);
+const rootHelpRequested =
+  process.argv.length <= 2 ||
+  (process.argv.length === 3 &&
+    ['--help', '-h', 'help'].includes(process.argv[2]));
+
+if (rootHelpRequested) {
+  process.stdout.write(getRootHelp());
+  process.exit(0);
+}
+
 try {
   await program.parseAsync(process.argv);
 } catch (err) {
   // Expected CliError failures map their message and exitCode to the process;
-  // unexpected failures still produce a message and a generic non-zero exit.
+  // unexpected failures still produce a message and a default non-zero exit.
   if (err instanceof CliError) {
     log('error', err.message);
     process.exitCode = err.exitCode;

@@ -1,50 +1,65 @@
 import { LogMethod } from 'src/lib/log.js';
-import { cyan } from 'colorette';
+
+const DRUPAL_INTEGRATION_MESSAGE = [
+  'Detected a Drupal project.',
+  '',
+  'Install the required Drupal packages with Composer:',
+  '  composer require drupal/emulsify drupal/emulsify_tools',
+  '  drush en emulsify_tools -y',
+  '',
+  'The generated Drupal starter uses drupal/emulsify as its base theme and emulsify_tools for Drupal integration, so both packages must exist in the Drupal codebase.',
+].join('\n');
+
+const SYSTEM_SELECTION_MESSAGE = [
+  'Next, choose a component system:',
+  '  emulsify system install',
+].join('\n');
+
+type InitSuccessMessageOptions = {
+  includeDrupalInstallReminder?: boolean;
+};
 
 /**
  * Returns the init success log messages for a given platform.
  *
  * @param platform name of platform.
+ * @param options.includeDrupalInstallReminder whether to include Composer package guidance for an auto-detected Drupal project.
  * @returns array containing objects with a log method, and message.
  */
 export default function getInitSuccessMessageForPlatform(
   platform: string,
-  directory: string,
+  _directory: string,
+  options: InitSuccessMessageOptions = {},
 ): {
   method: LogMethod;
   message: string;
 }[] {
-  if (platform === 'none' || platform === 'drupal') {
+  if (platform === 'drupal') {
+    const messages: {
+      method: LogMethod;
+      message: string;
+    }[] = [];
+
+    if (options.includeDrupalInstallReminder) {
+      messages.push({
+        method: 'warn',
+        message: DRUPAL_INTEGRATION_MESSAGE,
+      });
+    }
+
+    messages.push({
+      method: 'info',
+      message: SYSTEM_SELECTION_MESSAGE,
+    });
+
+    return messages;
+  }
+
+  if (platform === 'none') {
     return [
       {
         method: 'info',
-        message:
-          'Make sure you install the modules your Emulsify-based theme requires in order to function.',
-      },
-      {
-        method: 'verbose',
-        message: `
-            - composer require drupal/components
-            - composer require drupal/emulsify_twig
-            - drush en components emulsify_twig -y
-            `,
-      },
-      {
-        method: 'info',
-        message: `Once the requirements have been installed, you will need to select a component system to use, as Emulsify does not come with components by default. To do this, navigate to your theme directory (${directory}), and choose a command below.`,
-      },
-      {
-        method: 'verbose',
-        message: `
-            ${cyan('List systems')}: emulsify system list
-            ${cyan('Install a system')}: emulsify system install "system-name"
-            ${cyan(
-              'Install default system with default components',
-            )}: emulsify system install compound
-            ${cyan(
-              'Install default system with all components',
-            )}: emulsify system install compound --all
-            `,
+        message: SYSTEM_SELECTION_MESSAGE,
       },
     ];
   }

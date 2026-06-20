@@ -2,7 +2,7 @@ import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import { simpleGit } from 'simple-git';
 import ProgressBar from 'progress';
-import { input } from '@inquirer/prompts';
+import { input, select } from '@inquirer/prompts';
 
 import type {
   EmulsifyProjectConfiguration,
@@ -29,6 +29,10 @@ const git = simpleGit();
 export const DIRECTORY = 1;
 const DEFAULT_PROJECT_NAME = 'emulsifyTheme';
 const DEFAULT_PLATFORM: Platform = 'drupal';
+const PLATFORM_CHOICES = [
+  'drupal',
+  'none',
+] as const satisfies readonly Platform[];
 
 /**
  * Handler for the initialization command.
@@ -53,6 +57,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     // Load information about the project and platform.
     const { name: autoPlatformName, emulsifyParentDirectory } =
       (await getPlatformInfo()) || {};
+    const isDetectedDrupalProject = autoPlatformName === 'drupal';
     const canPrompt = process.stdin.isTTY === true;
     const acceptDefaults = options?.yes === true;
 
@@ -96,10 +101,11 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       if (acceptDefaults) {
         platformName = DEFAULT_PLATFORM;
       } else if (canPrompt) {
-        platformName = (await input({
+        platformName = await select({
           message: 'Platform:',
+          choices: PLATFORM_CHOICES,
           default: DEFAULT_PLATFORM,
-        })) as Platform;
+        });
       }
     }
 
@@ -125,7 +131,8 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     const target = targetParent ? join(targetParent, machineName) : undefined;
 
     const repository = options?.starter || starter?.repository;
-    const checkout = options?.checkout || starter?.checkout;
+    const checkout =
+      options?.checkout || (options?.starter ? undefined : starter?.checkout);
 
     if (!target) {
       throw new CliError(
@@ -205,9 +212,10 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       });
 
       log('success', `Created an Emulsify project in ${target}.`);
-      getInitSuccessMessageForPlatform(platformName, target).map(
-        ({ method, message }) => log(method, message),
-      );
+      getInitSuccessMessageForPlatform(platformName, target, {
+        includeDrupalInstallReminder:
+          isDetectedDrupalProject && platformName === 'drupal',
+      }).map(({ method, message }) => log(method, message));
     } catch (e) {
       throw new CliError(`Unable to pull down ${repository}: ${String(e)}`);
     }

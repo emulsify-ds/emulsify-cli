@@ -3,6 +3,7 @@
 Emulsify CLI installs as the `emulsify` binary.
 
 ```bash
+emulsify
 emulsify --help
 emulsify <command> --help
 ```
@@ -15,7 +16,7 @@ The examples below reflect the command definitions in `src/index.ts` and the gen
 | ----------------------------------- | ----------------------------- | ---------------------------------------------------------------- |
 | `emulsify init [name] [path]`       |                               | Initialize an Emulsify project from a starter.                   |
 | `emulsify system list`              | `emulsify system ls`          | List built-in systems available for installation.                |
-| `emulsify system install [name]`    |                               | Install a system in the current Emulsify project.                |
+| `emulsify system install [name]`    |                               | Install or scaffold a system in the current Emulsify project.    |
 | `emulsify component list`           | `emulsify component ls`       | List components available from the installed system and variant. |
 | `emulsify component install [name]` | `emulsify component i [name]` | Install a component from the installed system and variant.       |
 | `emulsify component create [name]`  | `emulsify component c [name]` | Generate a new local component in the current project.           |
@@ -33,8 +34,10 @@ Options:
 | `-m, --machineName <machineName>`    | Machine-friendly project folder and config name. If omitted, the CLI derives it from the project name. Drupal machine names use underscores.   |
 | `-s, --starter <repository>`         | Starter Git repository to clone.                                                                                                               |
 | `-c, --checkout <commit/branch/tag>` | Starter commit, branch, or tag to check out after clone.                                                                                       |
-| `-p, --platform <platform>`          | Platform to use when auto-detection is unavailable or should be overridden. Built-in starters are currently available for `none` and `drupal`. |
+| `-p, --platform <platform>`          | Platform to use when auto-detection is unavailable or should be overridden. Built-in starters are currently available for `drupal` and `none`. |
 | `-y, --yes`                          | Accept default values for missing init options without prompting.                                                                              |
+
+When `--platform` is not provided and the platform cannot be detected, interactive terminals prompt with `drupal` and `none`.
 
 Examples:
 
@@ -60,6 +63,16 @@ Lists the built-in system names and repositories known to this CLI version.
 emulsify system install [name]
 ```
 
+Run without `[name]` in an interactive terminal to choose from built-in systems, scaffold a new system definition, or cancel:
+
+```text
+? Choose a component system:
+❯ compound
+  emulsify-ui-kit
+  create a new system
+  cancel
+```
+
 Options:
 
 | Option                               | Description                                                                                                                                      |
@@ -71,10 +84,14 @@ Options:
 Examples:
 
 ```bash
+emulsify system install
 emulsify system install compound
+emulsify system install emulsify-ui-kit
 emulsify system install compound --all
 emulsify system install --repository https://github.com/example/example-system.git --checkout v1.0.0
 ```
+
+Selecting `create a new system` writes `system.emulsify.json` in the current Emulsify project root. Complete the generated system name, repository, structures, variants, and components before using it to install or generate components.
 
 ## `component list`
 
