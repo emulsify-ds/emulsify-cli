@@ -48,7 +48,7 @@
     "@semantic-release/release-notes-generator": "^14.1.1",
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.0.0",
     "@types/progress": "^2.0.7",
     "husky": "^9.1.7",
     "jest": "^30.4.2",
