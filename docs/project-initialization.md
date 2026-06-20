@@ -45,10 +45,6 @@ Interactive init asks for missing values, then prints compact next steps.
 ✔ Platform: drupal
 [====================] 100% initialization complete
 
-  __
- /  \
- \__/
-
 Created an Emulsify project in britty.
 
 Install the Drupal integration module:

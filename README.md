@@ -20,6 +20,7 @@ npm install -g @emulsify/cli
 Run the current command help at any time:
 
 ```bash
+emulsify
 emulsify --help
 ```
 

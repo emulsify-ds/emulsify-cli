@@ -3,6 +3,7 @@
 Emulsify CLI installs as the `emulsify` binary.
 
 ```bash
+emulsify
 emulsify --help
 emulsify <command> --help
 ```

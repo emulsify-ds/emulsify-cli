@@ -1,7 +1,5 @@
 import { LogMethod } from 'src/lib/log.js';
 
-const EGG = ['  __', ' /  \\', ' \\__/'].join('\n');
-
 const DRUPAL_INTEGRATION_MESSAGE = [
   'Install the Drupal integration module:',
   '  composer require drupal/emulsify_tools',
@@ -29,10 +27,6 @@ export default function getInitSuccessMessageForPlatform(
   if (platform === 'drupal') {
     return [
       {
-        method: 'verbose',
-        message: EGG,
-      },
-      {
         method: 'info',
         message: DRUPAL_INTEGRATION_MESSAGE,
       },
@@ -45,10 +39,6 @@ export default function getInitSuccessMessageForPlatform(
 
   if (platform === 'none') {
     return [
-      {
-        method: 'verbose',
-        message: EGG,
-      },
       {
         method: 'info',
         message: SYSTEM_SELECTION_MESSAGE,

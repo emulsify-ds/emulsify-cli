@@ -1,6 +1,5 @@
 import getInitSuccessMessageForPlatform from './getInitSuccessMessageForPlatform.js';
 
-const egg = ['  __', ' /  \\', ' \\__/'].join('\n');
 const systemSelectionMessage = [
   'Next, choose a component system:',
   '  emulsify system install',
@@ -15,10 +14,6 @@ describe('getInitSuccessMessageForPlatform', () => {
   it('returns compact Drupal integration and system selection guidance', () => {
     expect.assertions(1);
     expect(getInitSuccessMessageForPlatform('drupal', '/directory')).toEqual([
-      {
-        method: 'verbose',
-        message: egg,
-      },
       {
         method: 'info',
         message: drupalIntegrationMessage,
@@ -48,10 +43,6 @@ describe('getInitSuccessMessageForPlatform', () => {
     const messages = result.map(({ message }) => message).join('\n');
 
     expect(result).toEqual([
-      {
-        method: 'verbose',
-        message: egg,
-      },
       {
         method: 'info',
         message: systemSelectionMessage,

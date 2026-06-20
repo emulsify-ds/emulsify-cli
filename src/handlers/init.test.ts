@@ -139,7 +139,7 @@ describe('init', () => {
       '/home/uname/Projects/cornflake/cornflake',
       { '--branch': 'main' },
     );
-    expect(logMock).toHaveBeenCalledTimes(3);
+    expect(logMock).toHaveBeenCalledTimes(2);
     expect(logMock).toHaveBeenNthCalledWith(
       1,
       'success',
