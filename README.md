@@ -30,8 +30,7 @@ Create a Drupal starter project, install a system, and add components:
 ```bash
 emulsify init "My Theme" ./web/themes/custom --platform drupal
 cd ./web/themes/custom/my_theme
-emulsify system list
-emulsify system install compound
+emulsify system install
 emulsify component list
 emulsify component install card
 emulsify component create promo-card --directory molecules --format default
@@ -41,6 +40,7 @@ For non-interactive environments, pass the flags that normally prompt for input:
 
 ```bash
 emulsify init "My Theme" ./web/themes/custom --platform drupal --yes
+emulsify system install compound
 emulsify component create promo-card --directory molecules --format default --yes
 ```
 
@@ -66,7 +66,7 @@ Detailed documentation lives in [docs](./docs/README.md).
 | ----------------------------------- | ----------------------------- | ----------------------------------------------------------------- |
 | `emulsify init [name] [path]`       |                               | Initializes an Emulsify project from a starter.                   |
 | `emulsify system list`              | `emulsify system ls`          | Lists built-in systems available for installation.                |
-| `emulsify system install [name]`    |                               | Installs a system in the current Emulsify project.                |
+| `emulsify system install [name]`    |                               | Installs or scaffolds a system in the current Emulsify project.   |
 | `emulsify component list`           | `emulsify component ls`       | Lists components available from the installed system and variant. |
 | `emulsify component install [name]` | `emulsify component i [name]` | Installs one component from the installed system and variant.     |
 | `emulsify component create [name]`  | `emulsify component c [name]` | Creates a local component in the current Emulsify project.        |
