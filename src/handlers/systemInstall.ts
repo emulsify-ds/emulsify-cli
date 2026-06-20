@@ -6,6 +6,7 @@ import { Ajv } from 'ajv';
 import addFormats from 'ajv-formats';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { select } from '@inquirer/prompts';
 import {
   EMULSIFY_SYSTEM_CONFIG_FILE,
   EMULSIFY_PROJECT_HOOK_FOLDER,
@@ -25,6 +26,11 @@ import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import executeScript from '../util/fs/executeScript.js';
+
+const CREATE_NEW_SYSTEM_CHOICE = 'create a new system';
+const CANCEL_SYSTEM_INSTALL_CHOICE = 'cancel';
+const SYSTEM_INSTALL_ERROR =
+  'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.';
 
 async function loadSchemas() {
   const [{ default: systemSchema }, { default: variantSchema }] =
@@ -84,6 +90,29 @@ export async function getSystemRepoInfo(
   }
 }
 
+async function promptForSystemInstallChoice(): Promise<string | void> {
+  const availableSystems = await getAvailableSystems();
+  const selectedSystem = await select({
+    message: 'Choose a component system:',
+    choices: [
+      ...availableSystems.map(({ name }) => name),
+      CREATE_NEW_SYSTEM_CHOICE,
+      CANCEL_SYSTEM_INSTALL_CHOICE,
+    ],
+  });
+
+  if (selectedSystem === CANCEL_SYSTEM_INSTALL_CHOICE) {
+    log('info', 'System install cancelled.');
+    return;
+  }
+
+  if (selectedSystem === CREATE_NEW_SYSTEM_CHOICE) {
+    throw new CliError('Creating a new system is not supported yet.');
+  }
+
+  return selectedSystem;
+}
+
 /**
  * Handler for the `system install` command.
  *
@@ -114,11 +143,17 @@ export default async function systemInstall(
 
   // Attempt to load system information, and exit with a log message
   // if a valid system was not found.
-  const repo = await getSystemRepoInfo(name, options);
+  let selectedName = name;
+  if (!selectedName && !options.repository && process.stdin.isTTY === true) {
+    selectedName = await promptForSystemInstallChoice();
+    if (!selectedName) {
+      return;
+    }
+  }
+
+  const repo = await getSystemRepoInfo(selectedName, options);
   if (!repo) {
-    throw new CliError(
-      'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
-    );
+    throw new CliError(SYSTEM_INSTALL_ERROR);
   }
 
   // Attempt to get latest tag if no branch was supplied.
