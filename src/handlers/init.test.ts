@@ -36,6 +36,10 @@ const progress = progressMock as unknown as InstanceType<typeof ProgressBar>;
 const inputMock = input as jest.Mock;
 const selectMock = select as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
+const systemSelectionMessage = [
+  'Next, choose a component system:',
+  '  emulsify system install',
+].join('\n');
 
 function setStdinIsTTY(value: boolean | undefined) {
   Object.defineProperty(process.stdin, 'isTTY', {
@@ -106,6 +110,37 @@ describe('init', () => {
     );
   });
 
+  it('logs Drupal Composer guidance when Drupal is auto-detected', async () => {
+    expect.assertions(4);
+    getPlatformInfoMock.mockReturnValueOnce({
+      root: `${root}/web`,
+      name: 'drupal',
+      emulsifyParentDirectory: `${root}/web/themes/custom`,
+      platformMajorVersion: 11,
+    });
+
+    await init(progress)('cornflake');
+
+    expect(gitCloneMock).toHaveBeenCalledWith(
+      'https://github.com/emulsify-ds/emulsify-drupal-starter',
+      '/home/uname/Projects/cornflake/web/themes/custom/cornflake',
+      { '--branch': 'main' },
+    );
+    expect(logMock).toHaveBeenCalledWith(
+      'warn',
+      expect.stringContaining(
+        'composer require drupal/emulsify drupal/emulsify_tools',
+      ),
+    );
+    expect(logMock).toHaveBeenCalledWith(
+      'warn',
+      expect.stringContaining(
+        'drupal/emulsify as its base theme and emulsify_tools for Drupal integration',
+      ),
+    );
+    expect(logMock).toHaveBeenCalledWith('info', systemSelectionMessage);
+  });
+
   it('uses the progress obj to display information on the init process', async () => {
     expect.assertions(5);
     await init(progress)('cornflake');
@@ -162,7 +197,7 @@ describe('init', () => {
   });
 
   it('uses flag-provided values without prompting in non-interactive mode', async () => {
-    expect.assertions(4);
+    expect.assertions(5);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
 
     await init(progress)(undefined, root, {
@@ -191,10 +226,14 @@ describe('init', () => {
         },
       },
     );
+    expect(logMock).not.toHaveBeenCalledWith(
+      'warn',
+      expect.stringContaining('composer require drupal/emulsify'),
+    );
   });
 
   it('prompts for the platform with drupal and none choices when missing in an interactive terminal', async () => {
-    expect.assertions(4);
+    expect.assertions(5);
     setStdinIsTTY(true);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
     selectMock.mockResolvedValueOnce('none');
@@ -222,6 +261,10 @@ describe('init', () => {
           repository: 'https://github.com/emulsify-ds/emulsify-starter',
         },
       },
+    );
+    expect(logMock).not.toHaveBeenCalledWith(
+      'warn',
+      expect.stringContaining('composer require drupal/emulsify'),
     );
   });
 
@@ -342,5 +385,9 @@ describe('init', () => {
       default: 'drupal',
     });
     expect(gitCloneMock).toHaveBeenCalled();
+    expect(logMock).not.toHaveBeenCalledWith(
+      'warn',
+      expect.stringContaining('composer require drupal/emulsify'),
+    );
   });
 });

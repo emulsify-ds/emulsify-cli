@@ -57,6 +57,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     // Load information about the project and platform.
     const { name: autoPlatformName, emulsifyParentDirectory } =
       (await getPlatformInfo()) || {};
+    const isDetectedDrupalProject = autoPlatformName === 'drupal';
     const canPrompt = process.stdin.isTTY === true;
     const acceptDefaults = options?.yes === true;
 
@@ -210,9 +211,10 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       });
 
       log('success', `Created an Emulsify project in ${target}.`);
-      getInitSuccessMessageForPlatform(platformName, target).map(
-        ({ method, message }) => log(method, message),
-      );
+      getInitSuccessMessageForPlatform(platformName, target, {
+        includeDrupalInstallReminder:
+          isDetectedDrupalProject && platformName === 'drupal',
+      }).map(({ method, message }) => log(method, message));
     } catch (e) {
       throw new CliError(`Unable to pull down ${repository}: ${String(e)}`);
     }

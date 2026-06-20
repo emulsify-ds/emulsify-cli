@@ -38,24 +38,27 @@ You can override starter resolution with `--starter` and `--checkout`.
 ## Interactive Output
 
 Interactive init asks for missing values, then prints compact next steps.
+When init detects that it is running inside a Drupal project, it also reminds you to install the required Drupal Composer packages.
 
 ```text
 ✔ Project name: britty
-✔ Target directory: ./
-✔ Platform: drupal
 [====================] 100% initialization complete
 
 Created an Emulsify project in britty.
 
-Install the Drupal integration module:
-  composer require drupal/emulsify_tools
+Detected a Drupal project.
+
+Install the required Drupal packages with Composer:
+  composer require drupal/emulsify drupal/emulsify_tools
   drush en emulsify_tools -y
+
+The generated Drupal starter uses drupal/emulsify as its base theme and emulsify_tools for Drupal integration, so both packages must exist in the Drupal codebase.
 
 Next, choose a component system:
   emulsify system install
 ```
 
-For platform `none`, the Drupal integration module reminder is omitted:
+For platform `none`, or when `drupal` is selected manually outside a detected Drupal project, the Drupal package reminder is omitted:
 
 ```text
 Next, choose a component system:

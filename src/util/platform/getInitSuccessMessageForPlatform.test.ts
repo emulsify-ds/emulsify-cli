@@ -5,17 +5,25 @@ const systemSelectionMessage = [
   '  emulsify system install',
 ].join('\n');
 const drupalIntegrationMessage = [
-  'Install the Drupal integration module:',
-  '  composer require drupal/emulsify_tools',
+  'Detected a Drupal project.',
+  '',
+  'Install the required Drupal packages with Composer:',
+  '  composer require drupal/emulsify drupal/emulsify_tools',
   '  drush en emulsify_tools -y',
+  '',
+  'The generated Drupal starter uses drupal/emulsify as its base theme and emulsify_tools for Drupal integration, so both packages must exist in the Drupal codebase.',
 ].join('\n');
 
 describe('getInitSuccessMessageForPlatform', () => {
-  it('returns compact Drupal integration and system selection guidance', () => {
+  it('returns compact Drupal integration and system selection guidance for detected Drupal projects', () => {
     expect.assertions(1);
-    expect(getInitSuccessMessageForPlatform('drupal', '/directory')).toEqual([
+    expect(
+      getInitSuccessMessageForPlatform('drupal', '/directory', {
+        includeDrupalInstallReminder: true,
+      }),
+    ).toEqual([
       {
-        method: 'info',
+        method: 'warn',
         message: drupalIntegrationMessage,
       },
       {
@@ -25,9 +33,27 @@ describe('getInitSuccessMessageForPlatform', () => {
     ]);
   });
 
+  it('returns system selection guidance without Drupal install reminders for manually selected Drupal projects', () => {
+    expect.assertions(4);
+    const result = getInitSuccessMessageForPlatform('drupal', '/directory');
+    const messages = result.map(({ message }) => message).join('\n');
+
+    expect(result).toEqual([
+      {
+        method: 'info',
+        message: systemSelectionMessage,
+      },
+    ]);
+    expect(messages).not.toContain('composer require drupal/');
+    expect(messages).not.toContain('emulsify_tools');
+    expect(messages).not.toContain('drupal/emulsify');
+  });
+
   it('does not mention old Drupal module requirements', () => {
     expect.assertions(4);
-    const messages = getInitSuccessMessageForPlatform('drupal', '/directory')
+    const messages = getInitSuccessMessageForPlatform('drupal', '/directory', {
+      includeDrupalInstallReminder: true,
+    })
       .map(({ message }) => message)
       .join('\n');
 
@@ -56,10 +82,9 @@ describe('getInitSuccessMessageForPlatform', () => {
 
   it('keeps multiline output dense', () => {
     expect.assertions(1);
-    const messages = getInitSuccessMessageForPlatform(
-      'drupal',
-      '/directory',
-    ).map(({ message }) => message);
+    const messages = getInitSuccessMessageForPlatform('drupal', '/directory', {
+      includeDrupalInstallReminder: true,
+    }).map(({ message }) => message);
 
     expect(messages).toEqual(
       messages.map((message) => message.replace(/^\n+|\n+$/g, '')),
