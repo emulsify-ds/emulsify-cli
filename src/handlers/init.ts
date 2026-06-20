@@ -2,7 +2,7 @@ import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import { simpleGit } from 'simple-git';
 import ProgressBar from 'progress';
-import { input } from '@inquirer/prompts';
+import { input, select } from '@inquirer/prompts';
 
 import type {
   EmulsifyProjectConfiguration,
@@ -29,6 +29,10 @@ const git = simpleGit();
 export const DIRECTORY = 1;
 const DEFAULT_PROJECT_NAME = 'emulsifyTheme';
 const DEFAULT_PLATFORM: Platform = 'drupal';
+const PLATFORM_CHOICES = [
+  'drupal',
+  'none',
+] as const satisfies readonly Platform[];
 
 /**
  * Handler for the initialization command.
@@ -96,10 +100,11 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       if (acceptDefaults) {
         platformName = DEFAULT_PLATFORM;
       } else if (canPrompt) {
-        platformName = (await input({
+        platformName = await select({
           message: 'Platform:',
+          choices: PLATFORM_CHOICES,
           default: DEFAULT_PLATFORM,
-        })) as Platform;
+        });
       }
     }
 
