@@ -129,7 +129,7 @@ describe('init', () => {
   });
 
   it('can clone an Emulsify starter based on CLI input, and log a success message upon completion', async () => {
-    expect.assertions(2);
+    expect.assertions(3);
     await init(progress)('cornflake', `${root}`, {
       starter: 'https://github.com/emulsify-ds/emulsify-starter',
       checkout: 'main',
@@ -139,7 +139,12 @@ describe('init', () => {
       '/home/uname/Projects/cornflake/cornflake',
       { '--branch': 'main' },
     );
-    expect(logMock).toHaveBeenCalledTimes(5);
+    expect(logMock).toHaveBeenCalledTimes(3);
+    expect(logMock).toHaveBeenNthCalledWith(
+      1,
+      'success',
+      'Created an Emulsify project in /home/uname/Projects/cornflake/cornflake.',
+    );
   });
 
   it('can clone an Emulsify starter without a provided checkout', async () => {
