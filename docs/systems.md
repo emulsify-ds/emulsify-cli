@@ -49,7 +49,7 @@ For a built-in system, the command:
 3. Checks out the latest Git tag when the built-in system reference does not specify a checkout.
 4. Clones the system into the local Emulsify cache.
 5. Reads and validates `system.emulsify.json` from the cached system.
-6. Selects the variant that matches `project.platform`.
+6. Selects the best compatible variant for `project.platform`.
 7. Writes `system` and `variant` entries into `project.emulsify.json`.
 8. Installs components marked `required: true`.
 9. Installs variant-level general files and directories.
@@ -119,7 +119,7 @@ The scaffold is intentionally minimal and must be completed before it represents
 }
 ```
 
-The generated variant platform follows the current project platform when it is `drupal` or `none`. If `system.emulsify.json` already exists, the CLI stops rather than overwrite it.
+The generated variant platform follows the current project platform when it is `drupal`, `wordpress`, or `none`. If `system.emulsify.json` already exists, the CLI stops rather than overwrite it.
 
 Creating a new system definition does not clone a remote system, install components, install general assets, run install hooks, or update `project.emulsify.json`.
 
@@ -153,7 +153,7 @@ After a successful install, `project.emulsify.json` includes system and variant 
 }
 ```
 
-The exact checkout and structure mappings come from the installed system.
+The exact checkout, selected variant `platform` string, and structure mappings come from the installed system. If the selected system variant used `"platform": "drupal || wordpress"`, that original expression is stored in the project `variant.platform` value so later component commands can rehydrate the same variant.
 
 ## System Repository Shape
 
@@ -169,15 +169,37 @@ A system repository must contain `system.emulsify.json` at its root. The schema 
 
 Each variant used by the CLI must include:
 
-| Field                      | Required | Purpose                                                                 |
-| -------------------------- | -------- | ----------------------------------------------------------------------- |
-| `platform`                 | Yes      | Variant platform. Built-in schemas currently allow `none` and `drupal`. |
-| `structureImplementations` | Yes      | Mapping from structure names to project-relative directories.           |
-| `components`               | Yes      | Installable component definitions.                                      |
-| `directories`              | No       | General directories copied during system install.                       |
-| `files`                    | No       | General files copied during system install.                             |
+| Field                      | Required | Purpose                                                       |
+| -------------------------- | -------- | ------------------------------------------------------------- |
+| `platform`                 | Yes      | Variant platform compatibility expression.                    |
+| `structureImplementations` | Yes      | Mapping from structure names to project-relative directories. |
+| `components`               | Yes      | Installable component definitions.                            |
+| `directories`              | No       | General directories copied during system install.             |
+| `files`                    | No       | General files copied during system install.                   |
 
-To be installable, a system must include a variant whose `platform` matches the current project's `project.platform`.
+## Variant Platform Compatibility
+
+System variants can target one platform or multiple compatible platforms:
+
+```json
+{ "platform": "wordpress" }
+{ "platform": "drupal || wordpress" }
+{ "platform": "none" }
+```
+
+Supported platform tokens are `drupal`, `wordpress`, and `none`.
+
+`none` on a variant means generic. A variant with `"platform": "none"` can be installed by any concrete project platform.
+
+Project configuration is different: `project.platform` is always a concrete value (`drupal`, `wordpress`, or `none`). Do not put `||` expressions in `project.platform`; only system variants use compatibility expressions.
+
+When installing a system, the CLI prefers:
+
+1. An exact platform match.
+2. An expression containing the concrete project platform, such as `drupal || wordpress`.
+3. A generic `none` variant.
+
+A project with `project.platform: "none"` can install any component library system. If more than one variant is equally compatible and no single best match is obvious, the CLI prompts in an interactive terminal or fails with a clear non-interactive error.
 
 Minimal example:
 
@@ -194,7 +216,7 @@ Minimal example:
   ],
   "variants": [
     {
-      "platform": "drupal",
+      "platform": "drupal || wordpress",
       "structureImplementations": [
         {
           "name": "base",

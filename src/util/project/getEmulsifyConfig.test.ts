@@ -31,6 +31,19 @@ describe('getEmulsifyConfig', () => {
     await expect(getEmulsifyConfig()).resolves.toEqual(projectConfig);
   });
 
+  it('accepts wordpress as a concrete project platform', async () => {
+    const wordpressProjectConfig = {
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'wordpress',
+      },
+    };
+    loadJsonFileMock.mockResolvedValueOnce(wordpressProjectConfig);
+
+    await expect(getEmulsifyConfig()).resolves.toEqual(wordpressProjectConfig);
+  });
+
   it('returns void if no Emulsify config file is found within the users cwd', async () => {
     findFileMock.mockReturnValueOnce(undefined);
     await expect(getEmulsifyConfig()).resolves.toBe(undefined);
@@ -62,7 +75,38 @@ describe('getEmulsifyConfig', () => {
     );
   });
 
-  it('reports schema-invalid variant platform values', async () => {
+  it('accepts variant platform compatibility expressions', async () => {
+    const expressionConfig = {
+      ...projectConfig,
+      system: {
+        repository: 'https://github.com/emulsify-ds/compound.git',
+        checkout: 'main',
+      },
+      variant: {
+        platform: 'drupal || wordpress',
+        structureImplementations: [],
+      },
+    };
+    loadJsonFileMock.mockResolvedValueOnce(expressionConfig);
+
+    await expect(getEmulsifyConfig()).resolves.toEqual(expressionConfig);
+  });
+
+  it('reports schema-invalid project platform expressions', async () => {
+    loadJsonFileMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'drupal || wordpress',
+      },
+    });
+
+    await expect(getEmulsifyConfig()).rejects.toThrow(
+      'Invalid Emulsify project configuration in "/projects/project.emulsify.json": /project/platform must be equal to one of the allowed values',
+    );
+  });
+
+  it('reports schema-invalid variant platform expressions', async () => {
     loadJsonFileMock.mockResolvedValueOnce({
       ...projectConfig,
       system: {
@@ -70,13 +114,13 @@ describe('getEmulsifyConfig', () => {
         checkout: 'main',
       },
       variant: {
-        platform: 'wordpress',
+        platform: 'drupal && wordpress',
         structureImplementations: [],
       },
     });
 
     await expect(getEmulsifyConfig()).rejects.toThrow(
-      'Invalid Emulsify project configuration in "/projects/project.emulsify.json": /variant/platform must be equal to one of the allowed values',
+      '/variant/platform must match a schema in anyOf',
     );
   });
 });

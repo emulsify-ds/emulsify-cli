@@ -32,6 +32,12 @@ import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import executeScript from '../util/fs/executeScript.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
+import {
+  getVariantPlatformExpressions,
+  isPlatform,
+  selectCompatiblePlatformVariant,
+  selectExactPlatformVariant,
+} from '../util/platform/platformCompatibility.js';
 
 const CREATE_NEW_SYSTEM_CHOICE = 'create a new system';
 const CANCEL_SYSTEM_INSTALL_CHOICE = 'cancel';
@@ -115,8 +121,95 @@ async function promptForSystemInstallChoice(): Promise<string | void> {
   return selectedSystem;
 }
 
+function getVariantSelectionErrorMessage(
+  systemConf: EmulsifySystem,
+  projectPlatform: Platform,
+  requestedVariant: string | void,
+): string {
+  const availableVariants =
+    getVariantPlatformExpressions(systemConf.variants).join(', ') || 'none';
+  const requestedVariantMessage = requestedVariant
+    ? ` matching "${requestedVariant}"`
+    : '';
+
+  return `Unable to find a compatible variant${requestedVariantMessage} for project platform "${projectPlatform}" within the system (${systemConf.name}). Available variant platform expressions: ${availableVariants}.`;
+}
+
+async function promptForVariantChoice<T extends { platform: string }>(
+  variants: T[],
+  projectPlatform: Platform,
+  systemName: string,
+): Promise<T> {
+  const selectedPlatform = await select({
+    message: `Choose a ${systemName} variant for project platform "${projectPlatform}":`,
+    choices: variants.map(({ platform }) => platform),
+  });
+  return variants.find(({ platform }) => platform === selectedPlatform) as T;
+}
+
+async function resolveSystemVariant(
+  systemConf: EmulsifySystem,
+  projectPlatform: Platform,
+  requestedVariant: string | void,
+) {
+  if (requestedVariant) {
+    const selection = selectExactPlatformVariant(
+      systemConf.variants,
+      requestedVariant,
+    );
+    if (selection.status === 'selected') {
+      return selection.variant;
+    }
+
+    if (selection.status === 'ambiguous' && process.stdin.isTTY === true) {
+      return await promptForVariantChoice(
+        selection.variants,
+        projectPlatform,
+        systemConf.name,
+      );
+    }
+
+    throw new CliError(
+      getVariantSelectionErrorMessage(
+        systemConf,
+        projectPlatform,
+        requestedVariant,
+      ),
+    );
+  }
+
+  const selection = selectCompatiblePlatformVariant(
+    systemConf.variants,
+    projectPlatform,
+  );
+  if (selection.status === 'selected') {
+    return selection.variant;
+  }
+
+  if (selection.status === 'ambiguous') {
+    if (process.stdin.isTTY === true) {
+      return await promptForVariantChoice(
+        selection.variants,
+        projectPlatform,
+        systemConf.name,
+      );
+    }
+
+    const compatibleVariants = selection.variants
+      .map(({ platform }) => platform)
+      .join(', ');
+    throw new CliError(
+      `Multiple compatible variants were found for project platform "${projectPlatform}" within the system (${systemConf.name}): ${compatibleVariants}. Run this command in an interactive terminal or specify a variant.`,
+    );
+  }
+
+  throw new CliError(
+    getVariantSelectionErrorMessage(systemConf, projectPlatform, undefined),
+  );
+}
+
 function getCustomSystemPlatform(platform: string): Platform {
-  return platform === 'drupal' || platform === 'none' ? platform : 'none';
+  return isPlatform(platform) ? platform : 'none';
 }
 
 function buildCustomSystemDefinition(platform: Platform): EmulsifySystem {
@@ -275,24 +368,19 @@ export default async function systemInstall(
     );
   }
 
-  // Extract the variant name, and error if no variant is determinable.
-  const variantName: string | void =
-    options.variant || projectConfig.project.platform;
-  if (!variantName) {
+  const projectPlatform = projectConfig.project.platform;
+  if (!isPlatform(projectPlatform)) {
     throw new CliError(
       'Unable to determine a variant for the specified system. Please either pass in a valid variant using the --variant flag.',
     );
   }
 
   // @TODO: clone variants into their own cache bucket if a reference is provided.
-  const variantConf = systemConf.variants?.find(
-    ({ platform }) => platform === variantName,
+  const variantConf = await resolveSystemVariant(
+    systemConf,
+    projectPlatform,
+    options.variant,
   );
-  if (!variantConf) {
-    throw new CliError(
-      `Unable to find a variant (${variantName}) within the system (${systemConf.name}). Please check your Emulsify project config and make sure the project.platform value is correct, or select a system with a variant that is compatible with the platform you are using.`,
-    );
-  }
 
   // Update emulsify project config.
   try {

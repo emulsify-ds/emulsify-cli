@@ -16,6 +16,10 @@ import cloneIntoCache from '../../util/cache/cloneIntoCache.js';
 import getJsonFromCachedFile from '../../util/cache/getJsonFromCachedFile.js';
 import getGitRepoNameFromUrl from '../../util/getGitRepoNameFromUrl.js';
 import getEmulsifyConfig from '../../util/project/getEmulsifyConfig.js';
+import {
+  selectCompatiblePlatformVariant,
+  selectExactPlatformVariant,
+} from '../../util/platform/platformCompatibility.js';
 
 type EmulsifyProjectConfigurationWithSystem = EmulsifyProjectConfiguration & {
   system: NonNullable<EmulsifyProjectConfiguration['system']>;
@@ -105,9 +109,20 @@ export async function withEmulsifySystem(
   }
 
   const variantName = variantReference.platform;
-  const variantConf = systemConf.variants?.find(
-    ({ platform }) => platform === variantName,
+  const exactVariantSelection = selectExactPlatformVariant(
+    systemConf.variants,
+    variantName,
   );
+  const compatibleVariantSelection = selectCompatiblePlatformVariant(
+    systemConf.variants,
+    emulsifyConfig.project.platform,
+  );
+  const variantConf =
+    exactVariantSelection.status === 'selected'
+      ? exactVariantSelection.variant
+      : compatibleVariantSelection.status === 'selected'
+        ? compatibleVariantSelection.variant
+        : undefined;
   if (!variantConf) {
     throw new EmulsifySystemError(
       `Unable to find configuration for the variant ${variantName} within the system ${systemName}.`,

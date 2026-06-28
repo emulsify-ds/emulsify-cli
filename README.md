@@ -37,6 +37,14 @@ emulsify component install card
 emulsify component create promo-card --directory molecules --format default
 ```
 
+Built-in platforms are `drupal`, `wordpress`, and `none`. For WordPress child themes, use the WordPress platform and starter:
+
+```bash
+emulsify init "My Theme" ./wp-content/themes --platform wordpress
+```
+
+When WordPress is auto-detected, Emulsify initializes child themes into the detected themes directory, such as `wp-content/themes/my-theme` or `web/app/themes/my-theme` for Bedrock.
+
 For non-interactive environments, pass the flags that normally prompt for input:
 
 ```bash

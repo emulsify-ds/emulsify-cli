@@ -141,6 +141,37 @@ describe('init', () => {
     expect(logMock).toHaveBeenCalledWith('info', systemSelectionMessage);
   });
 
+  it('clones the WordPress starter into the detected themes directory when WordPress is auto-detected', async () => {
+    expect.assertions(2);
+    getPlatformInfoMock.mockReturnValueOnce({
+      root,
+      name: 'wordpress',
+      emulsifyParentDirectory: `${root}/wp-content/themes`,
+    });
+
+    await init(progress)('My Theme');
+
+    expect(gitCloneMock).toHaveBeenCalledWith(
+      'https://github.com/emulsify-ds/emulsify-wordpress-starter',
+      '/home/uname/Projects/cornflake/wp-content/themes/my-theme',
+      { '--branch': 'main' },
+    );
+    expect(writeJsonFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/wp-content/themes/my-theme/project.emulsify.json',
+      {
+        project: {
+          platform: 'wordpress',
+          machineName: 'my-theme',
+          name: 'My Theme',
+        },
+        starter: {
+          repository:
+            'https://github.com/emulsify-ds/emulsify-wordpress-starter',
+        },
+      },
+    );
+  });
+
   it('uses the progress obj to display information on the init process', async () => {
     expect.assertions(5);
     await init(progress)('cornflake');
@@ -212,6 +243,35 @@ describe('init', () => {
     );
   });
 
+  it('can clone the WordPress starter based on platform input', async () => {
+    expect.assertions(2);
+    getPlatformInfoMock.mockReturnValueOnce(undefined);
+
+    await init(progress)('cornflake', `${root}`, {
+      platform: 'wordpress',
+    });
+
+    expect(gitCloneMock).toHaveBeenCalledWith(
+      'https://github.com/emulsify-ds/emulsify-wordpress-starter',
+      '/home/uname/Projects/cornflake/cornflake',
+      { '--branch': 'main' },
+    );
+    expect(writeJsonFileMock).toHaveBeenCalledWith(
+      '/home/uname/Projects/cornflake/cornflake/project.emulsify.json',
+      {
+        project: {
+          platform: 'wordpress',
+          machineName: 'cornflake',
+          name: 'cornflake',
+        },
+        starter: {
+          repository:
+            'https://github.com/emulsify-ds/emulsify-wordpress-starter',
+        },
+      },
+    );
+  });
+
   it('uses flag-provided values without prompting in non-interactive mode', async () => {
     expect.assertions(5);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
@@ -248,7 +308,7 @@ describe('init', () => {
     );
   });
 
-  it('prompts for the platform with drupal and none choices when missing in an interactive terminal', async () => {
+  it('prompts for the platform with drupal, wordpress, and none choices when missing in an interactive terminal', async () => {
     expect.assertions(5);
     setStdinIsTTY(true);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
@@ -262,7 +322,7 @@ describe('init', () => {
     expect(selectMock).toHaveBeenCalledTimes(1);
     expect(selectMock).toHaveBeenNthCalledWith(1, {
       message: 'Platform:',
-      choices: ['drupal', 'none'],
+      choices: ['drupal', 'wordpress', 'none'],
       default: 'drupal',
     });
     expect(writeJsonFileMock).toHaveBeenCalledWith(
@@ -359,13 +419,13 @@ describe('init', () => {
     );
   });
 
-  it('throws if no repository is found or specified', async () => {
+  it('throws if a detected platform is not supported', async () => {
     expect.assertions(1);
     getPlatformInfoMock.mockReturnValueOnce({
       name: 'invalid',
     });
     await expect(init(progress)('cornflake', root)).rejects.toThrow(
-      'Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter https://github.com/emulsify-ds/emulsify-starter',
+      'Unsupported platform "invalid". Supported platforms are "none", "drupal", and "wordpress".',
     );
   });
 
@@ -397,7 +457,7 @@ describe('init', () => {
     expect(select).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenNthCalledWith(1, {
       message: 'Platform:',
-      choices: ['drupal', 'none'],
+      choices: ['drupal', 'wordpress', 'none'],
       default: 'drupal',
     });
     expect(gitCloneMock).toHaveBeenCalled();

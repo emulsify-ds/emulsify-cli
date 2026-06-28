@@ -167,12 +167,20 @@ describe('withEmulsifySystem', () => {
   });
 
   it('throws a typed error when the configured variant is not found', async () => {
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
     getEmulsifyConfigMock.mockResolvedValueOnce({
       ...projectConfig,
       variant: {
         ...projectConfig.variant,
         platform: 'none',
       },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [wordpressVariant],
     });
 
     await expect(withEmulsifySystem('install components')).rejects.toThrow(
@@ -189,5 +197,50 @@ describe('withEmulsifySystem', () => {
     });
     expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound']);
     expect(cloneSystemMock).toHaveBeenCalledWith(projectConfig.system);
+  });
+
+  it('resolves a selected variant stored as a platform compatibility expression', async () => {
+    const expressionProjectConfig = {
+      ...projectConfig,
+      variant: {
+        ...projectConfig.variant,
+        platform: 'drupal || wordpress',
+      },
+    };
+    const expressionVariant = {
+      ...variant,
+      platform: 'drupal || wordpress',
+    };
+    const expressionSystem = {
+      ...system,
+      variants: [expressionVariant],
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce(expressionProjectConfig);
+    getJsonFromCachedFileMock.mockResolvedValueOnce(expressionSystem);
+
+    await expect(withEmulsifySystem('install components')).resolves.toEqual({
+      emulsifyConfig: expressionProjectConfig,
+      systemName: 'compound',
+      systemConf: expressionSystem,
+      variantConf: expressionVariant,
+    });
+  });
+
+  it('falls back to project platform compatibility when the stored variant expression is stale', async () => {
+    const staleProjectConfig = {
+      ...projectConfig,
+      variant: {
+        ...projectConfig.variant,
+        platform: 'drupal || wordpress',
+      },
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce(staleProjectConfig);
+
+    await expect(withEmulsifySystem('install components')).resolves.toEqual({
+      emulsifyConfig: staleProjectConfig,
+      systemName: 'compound',
+      systemConf: system,
+      variantConf: variant,
+    });
   });
 });

@@ -40,21 +40,25 @@ Options:
 - `--machineName <machineName>`: Sets the machine-friendly project name. When omitted, Emulsify CLI derives it from the project name.
 - `--starter <repository>`: Uses a specific starter repository.
 - `--checkout <commit/branch/tag>`: Checks out a specific starter commit, branch, or tag.
-- `--platform <platform>`: Sets the project platform when auto-detection is unavailable or should be overridden. Built-in starters are available for `none` and `drupal`.
+- `--platform <platform>`: Sets the project platform when auto-detection is unavailable or should be overridden. Built-in platforms are `drupal`, `wordpress`, and `none`.
 - `--yes`: Accepts default init values for missing options without prompting.
 
 Built-in starter repositories:
 
 - `https://github.com/emulsify-ds/emulsify-starter`
 - `https://github.com/emulsify-ds/emulsify-drupal-starter`
+- `https://github.com/emulsify-ds/emulsify-wordpress-starter`
 
 Examples:
 
 ```bash
 emulsify init "My Project" ./projects --platform none
 emulsify init "My Theme" ./web/themes/custom --platform drupal --yes
+emulsify init "My Theme" ./wp-content/themes --platform wordpress
 emulsify init "My Project" ./projects --platform none --starter https://github.com/emulsify-ds/emulsify-starter --checkout main
 ```
+
+When WordPress is auto-detected, Emulsify initializes child themes into the detected themes directory, such as `wp-content/themes/<machine-name>` or `web/app/themes/<machine-name>` for Bedrock.
 
 ## Systems
 
@@ -71,6 +75,8 @@ Built-in systems in this CLI version:
 - `emulsify-ui-kit`
 
 `emulsify system install [name]` installs a system in the current Emulsify project. The command installs required components by default.
+
+System variants can declare platform compatibility with values such as `"wordpress"`, `"drupal || wordpress"`, or generic `"none"`. Project configuration uses only concrete `project.platform` values: `drupal`, `wordpress`, or `none`.
 
 Options:
 

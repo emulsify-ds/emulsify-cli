@@ -29,21 +29,29 @@ emulsify init [name] [path]
 
 Options:
 
-| Option                               | Description                                                                                                                                    |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-m, --machineName <machineName>`    | Machine-friendly project folder and config name. If omitted, the CLI derives it from the project name. Drupal machine names use underscores.   |
-| `-s, --starter <repository>`         | Starter Git repository to clone.                                                                                                               |
-| `-c, --checkout <commit/branch/tag>` | Starter commit, branch, or tag to check out after clone.                                                                                       |
-| `-p, --platform <platform>`          | Platform to use when auto-detection is unavailable or should be overridden. Built-in starters are currently available for `drupal` and `none`. |
-| `-y, --yes`                          | Accept default values for missing init options without prompting.                                                                              |
+| Option                               | Description                                                                                                                                  |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-m, --machineName <machineName>`    | Machine-friendly project folder and config name. If omitted, the CLI derives it from the project name. Drupal machine names use underscores. |
+| `-s, --starter <repository>`         | Starter Git repository to clone.                                                                                                             |
+| `-c, --checkout <commit/branch/tag>` | Starter commit, branch, or tag to check out after clone.                                                                                     |
+| `-p, --platform <platform>`          | Platform to use when auto-detection is unavailable or should be overridden. Built-in platforms are `drupal`, `wordpress`, and `none`.        |
+| `-y, --yes`                          | Accept default values for missing init options without prompting.                                                                            |
 
-When `--platform` is not provided and the platform cannot be detected, interactive terminals prompt with `drupal` and `none`.
+When `--platform` is not provided and the platform cannot be detected, interactive terminals prompt with `drupal`, `wordpress`, and `none`.
+
+WordPress auto-detection creates child themes inside the detected themes directory:
+
+- Standard WordPress: `wp-content/themes/<machine-name>`
+- Bedrock: `web/app/themes/<machine-name>`
+
+The built-in WordPress starter is `https://github.com/emulsify-ds/emulsify-wordpress-starter`.
 
 Examples:
 
 ```bash
 emulsify init "My Project" ./projects --platform none
 emulsify init "My Theme" ./web/themes/custom --platform drupal
+emulsify init "My Theme" ./wp-content/themes --platform wordpress
 emulsify init "My Theme" ./web/themes/custom --platform drupal --machineName my_custom_theme
 emulsify init "My Project" ./projects --starter https://github.com/emulsify-ds/emulsify-starter --checkout main --platform none
 ```
@@ -92,6 +100,14 @@ emulsify system install --repository https://github.com/example/example-system.g
 ```
 
 Selecting `create a new system` writes `system.emulsify.json` in the current Emulsify project root. Complete the generated system name, repository, structures, variants, and components before using it to install or generate components.
+
+System variant compatibility is selected from each variant's `platform` expression. Examples:
+
+- `"platform": "wordpress"` matches WordPress projects.
+- `"platform": "drupal || wordpress"` matches Drupal and WordPress projects.
+- `"platform": "none"` is generic and can be installed by any concrete project platform.
+
+Project configuration uses only concrete `project.platform` values: `drupal`, `wordpress`, or `none`. Only system variants use `||` expressions. A project with `project.platform: "none"` can install any component library system; when multiple variants are equally compatible, the CLI prompts in an interactive terminal or errors in non-interactive mode.
 
 ## `component list`
 

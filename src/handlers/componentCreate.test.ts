@@ -203,12 +203,20 @@ describe('componentCreate', () => {
   });
 
   it('throws when the configured variant is not found', async () => {
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
     getEmulsifyConfigMock.mockResolvedValueOnce({
       ...projectConfig,
       variant: {
         ...projectConfig.variant,
         platform: 'none',
       },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [wordpressVariant],
     });
 
     await expect(componentCreate('button', {})).rejects.toThrow(

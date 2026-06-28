@@ -23,6 +23,7 @@ import executeScript from '../util/fs/executeScript.js';
 import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform.js';
 import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
+import { isPlatform } from '../util/platform/platformCompatibility.js';
 
 const git = simpleGit();
 
@@ -31,6 +32,7 @@ const DEFAULT_PROJECT_NAME = 'emulsifyTheme';
 const DEFAULT_PLATFORM: Platform = 'drupal';
 const PLATFORM_CHOICES = [
   'drupal',
+  'wordpress',
   'none',
 ] as const satisfies readonly Platform[];
 
@@ -94,9 +96,15 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     }
 
     // If no platform name is given, and none can be detected, exit and error.
-    let platformName = (options?.platform || autoPlatformName) as
-      | Platform
-      | undefined;
+    const requestedPlatformName = options?.platform || autoPlatformName;
+    let platformName = isPlatform(requestedPlatformName)
+      ? requestedPlatformName
+      : undefined;
+    if (requestedPlatformName && !platformName) {
+      throw new CliError(
+        `Unsupported platform "${requestedPlatformName}". Supported platforms are "none", "drupal", and "wordpress".`,
+      );
+    }
     if (!platformName) {
       if (acceptDefaults) {
         platformName = DEFAULT_PLATFORM;

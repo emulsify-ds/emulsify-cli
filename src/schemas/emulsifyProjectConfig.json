@@ -9,7 +9,7 @@
       "description": "Contains information about the Emulsify project.",
       "properties": {
         "platform": {
-          "type": "string",
+          "$ref": "variant.json#/definitions/platform",
           "description": "Name of the platform Emulsify is being used within."
         },
         "name": {
@@ -57,7 +57,7 @@
       "description": "Contains information about the Emulsify system this project is utilizing",
       "properties": {
         "platform": {
-          "$ref": "variant.json#/definitions/platform"
+          "$ref": "variant.json#/definitions/platformExpression"
         },
         "structureImplementations": {
           "$ref": "variant.json#/definitions/structureImplementations"

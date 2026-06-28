@@ -12,9 +12,14 @@ The command clones a starter, writes `project.emulsify.json`, installs dependenc
 
 The CLI tries to determine the platform from the current working directory before prompting or using defaults.
 
+Built-in project platforms are `drupal`, `wordpress`, and `none`.
+
 | Detection                                                               | Result                                                                                  |
 | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Drupal Composer project with `extra.drupal-scaffold.locations.web-root` | Platform `drupal`, target parent `<web-root>/themes/custom`.                            |
+| Standard WordPress site with `wp-content/themes`                        | Platform `wordpress`, target parent `wp-content/themes`.                                |
+| Bedrock WordPress site with `web/app/themes`                            | Platform `wordpress`, target parent `web/app/themes`.                                   |
+| Composer/custom web-root WordPress site with `web/wp-content/themes`    | Platform `wordpress`, target parent `web/wp-content/themes`.                            |
 | Existing Emulsify project found by `project.emulsify.json`              | Platform `none`, target parent `<project-root>/web/themes/custom`.                      |
 | No detectable platform                                                  | Use `--platform`, prompt in an interactive terminal, or use `--yes` to accept defaults. |
 
@@ -23,15 +28,17 @@ When the platform cannot be detected and stdin is a TTY, the prompt choices are:
 ```text
 ? Platform:
 ❯ drupal
+  wordpress
   none
 ```
 
 Built-in starter repositories:
 
-| Platform | Repository                                               | Checkout |
-| -------- | -------------------------------------------------------- | -------- |
-| `none`   | `https://github.com/emulsify-ds/emulsify-starter`        | `main`   |
-| `drupal` | `https://github.com/emulsify-ds/emulsify-drupal-starter` | `main`   |
+| Platform    | Repository                                                  | Checkout |
+| ----------- | ----------------------------------------------------------- | -------- |
+| `none`      | `https://github.com/emulsify-ds/emulsify-starter`           | `main`   |
+| `drupal`    | `https://github.com/emulsify-ds/emulsify-drupal-starter`    | `main`   |
+| `wordpress` | `https://github.com/emulsify-ds/emulsify-wordpress-starter` | `main`   |
 
 You can override starter resolution with `--starter` and `--checkout`.
 
@@ -91,16 +98,35 @@ Creates:
 ./web/themes/custom/my_theme
 ```
 
+WordPress child themes use hyphens and are initialized into the detected themes directory:
+
+```bash
+emulsify init "My Theme" --platform wordpress
+```
+
+When run inside a standard WordPress site, this creates:
+
+```text
+wp-content/themes/my-theme
+```
+
+When run inside a Bedrock site, this creates:
+
+```text
+web/app/themes/my-theme
+```
+
 If the target already exists, initialization stops with an error and does not overwrite the directory.
 
 ## Machine Names
 
 If `--machineName` is omitted, the CLI derives one from the project name by removing non-alphanumeric characters, replacing spaces, and lowercasing the result.
 
-| Platform | Project Name     | Derived Machine Name |
-| -------- | ---------------- | -------------------- |
-| `none`   | `Marketing Site` | `marketing-site`     |
-| `drupal` | `My Theme`       | `my_theme`           |
+| Platform    | Project Name     | Derived Machine Name |
+| ----------- | ---------------- | -------------------- |
+| `none`      | `Marketing Site` | `marketing-site`     |
+| `drupal`    | `My Theme`       | `my_theme`           |
+| `wordpress` | `My Theme`       | `my-theme`           |
 
 Use `--machineName` when the folder name or Drupal theme machine name must be exact.
 
@@ -126,7 +152,7 @@ With `--yes`, missing values use the current defaults:
 
 Explicit arguments and flags still take precedence over `--yes` defaults.
 
-In non-interactive mode, provide `--platform drupal` or `--platform none` when auto-detection is unavailable.
+In non-interactive mode, provide `--platform drupal`, `--platform wordpress`, or `--platform none` when auto-detection is unavailable.
 
 ## Custom Starter
 
@@ -143,7 +169,9 @@ If `--checkout` is omitted, the starter repository default branch is cloned.
 
 ## Generated Project Configuration
 
-After a Drupal init, the generated `project.emulsify.json` looks like this:
+After init, the generated `project.emulsify.json` stores a concrete platform value. It never stores compatibility expressions such as `drupal || wordpress` in `project.platform`.
+
+For a Drupal init, the file looks like this:
 
 ```json
 {

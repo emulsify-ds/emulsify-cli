@@ -44,7 +44,9 @@ function getRootHelp(): string {
     '      -m, --machineName <machineName>     Set the project folder/config machine name.',
     '      -s, --starter <repository>          Use a custom starter repository.',
     '      -c, --checkout <commit/branch/tag>  Checkout for the starter repository.',
-    '      -p, --platform <drupal|none>        Select the project platform when auto-detection is unavailable.',
+    '      -p, --platform <none|drupal|wordpress>',
+    '                                           Select the project platform when auto-detection is unavailable.',
+    '                                           Built-in platforms: drupal, wordpress, none.',
     '      -y, --yes                           Accept defaults for missing init values without prompting.',
     '',
     '  system list',
@@ -110,7 +112,7 @@ program
     'Starter commit, branch, or tag to check out after clone.',
   )
   .option(
-    '-p --platform <drupal|none>',
+    '-p --platform <none|drupal|wordpress>',
     'Project platform to use when auto-detection is unavailable or should be overridden.',
   )
   .option(

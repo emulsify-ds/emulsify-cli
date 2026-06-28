@@ -18,7 +18,7 @@ jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 jest.mock('@inquirer/prompts');
 
 import fs from 'fs';
-import type { EmulsifySystem } from '@emulsify-cli/config';
+import type { EmulsifySystem, Platform } from '@emulsify-cli/config';
 import { select } from '@inquirer/prompts';
 import log from '../lib/log.js';
 import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
@@ -118,7 +118,7 @@ const availableSystems = [
   },
 ];
 
-function customSystemDefinition(platform: 'drupal' | 'none'): EmulsifySystem {
+function customSystemDefinition(platform: Platform): EmulsifySystem {
   return {
     name: 'custom-system',
     homepage: 'https://example.com/custom-system',
@@ -346,6 +346,29 @@ describe('systemInstall', () => {
     );
   });
 
+  it('uses the current wordpress platform in the custom system definition', async () => {
+    setStdinIsTTY(true);
+    selectMock.mockResolvedValueOnce('create a new system');
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'wordpress',
+      },
+    });
+    findFileInCurrentPathMock.mockReturnValueOnce(
+      '/project/project.emulsify.json',
+    );
+    existsSyncMock.mockReturnValueOnce(false);
+
+    await systemInstall(undefined, {});
+
+    expect(writeToJsonFileMock).toHaveBeenCalledWith(
+      '/project/system.emulsify.json',
+      customSystemDefinition('wordpress'),
+    );
+  });
+
   it('does not overwrite an existing custom system definition', async () => {
     setStdinIsTTY(true);
     selectMock.mockResolvedValueOnce('create a new system');
@@ -440,11 +463,34 @@ describe('systemInstall', () => {
     consoleErrorMock.mockRestore();
   });
 
+  it('throws validation errors from invalid system variant platform expressions', async () => {
+    const consoleErrorMock = jest
+      .spyOn(console, 'error')
+      .mockImplementation(jest.fn());
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [
+        {
+          ...variant,
+          platform: 'drupal && wordpress',
+        },
+      ],
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'The system install failed due to the validation errors reported above. Please fix the the errors in the "compound" configuration and try again.',
+    );
+
+    expect(consoleErrorMock).toHaveBeenCalled();
+
+    consoleErrorMock.mockRestore();
+  });
+
   it('throws when the requested variant is not found', async () => {
     await expect(
       systemInstall('compound', { variant: 'none' }),
     ).rejects.toThrow(
-      'Unable to find a variant (none) within the system (compound). Please check your Emulsify project config and make sure the project.platform value is correct, or select a system with a variant that is compatible with the platform you are using.',
+      'Unable to find a compatible variant matching "none" for project platform "drupal" within the system (compound). Available variant platform expressions: drupal.',
     );
   });
 
@@ -455,7 +501,7 @@ describe('systemInstall', () => {
     });
 
     await expect(systemInstall('compound', {})).rejects.toThrow(
-      'Unable to find a variant (drupal) within the system (compound). Please check your Emulsify project config and make sure the project.platform value is correct, or select a system with a variant that is compatible with the platform you are using.',
+      'Unable to find a compatible variant for project platform "drupal" within the system (compound). Available variant platform expressions: none.',
     );
   });
 
@@ -510,6 +556,319 @@ describe('systemInstall', () => {
     expect(logMock).toHaveBeenCalledWith(
       'success',
       'Successfully installed the compound system using the drupal variant.',
+    );
+  });
+
+  it('installs a wordpress system variant for a wordpress project', async () => {
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'wordpress',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [wordpressVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it('prefers an exact wordpress variant over shared or generic variants for a wordpress project', async () => {
+    const genericVariant = {
+      ...variant,
+      platform: 'none',
+    };
+    const sharedVariant = {
+      ...variant,
+      platform: 'drupal || wordpress',
+    };
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'wordpress',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [genericVariant, sharedVariant, wordpressVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it('installs a shared system variant for a drupal project', async () => {
+    const expressionVariant = {
+      ...variant,
+      platform: 'drupal || wordpress',
+    };
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [expressionVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith({
+      system: {
+        repository: 'https://github.com/emulsify-ds/compound.git',
+        checkout: 'v1.0.0',
+      },
+      variant: {
+        platform: 'drupal || wordpress',
+        structureImplementations: variant.structureImplementations,
+      },
+    });
+    expect(logMock).toHaveBeenCalledWith(
+      'success',
+      'Successfully installed the compound system using the drupal || wordpress variant.',
+    );
+  });
+
+  it('installs a shared system variant for a wordpress project', async () => {
+    const expressionVariant = {
+      ...variant,
+      platform: 'drupal || wordpress',
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'wordpress',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [expressionVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'drupal || wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it('prefers a shared expression over a generic none variant for a concrete project', async () => {
+    const genericVariant = {
+      ...variant,
+      platform: 'none',
+    };
+    const expressionVariant = {
+      ...variant,
+      platform: 'drupal || wordpress',
+    };
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [genericVariant, expressionVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'drupal || wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it.each(['drupal', 'wordpress'] as const)(
+    'allows a %s project platform to install a generic none variant',
+    async (platform) => {
+      const genericVariant = {
+        ...variant,
+        platform: 'none',
+      };
+      getEmulsifyConfigMock.mockResolvedValueOnce({
+        ...projectConfig,
+        project: {
+          ...projectConfig.project,
+          platform,
+        },
+      });
+      getJsonFromCachedFileMock.mockResolvedValueOnce({
+        ...system,
+        variants: [genericVariant],
+      });
+
+      await systemInstall('compound', {});
+
+      expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variant: {
+            platform: 'none',
+            structureImplementations: variant.structureImplementations,
+          },
+        }),
+      );
+    },
+  );
+
+  it.each(['drupal', 'wordpress'] as const)(
+    'allows a none project platform to install a %s-only system variant',
+    async (platform) => {
+      const platformVariant = {
+        ...variant,
+        platform,
+      };
+      getEmulsifyConfigMock.mockResolvedValueOnce({
+        ...projectConfig,
+        project: {
+          ...projectConfig.project,
+          platform: 'none',
+        },
+      });
+      getJsonFromCachedFileMock.mockResolvedValueOnce({
+        ...system,
+        variants: [platformVariant],
+      });
+
+      await systemInstall('compound', {});
+
+      expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variant: {
+            platform,
+            structureImplementations: variant.structureImplementations,
+          },
+        }),
+      );
+    },
+  );
+
+  it('throws a clear error when a none project platform matches multiple variants in a non-interactive terminal', async () => {
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'none',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [
+        {
+          ...variant,
+          platform: 'drupal',
+        },
+        {
+          ...variant,
+          platform: 'wordpress',
+        },
+      ],
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'Multiple compatible variants were found for project platform "none" within the system (compound): drupal, wordpress. Run this command in an interactive terminal or specify a variant.',
+    );
+  });
+
+  it('prompts when a none project platform matches multiple variants in an interactive terminal', async () => {
+    setStdinIsTTY(true);
+    selectMock.mockResolvedValueOnce('wordpress');
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'none',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [
+        {
+          ...variant,
+          platform: 'drupal',
+        },
+        {
+          ...variant,
+          platform: 'wordpress',
+        },
+      ],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(selectMock).toHaveBeenCalledWith({
+      message: 'Choose a compound variant for project platform "none":',
+      choices: ['drupal', 'wordpress'],
+    });
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it('allows a none project platform to prefer an exact none variant', async () => {
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
+    const genericVariant = {
+      ...variant,
+      platform: 'none',
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'none',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [wordpressVariant, genericVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'none',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
     );
   });
 

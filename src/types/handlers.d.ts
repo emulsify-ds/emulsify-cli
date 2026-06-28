@@ -2,13 +2,15 @@
  * Module that exports types pertaining to command handlers.
  */
 declare module '@emulsify-cli/handlers' {
+  import type { Platform, PlatformExpression } from '@emulsify-cli/config';
+
   export type InitHandlerOptions = {
     /** Git repository of the Emulsify starter to clone. */
     starter?: string | void;
     /** Commit, branch, or tag to checkout after cloning the starter repository. */
     checkout?: string | void;
     /** Platform name to use when platform auto-detection is unavailable or should be overridden. */
-    platform?: string | void;
+    platform?: Platform | void;
     /** Machine-friendly project folder/config name. */
     machineName?: string | void;
     /** Accept default values for missing init options without prompting. */
@@ -18,7 +20,7 @@ declare module '@emulsify-cli/handlers' {
   export type InstallSystemHandlerOptions = {
     repository?: string | void;
     checkout?: string | void;
-    variant?: string | void;
+    variant?: PlatformExpression | void;
     all?: boolean;
   };
 
