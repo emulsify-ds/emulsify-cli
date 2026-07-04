@@ -36,7 +36,7 @@ emulsify --help
 
 | Script                       | Purpose                                                                                                                  |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `npm run build`              | Generate schema types, compile TypeScript, copy `package.json` to `dist`, and install production dependencies in `dist`. |
+| `npm run build`              | Generate schema types, compile TypeScript, copy package metadata to `dist`, and install production dependencies in `dist`. |
 | `npm run build-schema-types` | Generate TypeScript definitions from JSON Schema files.                                                                  |
 | `npm run build-ts`           | Compile TypeScript with `tsconfig.dist.json`.                                                                            |
 | `npm run watch`              | Rebuild when files in `src` change.                                                                                      |
@@ -75,4 +75,4 @@ npm run build
 npm run test
 ```
 
-`npm run build` may report npm audit warnings from dependencies after the production install in `dist`; those warnings are not TypeScript build failures.
+`npm run build` installs production dependencies in `dist` from the root lockfile.
