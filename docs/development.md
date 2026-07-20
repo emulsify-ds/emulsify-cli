@@ -28,9 +28,10 @@ emulsify --help
 | `src/handlers/hofs` | Shared handler wrappers, including progress and system-loading helpers.                                      |
 | `src/lib`           | Logging, constants, and CLI error primitives.                                                                |
 | `src/schemas`       | JSON Schemas for project, system, and variant configuration.                                                 |
-| `src/scripts`       | Maintenance scripts, including schema type generation and develop version bumps.                             |
+| `src/scripts`       | TypeScript maintenance scripts, including schema type generation.                                            |
 | `src/types`         | Type modules. Generated schema types are prefixed with `_`.                                                  |
 | `src/util`          | Platform detection, cache utilities, filesystem helpers, component generation, and project config utilities. |
+| `scripts`           | Package verification and release-calculation scripts, plus their regression tests.                           |
 
 ## Scripts
 
@@ -45,17 +46,21 @@ emulsify --help
 | `npm run watch`              | Rebuild when files in `src` change.                                                                |
 | `npm run watch-ts`           | Recompile TypeScript when files in `src` change.                                                   |
 | `npm run format`             | Run Prettier on source TypeScript and JavaScript files.                                            |
-| `npm run lint`               | Runs the Jest test suite through `npm run test`.                                                   |
-| `npm run test`               | Run Jest with coverage.                                                                            |
+| `npm run lint`               | Run the complete test suite through `npm run test`.                                                |
+| `npm run test`               | Run Jest coverage and release-automation regression tests.                                         |
+| `npm run test:unit`          | Run the Jest unit suite with coverage.                                                             |
+| `npm run test:release`       | Run the release-calculation integration tests with Node's test runner.                             |
 | `npm run type`               | Run TypeScript checking without emitting files.                                                    |
 | `npm run twatch`             | Run Jest without coverage in watch mode.                                                           |
-| `npm run version:develop`    | Update package metadata from semantic commits on `develop`.                                        |
-| `npm run semantic-release`   | Publish through semantic-release using `release.config.cjs`.                                       |
+| `npm run version:develop`    | Update package metadata from the complete unreleased conventional-commit history.                  |
+| `npm run release:analyze`    | Verify the predicted release without invoking publishing plugins.                                  |
+| `npm run release:verify`     | Run every build, test, package, smoke, and release-analysis gate used before publication.          |
+| `npm run semantic-release`   | Publish through semantic-release; use `-- --dry-run` unless publication is explicitly intended.    |
 
 Run one test file by passing the path after `--`:
 
 ```bash
-npm run test -- src/handlers/componentCreate.test.ts
+npm run test:unit -- src/handlers/componentCreate.test.ts
 ```
 
 ## Generated Types

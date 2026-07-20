@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: develop-version-bump
@@ -25,13 +26,15 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
+          node-version-file: '.nvmrc'
           cache: 'npm'
       - name: Install
         run: npm ci
       - name: Update version from semantic commits
-        run: npm run version:develop -- "${{ github.event.before }}" "${{ github.sha }}"
-      - name: Commit package version
+        run: npm run version:develop -- "origin/main" "${{ github.sha }}"
+      - name: Open package version pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if git diff --quiet -- package.json package-lock.json; then
             echo "No package version changes to commit."
@@ -39,9 +42,32 @@ jobs:
           fi
 
           NEXT_VERSION="$(node -p "require('./package.json').version")"
+          BUMP_BRANCH="chore/develop-version-bump"
+          PR_TITLE="chore(release): bump version to ${NEXT_VERSION}"
+          PR_BODY="Updates package metadata to ${NEXT_VERSION} after semantic commits landed on develop.
+
+          Triggering commit: ${{ github.sha }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "${BUMP_BRANCH}"
           git add package.json package-lock.json
-          git commit -m "chore(release): bump version to ${NEXT_VERSION} [skip ci]"
-          git push origin HEAD:develop
+          git commit -m "${PR_TITLE}"
+          git push --force-with-lease origin HEAD:"${BUMP_BRANCH}"
+
+          EXISTING_PR="$(
+            gh pr list \
+              --base develop \
+              --head "${BUMP_BRANCH}" \
+              --state open \
+              --json number \
+              --jq '.[0].number // empty'
+          )"
+
+          if [ -n "${EXISTING_PR}" ]; then
+            gh pr edit "${EXISTING_PR}" --title "${PR_TITLE}" --body "${PR_BODY}"
+            echo "Updated version bump PR #${EXISTING_PR}."
+            exit 0
+          fi
+
+          gh pr create --base develop --head "${BUMP_BRANCH}" --title "${PR_TITLE}" --body "${PR_BODY}"

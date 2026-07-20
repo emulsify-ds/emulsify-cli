@@ -1,35 +1,86 @@
-# Publishes the npm package and GitHub release metadata when changes land on main.
+# Validates and publishes the exact commit that lands on main.
 name: Publish
 on:
   push:
     branches: [main]
+
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  id-token: write
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  release:
-    name: Publish Package
+  validate:
+    name: Validate Main Commit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - name: Install
+        run: npm ci
+      - name: Verify release readiness
+        run: npm run release:verify
+
+  release:
+    name: Publish Package
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
           cache: 'npm'
       - name: Install
         run: npm ci
       - name: Build
         run: npm run build
-      - name: Verify package contents
-        run: npm run pack:dry-run
-      - name: Smoke test packed install
-        run: npm run smoke:pack
+      - name: Confirm validated commit is current main
+        env:
+          VALIDATED_SHA: ${{ github.sha }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          CURRENT_MAIN="$(git rev-parse refs/remotes/origin/main)"
+          if [ "${CURRENT_MAIN}" != "${VALIDATED_SHA}" ]; then
+            echo "Refusing to publish stale commit ${VALIDATED_SHA}; origin/main is ${CURRENT_MAIN}."
+            exit 1
+          fi
+      - name: Verify semantic-release calculation
+        # Dry-run mode verifies the trusted main history without publishing.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm run semantic-release -- --dry-run
+      - name: Reconfirm validated commit is current main
+        env:
+          VALIDATED_SHA: ${{ github.sha }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          CURRENT_MAIN="$(git rev-parse refs/remotes/origin/main)"
+          if [ "${CURRENT_MAIN}" != "${VALIDATED_SHA}" ]; then
+            echo "Refusing to publish stale commit ${VALIDATED_SHA}; origin/main is ${CURRENT_MAIN}."
+            exit 1
+          fi
       - name: Publish
         # Semantic Release reads commit history and publishing tokens from CI.
         env:

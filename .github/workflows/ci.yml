@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    branches: [develop, main]
   push:
     branches: [develop, main]
 
@@ -20,7 +21,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
+          node-version-file: '.nvmrc'
           cache: npm
       - name: Install
         run: npm ci
@@ -34,3 +35,10 @@ jobs:
         run: npm run pack:dry-run
       - name: Smoke test packed install
         run: npm run smoke:pack
+      - name: Verify release calculation
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          RELEASE_FROM: ${{ github.event.pull_request.base.sha }}
+          RELEASE_TO: HEAD
+          RELEASE_SQUASH_MESSAGE: ${{ github.event.pull_request.title }}
+        run: npm run release:analyze
