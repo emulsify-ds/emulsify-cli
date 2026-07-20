@@ -3,7 +3,7 @@
 
 # Emulsify CLI
 
-Command line interface for creating Emulsify projects, installing component systems, installing system components, and generating local components.
+Command line interface for creating Emulsify projects, installing component systems, installing system components, generating local components, and routing project audits to Emulsify Core.
 
 ## Requirements
 
@@ -74,11 +74,18 @@ Detailed documentation lives in [docs](./docs/README.md).
 | Command                             | Alias                         | Description                                                       |
 | ----------------------------------- | ----------------------------- | ----------------------------------------------------------------- |
 | `emulsify init [name] [path]`       |                               | Initializes an Emulsify project from a starter.                   |
+| `emulsify audit [...args]`          |                               | Runs the project-installed Emulsify Core audit.                   |
 | `emulsify system list`              | `emulsify system ls`          | Lists built-in systems available for installation.                |
 | `emulsify system install [name]`    |                               | Installs or scaffolds a system in the current Emulsify project.   |
 | `emulsify component list`           | `emulsify component ls`       | Lists components available from the installed system and variant. |
 | `emulsify component install [name]` | `emulsify component i [name]` | Installs one component from the installed system and variant.     |
 | `emulsify component create [name]`  | `emulsify component c [name]` | Creates a local component in the current Emulsify project.        |
+
+`emulsify audit` is a convenience façade. The project-installed
+`@emulsify/core` package remains the owner of the canonical `emulsify-audit`
+machine interface, checks, findings, JSON schema, output, and exit behavior.
+See the [CLI reference](./docs/cli-reference.md#audit) and
+[Core audit documentation](https://github.com/emulsify-ds/emulsify-core/blob/develop/docs/audit.md).
 
 ## Contributors
 

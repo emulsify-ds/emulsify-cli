@@ -15,6 +15,7 @@ The examples below reflect the command definitions in `src/index.ts` and the gen
 | Command                             | Alias                         | Description                                                      |
 | ----------------------------------- | ----------------------------- | ---------------------------------------------------------------- |
 | `emulsify init [name] [path]`       |                               | Initialize an Emulsify project from a starter.                   |
+| `emulsify audit [...args]`          |                               | Run the project-installed Emulsify Core audit.                   |
 | `emulsify system list`              | `emulsify system ls`          | List built-in systems available for installation.                |
 | `emulsify system install [name]`    |                               | Install or scaffold a system in the current Emulsify project.    |
 | `emulsify component list`           | `emulsify component ls`       | List components available from the installed system and variant. |
@@ -55,6 +56,30 @@ emulsify init "My Theme" ./wp-content/themes --platform wordpress
 emulsify init "My Theme" ./web/themes/custom --platform drupal --machineName my_custom_theme
 emulsify init "My Project" ./projects --starter https://github.com/emulsify-ds/emulsify-starter --checkout main --platform none
 ```
+
+## `audit`
+
+```bash
+emulsify audit [...args]
+```
+
+This command is a convenience façade for the `emulsify-audit` executable
+declared by the selected project's installed `@emulsify/core` package. It
+resolves Core from `--root <dir>` when supplied, or from the current directory,
+then forwards every argument plus stdin, stdout, stderr, and the Core process
+exit status without decoration.
+
+```bash
+emulsify audit --help
+emulsify audit --json
+emulsify audit --root /path/to/project --json --fail-on warn
+```
+
+Core must be installed in the selected project. `emulsify-audit` remains the
+canonical Core-owned machine interface; Core owns its audit checks, findings,
+JSON schema, documentation, output, and exit behavior. See the
+[Emulsify Core audit documentation](https://github.com/emulsify-ds/emulsify-core/blob/develop/docs/audit.md)
+for the current contract and options.
 
 ## `system list`
 

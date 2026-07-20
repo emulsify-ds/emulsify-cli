@@ -23,6 +23,7 @@ npm install -g @emulsify/cli
 | Command                             | Alias                         | Description                                                       |
 | ----------------------------------- | ----------------------------- | ----------------------------------------------------------------- |
 | `emulsify init [name] [path]`       |                               | Initializes an Emulsify project from a starter.                   |
+| `emulsify audit [...args]`          |                               | Runs the project-installed Emulsify Core audit.                   |
 | `emulsify system list`              | `emulsify system ls`          | Lists built-in systems available for installation.                |
 | `emulsify system install [name]`    |                               | Installs a system in the current Emulsify project.                |
 | `emulsify component list`           | `emulsify component ls`       | Lists components available from the installed system and variant. |
@@ -30,6 +31,14 @@ npm install -g @emulsify/cli
 | `emulsify component create [name]`  | `emulsify component c [name]` | Creates a local component in the current Emulsify project.        |
 
 Run `emulsify <command> --help` for current options.
+
+`emulsify audit [...args]` is a convenience façade for the
+project-installed `@emulsify/core` package. It forwards arguments, standard
+streams, and exit status to Core's `emulsify-audit` executable.
+`emulsify-audit` remains the canonical Core-owned machine interface, including
+its checks, findings, JSON schema, documentation, output, and exit behavior.
+See the
+[Emulsify Core audit documentation](https://github.com/emulsify-ds/emulsify-core/blob/develop/docs/audit.md).
 
 ## Initialize A Project
 

@@ -7,6 +7,7 @@ import systemInstall from './handlers/systemInstall.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
 import componentCreate from './handlers/componentCreate.js';
+import audit from './handlers/audit.js';
 import CliError from './lib/CliError.js';
 import log from './lib/log.js';
 import { createRequire } from 'module';
@@ -19,13 +20,14 @@ function getRootHelp(): string {
   return [
     `${packageInfo.productName} ${packageInfo.version}`,
     '',
-    'Create Emulsify projects, choose component systems, install components, and generate local components.',
+    'Create Emulsify projects, choose component systems, install components, generate local components, and route audits to Emulsify Core.',
     '',
     'Usage:',
     '  emulsify',
     '  emulsify --help',
     '  emulsify <command> --help',
     '  emulsify init [name] [path] [options]',
+    '  emulsify audit [...args]',
     '  emulsify system install [name] [options]',
     '  emulsify component <command> [options]',
     '',
@@ -48,6 +50,10 @@ function getRootHelp(): string {
     '                                           Select the project platform when auto-detection is unavailable.',
     '                                           Built-in platforms: drupal, wordpress, none.',
     '      -y, --yes                           Accept defaults for missing init values without prompting.',
+    '',
+    '  audit [...args]',
+    '    Run the project-installed Emulsify Core audit with unchanged arguments, output, and exit status.',
+    '    Run "emulsify audit --help" for Core-owned audit options.',
     '',
     '  system list',
     '    List built-in component systems available for installation. Alias: system ls.',
@@ -120,6 +126,14 @@ program
     'Accept default init values for any missing options without prompting.',
   )
   .action(withProgressBar(init));
+
+program
+  .command('audit [args...]')
+  .description('Run the project-installed Emulsify Core audit')
+  .allowUnknownOption()
+  .helpOption(false)
+  .passThroughOptions()
+  .action((args: string[]) => audit(args));
 
 // System sub-commands.
 const system = program
