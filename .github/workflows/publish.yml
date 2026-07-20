@@ -26,6 +26,10 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      - name: Verify package contents
+        run: npm run pack:dry-run
+      - name: Smoke test packed install
+        run: npm run smoke:pack
       - name: Publish
         # Semantic Release reads commit history and publishing tokens from CI.
         env:

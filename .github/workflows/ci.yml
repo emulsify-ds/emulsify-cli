@@ -30,5 +30,7 @@ jobs:
         run: npm run type
       - name: Test
         run: npm test
-      - name: Pack
-        run: npm pack --dry-run
+      - name: Verify package contents
+        run: npm run pack:dry-run
+      - name: Smoke test packed install
+        run: npm run smoke:pack

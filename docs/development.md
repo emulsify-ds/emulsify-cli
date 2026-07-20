@@ -34,20 +34,23 @@ emulsify --help
 
 ## Scripts
 
-| Script                       | Purpose                                                                                                                  |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `npm run build`              | Generate schema types, compile TypeScript, copy package metadata to `dist`, and install production dependencies in `dist`. |
-| `npm run build-schema-types` | Generate TypeScript definitions from JSON Schema files.                                                                  |
-| `npm run build-ts`           | Compile TypeScript with `tsconfig.dist.json`.                                                                            |
-| `npm run watch`              | Rebuild when files in `src` change.                                                                                      |
-| `npm run watch-ts`           | Recompile TypeScript when files in `src` change.                                                                         |
-| `npm run format`             | Run Prettier on source TypeScript and JavaScript files.                                                                  |
-| `npm run lint`               | Runs the Jest test suite through `npm run test`.                                                                         |
-| `npm run test`               | Run Jest with coverage.                                                                                                  |
-| `npm run type`               | Run TypeScript checking without emitting files.                                                                          |
-| `npm run twatch`             | Run Jest without coverage in watch mode.                                                                                 |
-| `npm run version:develop`    | Update package metadata from semantic commits on `develop`.                                                              |
-| `npm run semantic-release`   | Publish through semantic-release using `release.config.cjs`.                                                             |
+| Script                       | Purpose                                                                                            |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `npm run clean`              | Remove all generated files from `dist`.                                                            |
+| `npm run build`              | Clean `dist`, generate schema types, compile the runtime package, and mark the CLI bin executable. |
+| `npm run build-schema-types` | Generate TypeScript definitions from JSON Schema files.                                            |
+| `npm run build-ts`           | Compile TypeScript with `tsconfig.dist.json`.                                                      |
+| `npm run pack:dry-run`       | Inspect npm's structured package manifest and assert the expected runtime-only contents.           |
+| `npm run smoke:pack`         | Pack the real tarball, install it in a clean temporary project, and run the installed CLI.         |
+| `npm run watch`              | Rebuild when files in `src` change.                                                                |
+| `npm run watch-ts`           | Recompile TypeScript when files in `src` change.                                                   |
+| `npm run format`             | Run Prettier on source TypeScript and JavaScript files.                                            |
+| `npm run lint`               | Runs the Jest test suite through `npm run test`.                                                   |
+| `npm run test`               | Run Jest with coverage.                                                                            |
+| `npm run type`               | Run TypeScript checking without emitting files.                                                    |
+| `npm run twatch`             | Run Jest without coverage in watch mode.                                                           |
+| `npm run version:develop`    | Update package metadata from semantic commits on `develop`.                                        |
+| `npm run semantic-release`   | Publish through semantic-release using `release.config.cjs`.                                       |
 
 Run one test file by passing the path after `--`:
 
@@ -70,9 +73,15 @@ Run this after changing files in `src/schemas`.
 Before opening a PR, run:
 
 ```bash
-npm run type
+npm ci
 npm run build
+npm run type
 npm run test
+npm run pack:dry-run
+npm run smoke:pack
 ```
 
-`npm run build` installs production dependencies in `dist` from the root lockfile.
+The package checks verify npm's actual file list, create the real tarball, install it
+with its declared runtime dependencies, and exercise `emulsify --help` and
+`emulsify --version`. Temporary tarballs and install projects are removed whether
+the smoke test passes or fails.

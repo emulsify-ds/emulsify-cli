@@ -20,8 +20,16 @@ npm ci
 npm run build
 npm run type
 npm run test
-npm pack --dry-run
+npm run pack:dry-run
+npm run smoke:pack
 ```
+
+`pack:dry-run` uses npm's structured package manifest to require the CLI runtime
+files and reject source tests, coverage, caches, package locks, and nested
+`node_modules`. `smoke:pack` creates the real tarball, installs it with its
+declared runtime dependencies in a clean temporary project, and runs
+`emulsify --help` and `emulsify --version`. Both commands require a completed
+build.
 
 There are currently both `ci.yml` and `test.yml` workflows that validate pull requests and pushes.
 
@@ -47,7 +55,9 @@ Pushes to `main` run the `Publish` workflow:
 2. Install Node.js 24.
 3. Run `npm ci`.
 4. Run `npm run build`.
-5. Run `npm run semantic-release`.
+5. Run `npm run pack:dry-run`.
+6. Run `npm run smoke:pack`.
+7. Run `npm run semantic-release`.
 
 semantic-release is configured in `release.config.cjs` with:
 

@@ -21,7 +21,10 @@
     "access": "public"
   },
   "scripts": {
+    "clean": "node --input-type=module --eval \"import { rm } from 'node:fs/promises'; await rm('dist', { recursive: true, force: true });\"",
+    "prebuild": "npm run clean",
     "build": "npm run build-schema-types && npm run build-ts",
+    "postbuild": "node --input-type=module --eval \"import { chmod } from 'node:fs/promises'; await chmod('dist/index.js', 0o755);\"",
     "build-ts": "tsc --build tsconfig.dist.json",
     "build-schema-types": "node --import ./src/register.mjs ./src/scripts/jsonSchemaToTs.ts",
     "watch": "nodemon --watch src --ext ts,json --ignore src/types --exec npm run build",
@@ -36,8 +39,9 @@
     "twatch": "jest --no-coverage --watch --verbose",
     "version:develop": "node --import ./src/register.mjs ./src/scripts/versionDevelop.ts",
     "semantic-release": "semantic-release --config ./release.config.cjs",
-    "prepare": "husky install",
-    "postbuild": "cp package.json package-lock.json dist/ && cd dist && npm ci --omit=dev --ignore-scripts"
+    "pack:dry-run": "node ./scripts/pack-dry-run.mjs",
+    "smoke:pack": "node ./scripts/smoke-pack.mjs",
+    "prepare": "husky install"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.0",
