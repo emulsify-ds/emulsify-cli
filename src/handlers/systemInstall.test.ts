@@ -18,10 +18,16 @@ jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 jest.mock('@inquirer/prompts');
 
 import fs from 'fs';
+import { join, resolve } from 'path';
 import type { EmulsifySystem, Platform } from '@emulsify-cli/config';
 import { select } from '@inquirer/prompts';
 import log from '../lib/log.js';
-import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
+import {
+  EMULSIFY_PROJECT_CONFIG_FILE,
+  EMULSIFY_PROJECT_HOOK_FOLDER,
+  EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
+  EMULSIFY_SYSTEM_CONFIG_FILE,
+} from '../lib/constants.js';
 import getAvailableSystems from '../util/system/getAvailableSystems.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
 import getCachedItemCheckout from '../util/cache/getCachedItemCheckout.js';
@@ -54,6 +60,14 @@ const writeToJsonFileMock = writeToJsonFile as jest.Mock;
 const existsSyncMock = fs.existsSync as jest.Mock;
 const selectMock = select as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
+const projectRoot = resolve('/project');
+const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
+const systemConfigPath = join(projectRoot, EMULSIFY_SYSTEM_CONFIG_FILE);
+const systemInstallHookPath = join(
+  systemConfigPath,
+  EMULSIFY_PROJECT_HOOK_FOLDER,
+  EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
+);
 
 function setStdinIsTTY(value: boolean | undefined) {
   Object.defineProperty(process.stdin, 'isTTY', {
@@ -213,7 +227,7 @@ describe('systemInstall', () => {
     getEmulsifyConfigMock.mockResolvedValue(projectConfig);
     writeToJsonFileMock.mockResolvedValue(undefined);
     // A found system config plus an existing hook covers the optional hook branch.
-    findFileInCurrentPathMock.mockReturnValue('/project/system.emulsify.json');
+    findFileInCurrentPathMock.mockReturnValue(systemConfigPath);
     existsSyncMock.mockReturnValue(true);
     executeScriptMock.mockResolvedValue(undefined);
   });
@@ -302,15 +316,13 @@ describe('systemInstall', () => {
   it('writes a custom system definition when create a new system is selected', async () => {
     setStdinIsTTY(true);
     selectMock.mockResolvedValueOnce('create a new system');
-    findFileInCurrentPathMock.mockReturnValueOnce(
-      '/project/project.emulsify.json',
-    );
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
     existsSyncMock.mockReturnValueOnce(false);
 
     await systemInstall(undefined, {});
 
     expect(writeToJsonFileMock).toHaveBeenCalledWith(
-      '/project/system.emulsify.json',
+      systemConfigPath,
       customSystemDefinition('drupal'),
     );
     expect(logMock).toHaveBeenCalledWith(
@@ -333,15 +345,13 @@ describe('systemInstall', () => {
         platform: 'none',
       },
     });
-    findFileInCurrentPathMock.mockReturnValueOnce(
-      '/project/project.emulsify.json',
-    );
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
     existsSyncMock.mockReturnValueOnce(false);
 
     await systemInstall(undefined, {});
 
     expect(writeToJsonFileMock).toHaveBeenCalledWith(
-      '/project/system.emulsify.json',
+      systemConfigPath,
       customSystemDefinition('none'),
     );
   });
@@ -356,15 +366,13 @@ describe('systemInstall', () => {
         platform: 'wordpress',
       },
     });
-    findFileInCurrentPathMock.mockReturnValueOnce(
-      '/project/project.emulsify.json',
-    );
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
     existsSyncMock.mockReturnValueOnce(false);
 
     await systemInstall(undefined, {});
 
     expect(writeToJsonFileMock).toHaveBeenCalledWith(
-      '/project/system.emulsify.json',
+      systemConfigPath,
       customSystemDefinition('wordpress'),
     );
   });
@@ -372,9 +380,7 @@ describe('systemInstall', () => {
   it('does not overwrite an existing custom system definition', async () => {
     setStdinIsTTY(true);
     selectMock.mockResolvedValueOnce('create a new system');
-    findFileInCurrentPathMock.mockReturnValueOnce(
-      '/project/project.emulsify.json',
-    );
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
     existsSyncMock.mockReturnValueOnce(true);
 
     await expect(systemInstall(undefined, {})).rejects.toThrow(
@@ -387,9 +393,7 @@ describe('systemInstall', () => {
   it('does not run remote install side effects when creating a custom system definition', async () => {
     setStdinIsTTY(true);
     selectMock.mockResolvedValueOnce('create a new system');
-    findFileInCurrentPathMock.mockReturnValueOnce(
-      '/project/project.emulsify.json',
-    );
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
     existsSyncMock.mockReturnValueOnce(false);
 
     await systemInstall(undefined, {});
@@ -536,9 +540,7 @@ describe('systemInstall', () => {
       system,
       variant,
     );
-    expect(executeScriptMock).toHaveBeenCalledWith(
-      '/project/system.emulsify.json/.cli/systemInstall.js',
-    );
+    expect(executeScriptMock).toHaveBeenCalledWith(systemInstallHookPath);
     expect(logMock).toHaveBeenCalledWith(
       'success',
       'Successfully installed the compound system using the drupal variant.',

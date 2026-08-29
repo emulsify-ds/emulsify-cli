@@ -10,12 +10,17 @@ jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
 jest.mock('@inquirer/prompts');
 
 import fs from 'fs';
+import { join, normalize, resolve, sep } from 'path';
 import { pathExists, remove } from 'fs-extra';
 import { select, confirm } from '@inquirer/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
-import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
+import {
+  EMULSIFY_PROJECT_CONFIG_FILE,
+  EMULSIFY_PROJECT_TEMPLATES_FOLDER,
+  EMULSIFY_SYSTEM_CONFIG_FILE,
+} from '../lib/constants.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
@@ -44,12 +49,18 @@ function setStdinIsTTY(value: boolean | undefined) {
 }
 
 function mockComponentExistsWithoutTemplateOverrides() {
+  const templatePathFragment = `${sep}${normalize(
+    EMULSIFY_PROJECT_TEMPLATES_FOLDER,
+  )}${sep}`;
   pathExistsMock.mockImplementation(
-    (path) => !String(path).includes('/.cli/templates/'),
+    (path) => !String(path).includes(templatePathFragment),
   );
 }
 
-const projectConfigPath = '/project/project.emulsify.json';
+const projectRoot = resolve('/project');
+const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
+const componentBasePath = join(projectRoot, 'components', '00-base');
+const componentPath = (name: string) => join(componentBasePath, name);
 
 const projectConfig = {
   project: {
@@ -279,9 +290,7 @@ describe('componentCreate', () => {
 
     await componentCreate('button', { directory: 'base' });
 
-    expect(removeMock).toHaveBeenCalledWith(
-      '/project/components/00-base/button',
-    );
+    expect(removeMock).toHaveBeenCalledWith(componentPath('button'));
     expect(logMock).toHaveBeenCalledWith(
       'success',
       expect.stringContaining('Success!'),
@@ -293,11 +302,11 @@ describe('componentCreate', () => {
 
     await componentCreate('button', { directory: 'base' });
 
-    expect(mkdirMock).toHaveBeenCalledWith('/project/components/00-base', {
+    expect(mkdirMock).toHaveBeenCalledWith(componentBasePath, {
       recursive: true,
     });
     expect(writeFileMock).toHaveBeenCalledWith(
-      '/project/components/00-base/button/button.twig',
+      join(componentPath('button'), 'button.twig'),
       expect.stringContaining('button.twig'),
     );
     expect(logMock).toHaveBeenCalledWith(
@@ -318,11 +327,9 @@ describe('componentCreate', () => {
 
     expect(selectMock).not.toHaveBeenCalled();
     expect(confirmMock).not.toHaveBeenCalled();
-    expect(removeMock).toHaveBeenCalledWith(
-      '/project/components/00-base/button',
-    );
+    expect(removeMock).toHaveBeenCalledWith(componentPath('button'));
     expect(writeFileMock).toHaveBeenCalledWith(
-      '/project/components/00-base/button/button.component.yml',
+      join(componentPath('button'), 'button.component.yml'),
       expect.stringContaining('name: Button'),
     );
     expect(logMock).toHaveBeenCalledWith(

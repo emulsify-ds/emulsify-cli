@@ -1,5 +1,5 @@
 import { execFile } from 'child_process';
-import { resolve } from 'path';
+import { dirname, join, resolve } from 'path';
 import executeScript from './executeScript.js';
 
 jest.mock('child_process', () => ({
@@ -38,7 +38,7 @@ describe('executeScript', () => {
 
   it('executes a hook script with node and resolves stdout', async () => {
     expect.assertions(2);
-    const scriptPath = '/project/.cli/init.js';
+    const scriptPath = resolve('project', '.cli', 'init.js');
     mockExecFileResult(null, 'done');
 
     await expect(executeScript(scriptPath)).resolves.toBe('done');
@@ -46,7 +46,7 @@ describe('executeScript', () => {
       process.execPath,
       [scriptPath],
       {
-        cwd: '/project/.cli',
+        cwd: dirname(scriptPath),
         encoding: 'utf8',
       },
       expect.any(Function),
@@ -55,7 +55,7 @@ describe('executeScript', () => {
 
   it('passes a hook path with spaces as an argument instead of a shell string', async () => {
     expect.assertions(1);
-    const scriptPath = '/project with spaces/.cli/init.js';
+    const scriptPath = resolve('project with spaces', '.cli', 'init.js');
     mockExecFileResult(null, 'done');
 
     await executeScript(scriptPath);
@@ -64,7 +64,7 @@ describe('executeScript', () => {
       process.execPath,
       [scriptPath],
       {
-        cwd: '/project with spaces/.cli',
+        cwd: dirname(scriptPath),
         encoding: 'utf8',
       },
       expect.any(Function),
@@ -73,7 +73,7 @@ describe('executeScript', () => {
 
   it('resolves relative hook paths before changing the working directory', async () => {
     expect.assertions(1);
-    const scriptPath = 'project/.cli/init.js';
+    const scriptPath = join('project', '.cli', 'init.js');
     const resolvedScriptPath = resolve(scriptPath);
     mockExecFileResult(null, 'done');
 
@@ -83,7 +83,7 @@ describe('executeScript', () => {
       process.execPath,
       [resolvedScriptPath],
       {
-        cwd: resolve('project/.cli'),
+        cwd: dirname(resolvedScriptPath),
         encoding: 'utf8',
       },
       expect.any(Function),
@@ -92,35 +92,39 @@ describe('executeScript', () => {
 
   it('resolves stderr when stdout is empty', async () => {
     expect.assertions(1);
+    const scriptPath = resolve('project', '.cli', 'init.js');
     mockExecFileResult(null, '', 'well, that went poorly');
 
-    await expect(executeScript('/project/.cli/init.js')).resolves.toBe(
+    await expect(executeScript(scriptPath)).resolves.toBe(
       'well, that went poorly',
     );
   });
 
   it('resolves an empty string when stdout and stderr are empty', async () => {
     expect.assertions(1);
+    const scriptPath = resolve('project', '.cli', 'init.js');
     mockExecFileResult(null);
 
-    await expect(executeScript('/project/.cli/init.js')).resolves.toBe('');
+    await expect(executeScript(scriptPath)).resolves.toBe('');
   });
 
   it('rejects failed hooks with stderr context', async () => {
     expect.assertions(1);
+    const scriptPath = resolve('project', '.cli', 'init.js');
     mockExecFileResult(new Error('Command failed'), '', 'hook failed\n');
 
-    await expect(executeScript('/project/.cli/init.js')).rejects.toThrow(
-      'Unable to execute hook script "/project/.cli/init.js": hook failed',
+    await expect(executeScript(scriptPath)).rejects.toThrow(
+      `Unable to execute hook script "${scriptPath}": hook failed`,
     );
   });
 
   it('rejects execution failures with the process error message', async () => {
     expect.assertions(1);
+    const scriptPath = resolve('project', '.cli', 'init.js');
     mockExecFileResult(new Error('spawn failed'));
 
-    await expect(executeScript('/project/.cli/init.js')).rejects.toThrow(
-      'Unable to execute hook script "/project/.cli/init.js": spawn failed',
+    await expect(executeScript(scriptPath)).rejects.toThrow(
+      `Unable to execute hook script "${scriptPath}": spawn failed`,
     );
   });
 });

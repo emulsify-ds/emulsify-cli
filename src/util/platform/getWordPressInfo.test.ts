@@ -1,10 +1,12 @@
 import process from 'process';
 import fs from 'fs';
+import { join, resolve } from 'path';
 import { clearFoundFileCache } from '../fs/findFileInCurrentPath.js';
 import getWordPressInfo from './getWordPressInfo.js';
 
 const cwd = jest.spyOn(process, 'cwd');
 const existsSync = jest.spyOn(fs, 'existsSync');
+const projectRoot = resolve('fixtures', 'cornflake');
 
 describe('getWordPressInfo', () => {
   beforeEach(() => {
@@ -14,57 +16,43 @@ describe('getWordPressInfo', () => {
   });
 
   it('detects a standard WordPress themes directory', async () => {
-    cwd.mockReturnValue(
-      '/home/uname/Projects/cornflake/wp-content/themes/my-theme',
-    );
-    existsSync.mockImplementation(
-      (path) =>
-        String(path) === '/home/uname/Projects/cornflake/wp-content/themes',
-    );
+    const themesDirectory = join(projectRoot, 'wp-content', 'themes');
+    cwd.mockReturnValue(join(themesDirectory, 'my-theme'));
+    existsSync.mockImplementation((path) => String(path) === themesDirectory);
 
     await expect(getWordPressInfo()).resolves.toEqual({
       name: 'wordpress',
-      root: '/home/uname/Projects/cornflake',
-      emulsifyParentDirectory:
-        '/home/uname/Projects/cornflake/wp-content/themes',
+      root: projectRoot,
+      emulsifyParentDirectory: themesDirectory,
     });
   });
 
   it('detects a Bedrock themes directory', async () => {
-    cwd.mockReturnValue(
-      '/home/uname/Projects/cornflake/web/app/themes/my-theme',
-    );
-    existsSync.mockImplementation(
-      (path) =>
-        String(path) === '/home/uname/Projects/cornflake/web/app/themes',
-    );
+    const themesDirectory = join(projectRoot, 'web', 'app', 'themes');
+    cwd.mockReturnValue(join(themesDirectory, 'my-theme'));
+    existsSync.mockImplementation((path) => String(path) === themesDirectory);
 
     await expect(getWordPressInfo()).resolves.toEqual({
       name: 'wordpress',
-      root: '/home/uname/Projects/cornflake',
-      emulsifyParentDirectory: '/home/uname/Projects/cornflake/web/app/themes',
+      root: projectRoot,
+      emulsifyParentDirectory: themesDirectory,
     });
   });
 
   it('detects a Composer web-root WordPress themes directory', async () => {
-    cwd.mockReturnValue(
-      '/home/uname/Projects/cornflake/web/wp-content/themes/my-theme',
-    );
-    existsSync.mockImplementation(
-      (path) =>
-        String(path) === '/home/uname/Projects/cornflake/web/wp-content/themes',
-    );
+    const themesDirectory = join(projectRoot, 'web', 'wp-content', 'themes');
+    cwd.mockReturnValue(join(themesDirectory, 'my-theme'));
+    existsSync.mockImplementation((path) => String(path) === themesDirectory);
 
     await expect(getWordPressInfo()).resolves.toEqual({
       name: 'wordpress',
-      root: '/home/uname/Projects/cornflake',
-      emulsifyParentDirectory:
-        '/home/uname/Projects/cornflake/web/wp-content/themes',
+      root: projectRoot,
+      emulsifyParentDirectory: themesDirectory,
     });
   });
 
   it('returns void if no WordPress themes directory is found', async () => {
-    cwd.mockReturnValue('/home/uname/Projects/cornflake');
+    cwd.mockReturnValue(projectRoot);
     existsSync.mockReturnValue(false);
 
     await expect(getWordPressInfo()).resolves.toBe(undefined);

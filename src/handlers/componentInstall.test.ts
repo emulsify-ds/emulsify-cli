@@ -11,6 +11,7 @@ jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
 jest.mock('@inquirer/prompts');
 
 import { pathExists } from 'fs-extra';
+import { join, resolve } from 'path';
 import { confirm } from '@inquirer/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
@@ -36,7 +37,10 @@ const findFileInCurrentPathMock = findFileInCurrentPath as jest.Mock;
 const pathExistsMock = pathExists as jest.Mock;
 const confirmMock = confirm as jest.Mock;
 
-const projectConfigPath = '/project/project.emulsify.json';
+const projectRoot = resolve('/project');
+const projectConfigPath = join(projectRoot, 'project.emulsify.json');
+const componentPath = (name: string) =>
+  join(projectRoot, 'components', '00-base', name);
 
 const projectConfig = {
   project: {
@@ -248,14 +252,14 @@ describe('componentInstall', () => {
       1,
       'systems',
       ['compound', 'components/00-base', 'button'],
-      '/project/components/00-base/button',
+      componentPath('button'),
       true,
     );
     expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
       3,
       'systems',
       ['compound', 'components/00-base', 'card'],
-      '/project/components/00-base/card',
+      componentPath('card'),
       true,
     );
   });
@@ -267,14 +271,14 @@ describe('componentInstall', () => {
       1,
       'systems',
       ['compound', 'components/00-base', 'button'],
-      '/project/components/00-base/button',
+      componentPath('button'),
       true,
     );
     expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
       2,
       'systems',
       ['compound', 'components/00-base', 'icon'],
-      '/project/components/00-base/icon',
+      componentPath('icon'),
       true,
     );
     expect(logMock).toHaveBeenCalledWith(
@@ -298,7 +302,7 @@ describe('componentInstall', () => {
     );
     expect(logMock).toHaveBeenCalledWith(
       'info',
-      expect.stringContaining('/project/components/00-base/card'),
+      expect.stringContaining(componentPath('card')),
     );
     expect(logMock).toHaveBeenCalledWith(
       'info',
@@ -321,7 +325,7 @@ describe('componentInstall', () => {
     );
     expect(logMock).toHaveBeenCalledWith(
       'info',
-      expect.stringContaining('/project/components/00-base/icon'),
+      expect.stringContaining(componentPath('icon')),
     );
   });
 
@@ -352,7 +356,7 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
       ['compound', 'components/00-base', 'card'],
-      '/project/components/00-base/card',
+      componentPath('card'),
       false,
     );
   });
@@ -371,7 +375,7 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
       ['compound', 'components/00-base', 'button'],
-      '/project/components/00-base/button',
+      componentPath('button'),
       true,
     );
   });
@@ -385,7 +389,7 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
       ['compound', 'components/00-base', 'card'],
-      '/project/components/00-base/card',
+      componentPath('card'),
       true,
     );
   });
@@ -409,7 +413,7 @@ describe('componentInstall', () => {
       2,
       'systems',
       ['compound', 'components/00-base', 'icon'],
-      '/project/components/00-base/icon',
+      componentPath('icon'),
       true,
     );
   });
@@ -484,7 +488,7 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
       ['compound', 'components/00-base', 'button'],
-      '/project/components/00-base/button',
+      componentPath('button'),
       false,
     );
   });

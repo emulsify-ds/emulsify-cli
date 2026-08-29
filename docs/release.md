@@ -21,7 +21,7 @@ The calculation always starts from the stable tag, not the version already in
 
 The repository must allow GitHub Actions to create pull requests for the
 version-bump workflow. Because the pull request is created or updated with the
-repository `GITHUB_TOKEN`, GitHub starts its `CI / Validate` run in an
+repository `GITHUB_TOKEN`, GitHub starts its CI checks in an
 approval-required state. A maintainer with write access must select
 **Approve workflows to run**, then wait for that exact head commit to pass
 before merging. Configure a GitHub App or personal access token for the bump
@@ -29,15 +29,24 @@ workflow instead if unattended validation is required.
 
 ## Required Validation
 
-The single read-only `CI / Validate` job runs for pull requests targeting
-`develop` or `main` and for pushes to either branch. It installs from the
-lockfile and runs:
+The read-only CI workflow runs for pull requests targeting `develop` or `main`
+and for pushes to either branch. Its unit-test matrix runs on Ubuntu, macOS,
+and Windows, with a 15-minute timeout for each operating system. Every matrix
+job installs from the lockfile and runs:
 
 ```bash
 npm ci
 npm run build
 npm run type
 npm run test
+```
+
+The Ubuntu-only package job installs from the lockfile, builds the package, and
+runs the OS-independent package checks:
+
+```bash
+npm ci
+npm run build
 npm run pack:dry-run
 npm run smoke:pack
 ```
@@ -48,8 +57,10 @@ regression tests. `pack:dry-run` asserts npm's structured package manifest.
 dependencies in a clean temporary project, and runs `emulsify --help` and
 `emulsify --version`.
 
-Repository branch protection should require `CI / Validate`. Remove any
-required-check reference to the retired duplicate `Test / build` job.
+Repository branch protection should require `CI / Unit (ubuntu-latest)`,
+`CI / Unit (macos-latest)`, `CI / Unit (windows-latest)`, and `CI / Package`.
+Remove any required-check reference to the retired `CI / Validate` and
+duplicate `Test / build` jobs.
 
 The CI workflow has only `contents: read` permission. It does not receive npm or
 GitHub publishing credentials and cannot publish, push a release tag, or create

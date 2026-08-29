@@ -1,5 +1,5 @@
 jest.mock('../../lib/constants', () => ({
-  CACHE_DIR: 'home/uname/.emulsify/cache',
+  CACHE_DIR: 'cache',
   EMULSIFY_CACHE_METADATA_FILE: '.emulsify-cache.json',
   EMULSIFY_PROJECT_CONFIG_FILE: 'project.emulsify.json',
 }));
@@ -10,7 +10,7 @@ import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 
 import fs from 'fs';
 import { createHash } from 'crypto';
-import { dirname, resolve } from 'path';
+import { dirname, join, resolve } from 'path';
 import { simpleGit } from 'simple-git';
 
 const existsSyncMock = fs.existsSync as jest.Mock;
@@ -25,7 +25,7 @@ const getRemotesMock = gitMock.getRemotes as jest.Mock;
 const listRemoteMock = gitMock.listRemote as jest.Mock;
 const revparseMock = gitMock.revparse as jest.Mock;
 
-const projectPath = '/home/uname/projects/emulsify';
+const projectPath = resolve('fixtures', 'emulsify');
 const cloneOptions = {
   repository: 'repo-path',
   checkout: 'branch-name',
@@ -42,11 +42,11 @@ function cacheDestination(checkout: string | void): string {
       }),
     )
     .digest('hex');
-  return `home/uname/.emulsify/cache/systems/${hash}/cornflake`;
+  return join('cache', 'systems', hash, 'cornflake');
 }
 
 const destination = cacheDestination(cloneOptions.checkout);
-const metadataPath = `${destination}/.emulsify-cache.json`;
+const metadataPath = join(destination, '.emulsify-cache.json');
 
 function metadata(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -182,7 +182,7 @@ describe('cloneIntoCache', () => {
     });
 
     expect(readFileMock).toHaveBeenCalledWith(
-      `${defaultDestination}/.emulsify-cache.json`,
+      join(defaultDestination, '.emulsify-cache.json'),
       { encoding: 'utf-8' },
     );
     expect(listRemoteMock).toHaveBeenCalledWith([normalizedRepository, 'HEAD']);

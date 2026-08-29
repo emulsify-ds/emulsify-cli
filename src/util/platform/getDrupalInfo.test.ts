@@ -4,6 +4,9 @@ jest.mock('../fs/loadJsonFile', () => jest.fn());
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import loadJsonFile from '../fs/loadJsonFile.js';
 import getDrupalInfo from './getDrupalInfo.js';
+import { join, resolve } from 'path';
+
+const projectRoot = resolve('fixtures', 'cornflake');
 
 const loadJsonMock = (loadJsonFile as jest.Mock).mockResolvedValue({
   extra: {
@@ -15,7 +18,7 @@ const loadJsonMock = (loadJsonFile as jest.Mock).mockResolvedValue({
   },
 });
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/uname/Projects/cornflake/composer.json',
+  join(projectRoot, 'composer.json'),
 );
 
 describe('getDrupalInfo', () => {
@@ -24,9 +27,8 @@ describe('getDrupalInfo', () => {
     await expect(getDrupalInfo()).resolves.toEqual({
       name: 'drupal',
       platformMajorVersion: 11,
-      emulsifyParentDirectory:
-        '/home/uname/Projects/cornflake/web/themes/custom',
-      root: '/home/uname/Projects/cornflake/web/',
+      emulsifyParentDirectory: join(projectRoot, 'web', 'themes', 'custom'),
+      root: join(projectRoot, 'web/'),
     });
   });
 
