@@ -1,5 +1,5 @@
 import { existsSync } from 'fs';
-import { join, dirname, sep } from 'path';
+import { join, dirname } from 'path';
 
 const foundFileCache = new Map<string, string | void>();
 
@@ -23,12 +23,25 @@ export default function findFileInCurrentPath(fileName: string): string | void {
   }
 
   let currentPath = currentWorkingDirectory;
-  while (currentPath !== sep && !existsSync(join(currentPath, fileName))) {
-    currentPath = dirname(currentPath);
+  let foundPath: string | void = undefined;
+
+  while (true) {
+    const candidatePath = join(currentPath, fileName);
+
+    if (existsSync(candidatePath)) {
+      foundPath = candidatePath;
+      break;
+    }
+
+    const parentPath = dirname(currentPath);
+
+    if (parentPath === currentPath) {
+      break;
+    }
+
+    currentPath = parentPath;
   }
 
-  const foundPath =
-    currentPath !== sep ? join(currentPath, fileName) : undefined;
   foundFileCache.set(cacheKey, foundPath);
 
   return foundPath;
