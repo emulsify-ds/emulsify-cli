@@ -6,8 +6,6 @@ import type {
   Platform,
 } from '@emulsify-cli/config';
 
-import { Ajv } from 'ajv';
-import addFormats from 'ajv-formats';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { select } from '@inquirer/prompts';
@@ -32,6 +30,7 @@ import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import executeScript from '../util/fs/executeScript.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
+import validateSystemConfig from '../util/system/validateSystemConfig.js';
 import {
   getVariantPlatformExpressions,
   isPlatform,
@@ -43,16 +42,6 @@ const CREATE_NEW_SYSTEM_CHOICE = 'create a new system';
 const CANCEL_SYSTEM_INSTALL_CHOICE = 'cancel';
 const SYSTEM_INSTALL_ERROR =
   'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.';
-
-async function loadSchemas() {
-  const [{ default: systemSchema }, { default: variantSchema }] =
-    await Promise.all([
-      import('../schemas/system.json', { with: { type: 'json' } }),
-      import('../schemas/variant.json', { with: { type: 'json' } }),
-    ]);
-
-  return { systemSchema, variantSchema };
-}
 
 /**
  * Helper function that uses InstallSystemHandlerOptions input to determine what
@@ -349,16 +338,9 @@ export default async function systemInstall(
 
   // Validate the system configuration file.
   try {
-    const { systemSchema, variantSchema } = await loadSchemas();
-    const ajv = new Ajv();
-    // This is unfortunate...
-    // @ts-ignore The ajv-formats typing is bad :(
-    addFormats(ajv, ['uri']);
-    ajv.addSchema(variantSchema, 'variant.json');
-    const validate = ajv.compile(systemSchema);
-
-    if (!validate(systemConf)) {
-      throw validate.errors;
+    const validation = await validateSystemConfig(systemConf);
+    if (!validation.valid) {
+      throw validation.errors;
     }
   } catch (e) {
     // We're logging to the console here instead of our normal logging mechanism

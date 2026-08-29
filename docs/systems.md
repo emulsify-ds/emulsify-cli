@@ -189,6 +189,8 @@ System variants can target one platform or multiple compatible platforms:
 
 Supported platform tokens are `drupal`, `wordpress`, and `none`.
 
+When commands read an installed system, variants with platform expressions the current CLI does not recognize are skipped. The CLI emits one warning listing every skipped expression and continues when a usable variant remains; if none remains, the error lists the expressions so you can distinguish a typo from a system that may require a newer CLI. System installation remains strict and rejects unsupported platform expressions.
+
 `none` on a variant means generic. A variant with `"platform": "none"` can be installed by any concrete project platform.
 
 Project configuration is different: `project.platform` is always a concrete value (`drupal`, `wordpress`, or `none`). Do not put `||` expressions in `project.platform`; only system variants use compatibility expressions.

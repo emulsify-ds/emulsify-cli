@@ -40,6 +40,23 @@ export function parsePlatformExpression(expression: string): Platform[] {
   return [...new Set(platforms)] as Platform[];
 }
 
+/**
+ * Parse a platform expression without throwing for tokens this CLI does not
+ * understand yet.
+ *
+ * @param expression platform compatibility expression to parse.
+ * @returns parsed platforms, or undefined when the expression is invalid.
+ */
+export function tryParsePlatformExpression(
+  expression: string,
+): Platform[] | undefined {
+  try {
+    return parsePlatformExpression(expression);
+  } catch {
+    return undefined;
+  }
+}
+
 export function normalizePlatformExpression(expression: string): string {
   return parsePlatformExpression(expression).join(' || ');
 }
@@ -61,7 +78,11 @@ function getVariantMatchRank(
   variantPlatform: string,
   projectPlatform: Platform,
 ): number | undefined {
-  const platforms = parsePlatformExpression(variantPlatform);
+  const platforms = tryParsePlatformExpression(variantPlatform);
+  if (!platforms) {
+    return undefined;
+  }
+
   const normalizedVariantPlatform = platforms.join(' || ');
 
   if (normalizedVariantPlatform === projectPlatform) {
@@ -131,10 +152,10 @@ export function selectExactPlatformVariant<T extends VariantWithPlatform>(
 ): VariantSelectionResult<T> {
   const normalizedPlatformExpression =
     normalizePlatformExpression(platformExpression);
-  const matches = (variants || []).filter(
-    ({ platform }) =>
-      normalizePlatformExpression(platform) === normalizedPlatformExpression,
-  );
+  const matches = (variants || []).filter(({ platform }) => {
+    const platforms = tryParsePlatformExpression(platform);
+    return platforms?.join(' || ') === normalizedPlatformExpression;
+  });
 
   if (matches.length === 0) {
     return { status: 'none' };

@@ -445,7 +445,7 @@ describe('systemInstall', () => {
     );
   });
 
-  it('throws validation errors from malformed system configuration', async () => {
+  it('preserves install validation output after shared extraction', async () => {
     const consoleErrorMock = jest
       .spyOn(console, 'error')
       .mockImplementation(jest.fn());
@@ -458,7 +458,15 @@ describe('systemInstall', () => {
       'The system install failed due to the validation errors reported above. Please fix the the errors in the "compound" configuration and try again.',
     );
 
-    expect(consoleErrorMock).toHaveBeenCalled();
+    expect(consoleErrorMock).toHaveBeenCalledWith(
+      'System configuration errors:',
+      expect.arrayContaining([
+        expect.objectContaining({
+          instancePath: '/homepage',
+          keyword: 'format',
+        }),
+      ]),
+    );
 
     consoleErrorMock.mockRestore();
   });

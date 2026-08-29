@@ -6,12 +6,14 @@ import {
   platformExpressionMatchesProject,
   selectCompatiblePlatformVariant,
   selectExactPlatformVariant,
+  tryParsePlatformExpression,
 } from './platformCompatibility.js';
 
 const drupalVariant = { platform: 'drupal', name: 'drupal' };
 const wordpressVariant = { platform: 'wordpress', name: 'wordpress' };
 const sharedVariant = { platform: 'drupal || wordpress', name: 'shared' };
 const genericVariant = { platform: 'none', name: 'generic' };
+const unknownVariant = { platform: 'eleventy', name: 'future' };
 
 describe('platformCompatibility', () => {
   describe('isPlatform', () => {
@@ -46,6 +48,19 @@ describe('platformCompatibility', () => {
       expect(() => parsePlatformExpression('drupal || java')).toThrow(
         'Invalid platform compatibility expression: drupal || java',
       );
+    });
+  });
+
+  describe('tryParsePlatformExpression', () => {
+    it('returns parsed platforms for valid expressions', () => {
+      expect(tryParsePlatformExpression('drupal || wordpress')).toEqual([
+        'drupal',
+        'wordpress',
+      ]);
+    });
+
+    it('returns undefined for invalid expressions', () => {
+      expect(tryParsePlatformExpression('eleventy')).toBeUndefined();
     });
   });
 
@@ -88,6 +103,18 @@ describe('platformCompatibility', () => {
   });
 
   describe('selectCompatiblePlatformVariant', () => {
+    it('skips unparseable variants when a compatible variant exists', () => {
+      expect(
+        selectCompatiblePlatformVariant(
+          [unknownVariant, drupalVariant],
+          'drupal',
+        ),
+      ).toEqual({
+        status: 'selected',
+        variant: drupalVariant,
+      });
+    });
+
     it('prefers exact matches over shared and generic variants', () => {
       expect(
         selectCompatiblePlatformVariant(
@@ -171,6 +198,15 @@ describe('platformCompatibility', () => {
   });
 
   describe('selectExactPlatformVariant', () => {
+    it('skips unparseable variants when an exact variant exists', () => {
+      expect(
+        selectExactPlatformVariant([unknownVariant, drupalVariant], 'drupal'),
+      ).toEqual({
+        status: 'selected',
+        variant: drupalVariant,
+      });
+    });
+
     it('selects exact normalized platform expressions', () => {
       expect(
         selectExactPlatformVariant(
