@@ -8,6 +8,7 @@ import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
 import componentCreate from './handlers/componentCreate.js';
 import audit from './handlers/audit.js';
+import cacheClear from './handlers/cacheClear.js';
 import CliError from './lib/CliError.js';
 import log from './lib/log.js';
 import { createRequire } from 'module';
@@ -30,6 +31,7 @@ function getRootHelp(): string {
     '  emulsify audit [...args]',
     '  emulsify system install [name] [options]',
     '  emulsify component <command> [options]',
+    '  emulsify cache clear [options]',
     '',
     'Common workflow:',
     '  emulsify init',
@@ -84,6 +86,11 @@ function getRootHelp(): string {
     '      -f, --format <default|sdc>          Component format to generate.',
     '      -y, --yes                           Replace existing generated components without prompting.',
     '          --dry-run                       Preview generated files without writing them.',
+    '',
+    '  cache clear',
+    '    Remove all locally cached Emulsify repositories.',
+    '    Options:',
+    '          --dry-run                       Report cache contents without removing files.',
     '',
     '  help [command]',
     '    Show help for a command.',
@@ -209,6 +216,16 @@ component
   .alias('c')
   .description('Generate a new local component in the current project')
   .action(componentCreate);
+
+// Cache sub-commands.
+const cache = program
+  .command('cache')
+  .description('Inspect or clear locally cached repositories');
+cache
+  .command('clear')
+  .description('Remove all locally cached Emulsify repositories')
+  .option('--dry-run', 'Report cache contents without removing files.')
+  .action(cacheClear);
 
 /*
  * Generate a styled version message using boxen and colorette.

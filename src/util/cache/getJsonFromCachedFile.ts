@@ -1,19 +1,16 @@
-import type {
-  CacheBucket,
-  CacheItemPath,
-  CacheCheckout,
-} from '@emulsify-cli/cache';
+import type { CachedItemPathOptions } from '@emulsify-cli/cache';
 
 import getCachedItemPath from './getCachedItemPath.js';
 import loadJsonFile from '../fs/loadJsonFile.js';
 
 export default async function getJsonFromCachedFile<Output>(
-  bucket: CacheBucket,
-  itemPath: CacheItemPath,
-  checkout: CacheCheckout,
-  fileName: string,
+  options: CachedItemPathOptions & { fileName: string },
 ): Promise<Output | void> {
+  const { fileName, ...cachedItemOptions } = options;
   return loadJsonFile<Output>(
-    getCachedItemPath(bucket, [...itemPath, fileName], checkout),
+    getCachedItemPath({
+      ...cachedItemOptions,
+      itemPath: [...cachedItemOptions.itemPath, fileName],
+    }),
   );
 }

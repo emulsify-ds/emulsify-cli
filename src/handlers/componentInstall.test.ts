@@ -182,12 +182,13 @@ describe('componentInstall', () => {
       'Unable to load configuration for the compound system. Please make sure the system is installed.',
     );
 
-    expect(getJsonFromCachedFileMock).toHaveBeenCalledWith(
-      'systems',
-      ['compound'],
-      'main',
-      EMULSIFY_SYSTEM_CONFIG_FILE,
-    );
+    expect(getJsonFromCachedFileMock).toHaveBeenCalledWith({
+      bucket: 'systems',
+      itemPath: ['compound'],
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: 'main',
+      fileName: EMULSIFY_SYSTEM_CONFIG_FILE,
+    });
   });
 
   it('throws when the configured variant is not found', async () => {

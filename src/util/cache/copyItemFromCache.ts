@@ -21,15 +21,14 @@ export default async function copyFileFromCache(
 ): Promise<void> {
   // Get the existing checkout setting if we have it and use it.
   const emulsifyConfig = await getEmulsifyConfig();
-  let checkout = '';
-  if (
-    emulsifyConfig != undefined &&
-    emulsifyConfig.system &&
-    emulsifyConfig.system.checkout
-  ) {
-    checkout = emulsifyConfig.system.checkout;
-  }
-  const source = getCachedItemPath(bucket, itemPath, checkout);
+  const repository = emulsifyConfig?.system?.repository || '';
+  const checkout = emulsifyConfig?.system?.checkout || '';
+  const source = getCachedItemPath({
+    bucket,
+    itemPath,
+    repository,
+    checkout,
+  });
 
   if (force) {
     await remove(destination);

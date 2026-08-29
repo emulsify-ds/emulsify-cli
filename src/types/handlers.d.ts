@@ -40,4 +40,9 @@ declare module '@emulsify-cli/handlers' {
     /** Preview planned component operations without writing, copying, or removing files. */
     dryRun?: boolean;
   };
+
+  export type ClearCacheHandlerOptions = {
+    /** Report cache contents without removing them. */
+    dryRun?: boolean;
+  };
 }

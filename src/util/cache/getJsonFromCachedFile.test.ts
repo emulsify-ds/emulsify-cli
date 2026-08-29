@@ -4,17 +4,21 @@ jest.mock('./getCachedItemPath', () =>
       '/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json',
   ),
 );
-jest.mock('../../lib/constants', () => ({
-  CACHE_DIR: 'home/uname/.emulsify/cache',
-}));
 jest.mock('../fs/loadJsonFile', () => jest.fn());
 
 import loadJsonFile from '../fs/loadJsonFile.js';
+import getCachedItemPath from './getCachedItemPath.js';
 import getJsonFromCachedFile from './getJsonFromCachedFile.js';
 
-const loadJsonMock = (loadJsonFile as jest.Mock).mockResolvedValue({
-  the: 'json',
-});
+const loadJsonMock = loadJsonFile as jest.Mock;
+const getCachedItemPathMock = getCachedItemPath as jest.Mock;
+const options = {
+  bucket: 'systems' as const,
+  itemPath: ['compound'],
+  repository: 'https://github.com/emulsify-ds/compound.git',
+  checkout: 'branch-name',
+  fileName: 'system.emulsify.json',
+};
 
 describe('getJsonFromCachedFile', () => {
   beforeEach(() => {
@@ -24,17 +28,15 @@ describe('getJsonFromCachedFile', () => {
     });
   });
 
-  it('can load and parse the JSON from a file stored in cache', async () => {
-    expect.assertions(2);
-    await expect(
-      getJsonFromCachedFile(
-        'systems',
-        ['compound'],
-        'branch-name',
-        'system.emulsify.json',
-      ),
-    ).resolves.toEqual({
+  it('loads JSON using the complete cache identity', async () => {
+    await expect(getJsonFromCachedFile(options)).resolves.toEqual({
       the: 'json',
+    });
+    expect(getCachedItemPathMock).toHaveBeenCalledWith({
+      bucket: 'systems',
+      itemPath: ['compound', 'system.emulsify.json'],
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: 'branch-name',
     });
     expect(loadJsonMock).toHaveBeenCalledWith(
       '/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json',
@@ -42,34 +44,19 @@ describe('getJsonFromCachedFile', () => {
   });
 
   it('returns undefined if the file is not found', async () => {
-    expect.assertions(1);
     loadJsonMock.mockResolvedValueOnce(undefined);
-    await expect(
-      getJsonFromCachedFile(
-        'systems',
-        ['compound'],
-        'branch-name',
-        'system.emulsify.json',
-      ),
-    ).resolves.toBe(undefined);
+
+    await expect(getJsonFromCachedFile(options)).resolves.toBeUndefined();
   });
 
   it('throws malformed cached JSON errors with the cached file path', async () => {
-    expect.assertions(1);
     loadJsonMock.mockRejectedValueOnce(
       new Error(
-        'Invalid JSON in "/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json": Expected property name or \'}\' in JSON',
+        'Invalid JSON in "/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json": malformed',
       ),
     );
 
-    await expect(
-      getJsonFromCachedFile(
-        'systems',
-        ['compound'],
-        'branch-name',
-        'system.emulsify.json',
-      ),
-    ).rejects.toThrow(
+    await expect(getJsonFromCachedFile(options)).rejects.toThrow(
       'Invalid JSON in "/home/uname/.emulsify/cache/systems/12345/compound/system.emulsify.json"',
     );
   });

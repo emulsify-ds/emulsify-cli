@@ -992,9 +992,12 @@ describe('systemInstall', () => {
 
     await systemInstall('compound', {});
 
-    expect(getCachedItemCheckoutMock).toHaveBeenCalledWith('systems', [
-      'compound',
-    ]);
+    expect(getCachedItemCheckoutMock).toHaveBeenCalledWith({
+      bucket: 'systems',
+      itemPath: ['compound'],
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: undefined,
+    });
     expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
       expect.objectContaining({
         system: {

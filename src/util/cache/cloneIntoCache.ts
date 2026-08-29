@@ -3,9 +3,162 @@ import type { GitCloneOptions } from '@emulsify-cli/git';
 
 import { simpleGit } from 'simple-git';
 import { existsSync, promises as fs } from 'fs';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import { EMULSIFY_CACHE_METADATA_FILE } from '../../lib/constants.js';
 
 import getCachedItemPath from './getCachedItemPath.js';
+import normalizeRepositoryUrl from './normalizeRepositoryUrl.js';
+
+type CacheMetadata = {
+  repository: string;
+  checkout: string | null;
+  resolvedRef: string;
+  clonedAt: string;
+  complete: true;
+};
+
+type RemoteRefResult =
+  | { status: 'found'; resolvedRef: string }
+  | { status: 'missing' }
+  | { status: 'unavailable' };
+
+function isCacheMetadata(value: unknown): value is CacheMetadata {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const metadata = value as Partial<CacheMetadata>;
+  return (
+    typeof metadata.repository === 'string' &&
+    (typeof metadata.checkout === 'string' || metadata.checkout === null) &&
+    typeof metadata.resolvedRef === 'string' &&
+    metadata.resolvedRef.length > 0 &&
+    typeof metadata.clonedAt === 'string' &&
+    !Number.isNaN(Date.parse(metadata.clonedAt)) &&
+    metadata.complete === true
+  );
+}
+
+async function readCacheMetadata(
+  destination: string,
+): Promise<CacheMetadata | undefined> {
+  try {
+    const contents = await fs.readFile(
+      join(destination, EMULSIFY_CACHE_METADATA_FILE),
+      { encoding: 'utf-8' },
+    );
+    const metadata: unknown = JSON.parse(contents);
+    return isCacheMetadata(metadata) ? metadata : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function writeCacheMetadata(
+  destination: string,
+  metadata: CacheMetadata,
+): Promise<void> {
+  await fs.writeFile(
+    join(destination, EMULSIFY_CACHE_METADATA_FILE),
+    JSON.stringify(metadata, null, 2),
+    { encoding: 'utf-8' },
+  );
+}
+
+function getRemoteRefCandidates(checkout: string | void): string[] {
+  if (!checkout) {
+    return ['HEAD'];
+  }
+
+  if (checkout.startsWith('refs/heads/')) {
+    return [checkout];
+  }
+
+  if (checkout.startsWith('refs/tags/')) {
+    return [`${checkout}^{}`, checkout];
+  }
+
+  if (checkout.startsWith('refs/')) {
+    return [checkout];
+  }
+
+  return [
+    `refs/heads/${checkout}`,
+    `refs/tags/${checkout}^{}`,
+    `refs/tags/${checkout}`,
+  ];
+}
+
+async function getRemoteResolvedRef(
+  repository: string,
+  checkout: string | void,
+): Promise<RemoteRefResult> {
+  const remoteRefs = getRemoteRefCandidates(checkout);
+
+  try {
+    const output = await simpleGit().listRemote([repository, ...remoteRefs]);
+    const resolvedRefs = new Map<string, string>();
+
+    for (const line of output.trim().split(/\r?\n/)) {
+      const [resolvedRef, refName] = line.trim().split(/\s+/, 2);
+      if (resolvedRef && refName) {
+        resolvedRefs.set(refName, resolvedRef);
+      }
+    }
+
+    for (const remoteRef of remoteRefs) {
+      const resolvedRef = resolvedRefs.get(remoteRef);
+      if (resolvedRef) {
+        return { status: 'found', resolvedRef };
+      }
+    }
+
+    return { status: 'missing' };
+  } catch {
+    // Remote availability should not prevent reuse of a valid local clone.
+    return { status: 'unavailable' };
+  }
+}
+
+async function canReuseCacheEntry(
+  destination: string,
+  repository: string,
+  checkout: string | void,
+): Promise<boolean> {
+  const metadata = await readCacheMetadata(destination);
+  const expectedCheckout = checkout || null;
+  if (
+    !metadata ||
+    metadata.repository !== repository ||
+    metadata.checkout !== expectedCheckout
+  ) {
+    return false;
+  }
+
+  try {
+    const git = simpleGit(destination);
+    const origin = (await git.getRemotes(true)).find(
+      (remote) => remote.name === 'origin',
+    );
+    if (!origin || normalizeRepositoryUrl(origin.refs.fetch) !== repository) {
+      return false;
+    }
+
+    const localResolvedRef = (await git.revparse(['HEAD'])).trim();
+    if (localResolvedRef !== metadata.resolvedRef) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  const remoteRef = await getRemoteResolvedRef(repository, checkout);
+  return (
+    remoteRef.status === 'unavailable' ||
+    (remoteRef.status === 'found' &&
+      remoteRef.resolvedRef === metadata.resolvedRef)
+  );
+}
 
 /**
  * Clones a repository into the cache (util) directory, if it does not already exist.
@@ -20,22 +173,31 @@ export default function cloneIntoCache(
   itemPath: CacheItemPath,
 ) {
   return async ({ repository, checkout }: GitCloneOptions): Promise<void> => {
-    const destination = getCachedItemPath(bucket, itemPath, checkout);
+    const normalizedRepository = normalizeRepositoryUrl(repository);
+    const destination = getCachedItemPath({
+      bucket,
+      itemPath,
+      repository: normalizedRepository,
+      checkout,
+    });
     const parentDir = dirname(destination);
 
-    // If the item is already in cache, simply return.
+    // Reuse only complete clones whose identity, origin, and resolved ref match.
     if (existsSync(destination)) {
-      return;
+      if (
+        await canReuseCacheEntry(destination, normalizedRepository, checkout)
+      ) {
+        return;
+      }
+
+      await fs.rm(destination, { recursive: true, force: true });
     }
 
-    // If the bucket/parent directory does not exist, create it.
-    if (!existsSync(parentDir)) {
-      await fs.mkdir(parentDir, { recursive: true });
-    }
+    await fs.mkdir(parentDir, { recursive: true });
 
     const git = simpleGit();
     await git.clone(
-      repository,
+      normalizedRepository,
       destination,
       checkout
         ? {
@@ -43,5 +205,16 @@ export default function cloneIntoCache(
           }
         : {},
     );
+
+    const resolvedRef = (
+      await simpleGit(destination).revparse(['HEAD'])
+    ).trim();
+    await writeCacheMetadata(destination, {
+      repository: normalizedRepository,
+      checkout: checkout || null,
+      resolvedRef,
+      clonedAt: new Date().toISOString(),
+      complete: true,
+    });
   };
 }

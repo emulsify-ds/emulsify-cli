@@ -57,22 +57,31 @@ The cache path includes:
 | ------------------- | ------------------------------------------------------------------ |
 | Cache bucket        | Systems currently use the `systems` bucket.                        |
 | Project config path | Different Emulsify projects get separate cache locations.          |
+| Repository          | Different repository URLs get separate cache locations.            |
 | Checkout            | Different tags, branches, or commits get separate cache locations. |
 | System name         | The parsed repository name becomes the final cache segment.        |
 
-The project path and checkout are hashed, so the full path is intentionally not human-friendly.
+The project path, normalized repository URL, and checkout are hashed, so the full path is intentionally not human-friendly. This prevents same-named repositories at the same checkout from sharing an entry.
 
 ## Cache Reuse
 
-If the expected cached repository already exists, the CLI reuses it instead of cloning again. This keeps repeated component installs fast and keeps a project pinned to the checkout recorded in `project.emulsify.json`.
+After a successful clone, the CLI writes `.emulsify-cache.json` inside the cache entry. The sidecar records the repository, requested checkout, resolved Git ref, clone time, and a completion marker. It is written only after cloning and ref resolution succeed.
 
-If you need to force a fresh clone, remove the relevant cache directory under:
+Before reusing an entry, the CLI validates the sidecar, repository, checkout, local `origin` fetch URL, and local `HEAD`. Missing, malformed, incomplete, or mismatched entries are removed and cloned again. When the remote is reachable, the CLI also compares a named checkout such as `main` (or the default remote `HEAD`) with the recorded resolved ref and re-clones when it has advanced. If that remote check is unavailable, a locally valid clone remains usable.
 
-```text
-~/.emulsify/cache/systems
+To inspect how much would be removed without changing files, run:
+
+```bash
+emulsify cache clear --dry-run
 ```
 
-There is currently no CLI command for clearing the cache.
+To remove every cache bucket and entry under `~/.emulsify/cache`, run:
+
+```bash
+emulsify cache clear
+```
+
+Both commands report bucket and entry counts. Clearing an already empty cache succeeds without an error.
 
 ## Copy Behavior
 

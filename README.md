@@ -80,6 +80,7 @@ Detailed documentation lives in [docs](./docs/README.md).
 | `emulsify component list`           | `emulsify component ls`       | Lists components available from the installed system and variant. |
 | `emulsify component install [name]` | `emulsify component i [name]` | Installs one component from the installed system and variant.     |
 | `emulsify component create [name]`  | `emulsify component c [name]` | Creates a local component in the current Emulsify project.        |
+| `emulsify cache clear`              |                               | Clears locally cached system repositories.                        |
 
 `emulsify audit` is a convenience façade. The project-installed
 `@emulsify/core` package remains the owner of the canonical `emulsify-audit`

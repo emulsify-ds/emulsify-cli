@@ -2,6 +2,9 @@ jest.mock('simple-git', () => {
   const mockGit = {
     clone: jest.fn(),
     branch: jest.fn(),
+    getRemotes: jest.fn(),
+    listRemote: jest.fn(),
+    revparse: jest.fn(),
     checkout: jest.fn(),
     fetch: jest.fn().mockReturnThis(),
     pull: jest.fn(),
@@ -27,6 +30,7 @@ jest.mock('fs', () => ({
   promises: {
     writeFile: jest.fn(),
     readFile: jest.fn(),
+    readdir: jest.fn(),
     rm: jest.fn(),
     mkdir: jest.fn(),
     copyFile: jest.fn(),

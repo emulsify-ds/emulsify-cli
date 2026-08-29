@@ -3,6 +3,7 @@ import {
   CACHE_DIR,
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_PROJECT_TEMPLATES_FOLDER,
+  EMULSIFY_CACHE_METADATA_FILE,
 } from './constants.js';
 
 jest.mock('os', () => ({
@@ -21,6 +22,11 @@ const map = [
     'EMULSIFY_PROJECT_TEMPLATES_FOLDER',
     EMULSIFY_PROJECT_TEMPLATES_FOLDER,
     '.cli/templates',
+  ],
+  [
+    'EMULSIFY_CACHE_METADATA_FILE',
+    EMULSIFY_CACHE_METADATA_FILE,
+    '.emulsify-cache.json',
   ],
 ];
 

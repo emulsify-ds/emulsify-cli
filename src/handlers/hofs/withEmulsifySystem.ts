@@ -95,12 +95,13 @@ export async function withEmulsifySystem(
     );
   }
 
-  const systemConf: EmulsifySystem | void = await getJsonFromCachedFile(
-    'systems',
-    [systemName],
-    systemReference.checkout,
-    EMULSIFY_SYSTEM_CONFIG_FILE,
-  );
+  const systemConf: EmulsifySystem | void = await getJsonFromCachedFile({
+    bucket: 'systems',
+    itemPath: [systemName],
+    repository: systemReference.repository,
+    checkout: systemReference.checkout,
+    fileName: EMULSIFY_SYSTEM_CONFIG_FILE,
+  });
 
   if (!systemConf) {
     throw new EmulsifySystemError(

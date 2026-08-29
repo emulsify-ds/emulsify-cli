@@ -21,6 +21,7 @@ The examples below reflect the command definitions in `src/index.ts` and the gen
 | `emulsify component list`           | `emulsify component ls`       | List components available from the installed system and variant. |
 | `emulsify component install [name]` | `emulsify component i [name]` | Install a component from the installed system and variant.       |
 | `emulsify component create [name]`  | `emulsify component c [name]` | Generate a new local component in the current project.           |
+| `emulsify cache clear`              |                               | Clear locally cached system repositories.                        |
 
 ## `init`
 
@@ -80,6 +81,27 @@ canonical Core-owned machine interface; Core owns its audit checks, findings,
 JSON schema, documentation, output, and exit behavior. See the
 [Emulsify Core audit documentation](https://github.com/emulsify-ds/emulsify-core/blob/develop/docs/audit.md)
 for the current contract and options.
+
+## `cache clear`
+
+```bash
+emulsify cache clear
+```
+
+Removes all locally cached repository entries under `~/.emulsify/cache`. The command reports the number of cache buckets and entries removed, and succeeds when the cache is already empty.
+
+Options:
+
+| Option      | Description                                       |
+| ----------- | ------------------------------------------------- |
+| `--dry-run` | Report cache contents without removing any files. |
+
+Examples:
+
+```bash
+emulsify cache clear --dry-run
+emulsify cache clear
+```
 
 ## `system list`
 

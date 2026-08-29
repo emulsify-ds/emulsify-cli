@@ -332,12 +332,13 @@ export default async function systemInstall(
   });
 
   // Load the system configuration file.
-  const systemConf: EmulsifySystem | void = await getJsonFromCachedFile(
-    'systems',
-    [repo.name],
-    repo.checkout,
-    EMULSIFY_SYSTEM_CONFIG_FILE,
-  );
+  const systemConf: EmulsifySystem | void = await getJsonFromCachedFile({
+    bucket: 'systems',
+    itemPath: [repo.name],
+    repository: repo.repository,
+    checkout: repo.checkout,
+    fileName: EMULSIFY_SYSTEM_CONFIG_FILE,
+  });
 
   // If there is no configuration file within the system, error.
   if (!systemConf) {
@@ -388,7 +389,12 @@ export default async function systemInstall(
     // it can be stored in the project config.
     let checkout = repo.checkout;
     if (!checkout) {
-      checkout = await getCachedItemCheckout('systems', [repo.name]);
+      checkout = await getCachedItemCheckout({
+        bucket: 'systems',
+        itemPath: [repo.name],
+        repository: repo.repository,
+        checkout: repo.checkout,
+      });
     }
 
     await setEmulsifyConfig({
