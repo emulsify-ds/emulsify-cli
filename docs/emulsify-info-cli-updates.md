@@ -206,23 +206,28 @@ legacy `sdc/` alias under the same rule. The fallback is resolved per artifact,
 so partial legacy override sets continue working. If neither path contains the
 artifact, the built-in template is used.
 
-Override files can use double-brace tokens:
+Canonical override files use namespaced tokens so ordinary Twig variables are
+not rewritten by the CLI:
 
-- `{{ filename }}`
-- `{{ className }}`
-- `{{ camelName }}`
-- `{{ pascalName }}`
-- `{{ snakeName }}`
-- `{{ humanName }}`
-- `{{ directory }}`
-- `{{ type }}`
-- `{{ tagName }}`
-- `{{ format }}`
+- `__EMULSIFY_filename__`
+- `__EMULSIFY_className__`
+- `__EMULSIFY_camelName__`
+- `__EMULSIFY_pascalName__`
+- `__EMULSIFY_snakeName__`
+- `__EMULSIFY_humanName__`
+- `__EMULSIFY_directory__`
+- `__EMULSIFY_directoryTitle__`
+- `__EMULSIFY_type__`
+- `__EMULSIFY_tagName__`
+- `__EMULSIFY_format__`
+- `__EMULSIFY_formatLabel__`
 
-`{{ type }}` contains the canonical type. `{{ tagName }}` contains the
-validated Web Component tag and is empty for the other types. For compatibility,
-`{{ format }}` remains `default` for Twig and `sdc` for Twig SDC; it contains
-`react` or `web-component` for the new types.
+`__EMULSIFY_type__` contains the canonical type.
+`__EMULSIFY_tagName__` contains the validated Web Component tag and is empty
+for the other types. For compatibility, `__EMULSIFY_format__` remains
+`default` for Twig and `sdc` for Twig SDC; it contains `react` or
+`web-component` for the new types. The legacy `default/` and `sdc/` aliases
+continue to render the seven double-brace tokens supported in v2.3.
 
 If an override is unavailable, the built-in template is used. If an override
 exists but is empty, it is ignored and a warning is logged. Unknown tokens are

@@ -62,6 +62,12 @@ each Twig SDC artifact, it checks `.cli/templates/twig-sdc/` and then
 partial canonical override does not hide legacy overrides for other artifacts.
 React and Web Component overrides have no legacy aliases.
 
+Canonical directories use the collision-free token syntax documented below.
+The `default/` and `sdc/` aliases retain the v2.3 double-brace token syntax for
+backward compatibility. Move an older override into its canonical directory
+and update its tokens when convenient; this prevents CLI placeholders from
+overlapping with ordinary Twig variables.
+
 When no override is available, `component create` uses its built-in template.
 An override file that exists but is empty is ignored in favor of the built-in
 and produces a warning. Deleting an override restores this normal fallback
@@ -73,37 +79,48 @@ to inherit built-in changes from future CLI releases.
 
 ## Supported Tokens
 
-Override files can use double-brace tokens.
+Canonical override files use namespaced placeholders. Their delimiter is
+intentionally different from Twig's `{{ variable }}` syntax, so ordinary Twig
+variables are never rewritten by the CLI.
 
-| Token                  | Example Value For `featured-item`                                            |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| `{{ filename }}`       | `featured-item`                                                              |
-| `{{ className }}`      | `featured-item`                                                              |
-| `{{ camelName }}`      | `featuredItem`                                                               |
-| `{{ pascalName }}`     | `FeaturedItem`                                                               |
-| `{{ snakeName }}`      | `featured_item`                                                              |
-| `{{ humanName }}`      | `Featured Item`                                                              |
-| `{{ directory }}`      | `base`                                                                       |
-| `{{ directoryTitle }}` | `Base`                                                                       |
-| `{{ type }}`           | `twig`, `twig-sdc`, `react`, or `web-component`                              |
-| `{{ tagName }}`        | `featured-item` for a Web Component; an empty string for every other type    |
-| `{{ format }}`         | `default` for Twig, `sdc` for Twig SDC, otherwise `react` or `web-component` |
-| `{{ formatLabel }}`    | `STANDARD`, `SDC`, `REACT`, or `WEB COMPONENT`                               |
+| Token                         | Example Value For `featured-item`                                            |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `__EMULSIFY_filename__`       | `featured-item`                                                              |
+| `__EMULSIFY_className__`      | `featured-item`                                                              |
+| `__EMULSIFY_camelName__`      | `featuredItem`                                                               |
+| `__EMULSIFY_pascalName__`     | `FeaturedItem`                                                               |
+| `__EMULSIFY_snakeName__`      | `featured_item`                                                              |
+| `__EMULSIFY_humanName__`      | `Featured Item`                                                              |
+| `__EMULSIFY_directory__`      | `base`                                                                       |
+| `__EMULSIFY_directoryTitle__` | `Base`                                                                       |
+| `__EMULSIFY_type__`           | `twig`, `twig-sdc`, `react`, or `web-component`                              |
+| `__EMULSIFY_tagName__`        | `featured-item` for a Web Component; an empty string for every other type    |
+| `__EMULSIFY_format__`         | `default` for Twig, `sdc` for Twig SDC, otherwise `react` or `web-component` |
+| `__EMULSIFY_formatLabel__`    | `STANDARD`, `SDC`, `REACT`, or `WEB COMPONENT`                               |
 
-`{{ type }}` is the canonical token for new overrides. `{{ format }}` remains
-populated so existing Twig and Twig SDC overrides keep their previous values
-after migrating from `--format` to `--type`. `{{ formatLabel }}` contains the
-display label used in generated file headers. `{{ directoryTitle }}` contains
-the structure name with its first character capitalized for Storybook titles.
+`__EMULSIFY_type__` is the canonical type. `__EMULSIFY_format__` remains
+available for compatibility with the deprecated `--format` terminology.
+`__EMULSIFY_formatLabel__` contains the display label used in generated file
+headers. `__EMULSIFY_directoryTitle__` contains the structure name with its
+first character capitalized for Storybook titles.
 
-Whitespace inside the braces is optional:
+For example, an override can combine a scaffold-time placeholder with a Twig
+variable. Only the namespaced placeholder is replaced:
 
 ```twig
-{{humanName}}
-{{ humanName }}
+<article data-component="__EMULSIFY_filename__">
+  {{ type }}
+</article>
 ```
 
-Unknown tokens are left unchanged and logged as warnings.
+Unknown namespaced placeholders are left unchanged and logged as warnings.
+Ordinary Twig expressions are ignored by the CLI renderer.
+
+Legacy overrides in `default/` and `sdc/` continue to recognize the v2.3
+double-brace tokens: `filename`, `className`, `camelName`, `snakeName`,
+`humanName`, `directory`, and `format`. New 2.4 tokens are not enabled in those
+directories, preventing new collisions from being introduced into legacy
+files.
 
 ## Customize An Ejected Template
 

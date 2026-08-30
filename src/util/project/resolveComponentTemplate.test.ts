@@ -60,11 +60,13 @@ describe('resolveComponentTemplate', () => {
   it('uses the canonical override without consulting the legacy alias', async () => {
     expect.assertions(4);
     pathExistsMock.mockResolvedValueOnce(true);
-    readFileMock.mockResolvedValueOnce('<h2>{{ humanName }}</h2>');
+    readFileMock.mockResolvedValueOnce(
+      '<h2>__EMULSIFY_humanName__ {{ type }}</h2>',
+    );
 
     await expect(
       resolveComponentTemplate(projectRoot, 'twig', 'component.twig', vars),
-    ).resolves.toBe('<h2>Featured Item</h2>');
+    ).resolves.toBe('<h2>Featured Item {{ type }}</h2>');
 
     expect(pathExistsMock).toHaveBeenCalledTimes(1);
     expect(pathExistsMock).toHaveBeenCalledWith(twigTemplatePath);
@@ -88,7 +90,7 @@ describe('resolveComponentTemplate', () => {
   it('falls back from twig-sdc to the legacy sdc directory', async () => {
     expect.assertions(4);
     pathExistsMock.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-    readFileMock.mockResolvedValueOnce('{{ type }}: {{ pascalName }}');
+    readFileMock.mockResolvedValueOnce('{{ format }}: {{ humanName }}');
 
     await expect(
       resolveComponentTemplate(projectRoot, 'twig-sdc', 'component.twig', {
@@ -96,7 +98,7 @@ describe('resolveComponentTemplate', () => {
         format: 'sdc',
         type: 'twig-sdc',
       }),
-    ).resolves.toBe('twig-sdc: FeaturedItem');
+    ).resolves.toBe('sdc: Featured Item');
 
     expect(pathExistsMock).toHaveBeenCalledTimes(2);
     expect(pathExistsMock).toHaveBeenNthCalledWith(1, twigSdcTemplatePath);

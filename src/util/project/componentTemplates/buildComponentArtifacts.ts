@@ -1,5 +1,8 @@
 import type { ComponentType } from '../componentTypes.js';
-import type { ComponentTemplateVars } from '../renderTemplate.js';
+import {
+  componentTemplateToken,
+  type ComponentTemplateVars,
+} from '../renderTemplate.js';
 
 import { buildReactTemplate } from './react.js';
 import { buildReactStoriesTemplate } from './reactStories.js';
@@ -19,22 +22,20 @@ export type ComponentArtifact = {
   contents: string;
 };
 
-const token = (name: keyof ComponentTemplateVars): string => `{{ ${name} }}`;
-
 /** Template variables that preserve every value as an editable override token. */
 export const COMPONENT_TEMPLATE_TOKEN_VARS: ComponentTemplateVars = {
-  filename: token('filename'),
-  className: token('className'),
-  camelName: token('camelName'),
-  pascalName: token('pascalName'),
-  snakeName: token('snakeName'),
-  humanName: token('humanName'),
-  directory: token('directory'),
-  directoryTitle: token('directoryTitle'),
-  format: token('format'),
-  formatLabel: token('formatLabel'),
-  type: token('type'),
-  tagName: token('tagName'),
+  filename: componentTemplateToken('filename'),
+  className: componentTemplateToken('className'),
+  camelName: componentTemplateToken('camelName'),
+  pascalName: componentTemplateToken('pascalName'),
+  snakeName: componentTemplateToken('snakeName'),
+  humanName: componentTemplateToken('humanName'),
+  directory: componentTemplateToken('directory'),
+  directoryTitle: componentTemplateToken('directoryTitle'),
+  format: componentTemplateToken('format'),
+  formatLabel: componentTemplateToken('formatLabel'),
+  type: componentTemplateToken('type'),
+  tagName: componentTemplateToken('tagName'),
 };
 
 /**

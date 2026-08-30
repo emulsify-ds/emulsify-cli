@@ -825,7 +825,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     const template = readFileSync(templatePath, 'utf8');
     writeFileSync(
       templatePath,
-      `${template}\n{# Ejected override for {{ humanName }} #}\n`,
+      `${template}\n{# Ejected override for __EMULSIFY_humanName__ #}\n{% set type = 'promo' %}<span>{{ type }}</span>\n`,
     );
 
     const createResult = runCli(projectRoot, [
@@ -843,13 +843,12 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       commandFailure('component create with ejected template', createResult),
     );
     assert.equal(createResult.stderr, '');
-    assert.match(
-      readFileSync(
-        join(projectRoot, 'components', 'ejected-card', 'ejected-card.twig'),
-        'utf8',
-      ),
-      /Ejected override for Ejected Card/u,
+    const generatedTemplate = readFileSync(
+      join(projectRoot, 'components', 'ejected-card', 'ejected-card.twig'),
+      'utf8',
     );
+    assert.match(generatedTemplate, /Ejected override for Ejected Card/u);
+    assert.ok(generatedTemplate.includes('<span>{{ type }}</span>'));
   });
 
   test('scaffolds the exact artifact set for every component type', () => {

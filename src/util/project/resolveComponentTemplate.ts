@@ -8,7 +8,10 @@ import { pathExists } from 'fs-extra';
 
 import log from '../../lib/log.js';
 import { EMULSIFY_PROJECT_TEMPLATES_FOLDER } from '../../lib/constants.js';
-import renderTemplate, { ComponentTemplateVars } from './renderTemplate.js';
+import renderTemplate, {
+  renderLegacyTemplate,
+  type ComponentTemplateVars,
+} from './renderTemplate.js';
 import type { ComponentType } from './componentTypes.js';
 
 // Component overrides intentionally mirror built-in artifacts one-for-one:
@@ -79,7 +82,9 @@ export default async function resolveComponentTemplate(
       return null;
     }
 
-    return renderTemplate(template, vars);
+    return directory === legacyDirectory
+      ? renderLegacyTemplate(template, vars)
+      : renderTemplate(template, vars);
   }
 
   return null;

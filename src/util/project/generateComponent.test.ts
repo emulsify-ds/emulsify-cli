@@ -779,6 +779,28 @@ describe('generateComponent', () => {
     );
   });
 
+  it('keeps ordinary Twig variables in a canonical override', async () => {
+    expect.assertions(2);
+    mockTemplateOverrides({
+      'twig/component.twig':
+        "{% set type = 'promo' %}<span>{{ type }}</span><h2>__EMULSIFY_humanName__</h2>",
+    });
+
+    await generateComponent(variant, projectConfig, 'featuredItem', {
+      directory: 'base',
+      type: 'twig',
+    });
+
+    expect(readFileMock).toHaveBeenCalledWith(
+      projectTemplatePath('twig', 'component.twig'),
+      'utf8',
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('featured-item', 'featured-item.twig'),
+      "{% set type = 'promo' %}<span>{{ type }}</span><h2>Featured Item</h2>",
+    );
+  });
+
   it('allows partial project template overrides per artifact', async () => {
     expect.assertions(2);
     mockTemplateOverrides({
