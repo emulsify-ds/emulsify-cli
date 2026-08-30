@@ -10,14 +10,19 @@ import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 
 import fs from 'fs';
 import { createHash } from 'crypto';
-import { dirname, join, resolve } from 'path';
+import { basename, dirname, join, resolve } from 'path';
 import { simpleGit } from 'simple-git';
 
 const existsSyncMock = fs.existsSync as jest.Mock;
 const readFileMock = fs.promises.readFile as jest.Mock;
 const writeFileMock = fs.promises.writeFile as jest.Mock;
+const readdirMock = fs.promises.readdir as jest.Mock;
 const rmMock = fs.promises.rm as jest.Mock;
 const mkdirMock = fs.promises.mkdir as jest.Mock;
+const mkdtempMock = fs.promises.mkdtemp as jest.Mock;
+const renameMock = fs.promises.rename as jest.Mock;
+const statMock = fs.promises.stat as jest.Mock;
+const copyFileMock = fs.promises.copyFile as jest.Mock;
 const simpleGitMock = simpleGit as unknown as jest.Mock;
 const gitMock = simpleGit();
 const gitCloneMock = gitMock.clone as jest.Mock;
@@ -48,6 +53,12 @@ function cacheDestination(checkout: string | void): string {
 
 const destination = cacheDestination(cloneOptions.checkout);
 const metadataPath = join(destination, '.emulsify-cache.json');
+const temporaryDestinationPrefix = `${destination}.tmp-${process.pid}-`;
+const temporaryDestination = `${temporaryDestinationPrefix}abc123`;
+const temporaryMetadataPath = join(
+  temporaryDestination,
+  '.emulsify-cache.json',
+);
 
 function metadata(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -69,8 +80,12 @@ describe('cloneIntoCache', () => {
       Object.assign(new Error('missing'), { code: 'ENOENT' }),
     );
     writeFileMock.mockResolvedValue(undefined);
+    readdirMock.mockResolvedValue([]);
     rmMock.mockResolvedValue(undefined);
     mkdirMock.mockResolvedValue(undefined);
+    mkdtempMock.mockImplementation(async (prefix: string) => `${prefix}abc123`);
+    renameMock.mockResolvedValue(undefined);
+    statMock.mockResolvedValue({ mtimeMs: Date.now() });
     gitCloneMock.mockResolvedValue(undefined);
     getRemotesMock.mockResolvedValue([
       {
@@ -91,20 +106,23 @@ describe('cloneIntoCache', () => {
     expect(mkdirMock).toHaveBeenCalledWith(dirname(destination), {
       recursive: true,
     });
+    expect(mkdtempMock).toHaveBeenCalledWith(temporaryDestinationPrefix);
     expect(gitCloneMock).toHaveBeenCalledWith(
       normalizedRepository,
-      destination,
+      temporaryDestination,
       {
         '--branch': 'branch-name',
       },
     );
-    expect(simpleGitMock).toHaveBeenCalledWith(destination);
+    expect(simpleGitMock).toHaveBeenCalledWith(temporaryDestination);
     expect(revparseMock).toHaveBeenCalledWith(['HEAD']);
     expect(writeFileMock).toHaveBeenCalledWith(
-      metadataPath,
+      temporaryMetadataPath,
       expect.any(String),
       { encoding: 'utf-8' },
     );
+    expect(renameMock).toHaveBeenCalledWith(temporaryDestination, destination);
+    expect(copyFileMock).not.toHaveBeenCalled();
 
     const writtenMetadata = JSON.parse(writeFileMock.mock.calls[0][1]);
     expect(writtenMetadata).toEqual({
@@ -117,31 +135,133 @@ describe('cloneIntoCache', () => {
     expect(Number.isNaN(Date.parse(writtenMetadata.clonedAt))).toBe(false);
   });
 
-  it('writes metadata only after the clone resolves', async () => {
+  it('keeps the final entry untouched until a complete clone is ready', async () => {
+    existsSyncMock.mockReturnValue(true);
+    let markCloneStarted: (() => void) | undefined;
     let resolveClone: (() => void) | undefined;
+    const cloneStarted = new Promise<void>((resolve) => {
+      markCloneStarted = resolve;
+    });
     gitCloneMock.mockImplementationOnce(
       () =>
         new Promise<void>((resolve) => {
           resolveClone = resolve;
+          markCloneStarted?.();
         }),
     );
 
     const clonePromise = cloneIntoCache('systems', ['cornflake'])(cloneOptions);
-    await Promise.resolve();
+    await cloneStarted;
+
     expect(writeFileMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalledWith(destination, {
+      recursive: true,
+      force: true,
+    });
+    expect(renameMock).not.toHaveBeenCalled();
 
     resolveClone?.();
     await clonePromise;
-    expect(writeFileMock).toHaveBeenCalledTimes(1);
+
+    const writeOrder = writeFileMock.mock.invocationCallOrder[0];
+    const removeOrder = rmMock.mock.invocationCallOrder.find(
+      (_, index) => rmMock.mock.calls[index][0] === destination,
+    );
+    const renameOrder = renameMock.mock.invocationCallOrder[0];
+    expect(writeOrder).toBeLessThan(removeOrder as number);
+    expect(removeOrder).toBeLessThan(renameOrder);
   });
 
-  it('does not write metadata when cloning fails', async () => {
+  it('cleans its temp directory without touching the final entry when cloning fails', async () => {
+    existsSyncMock.mockReturnValue(true);
     gitCloneMock.mockRejectedValueOnce(new Error('clone failed'));
+    rmMock.mockRejectedValueOnce(new Error('cleanup failed'));
 
     await expect(
       cloneIntoCache('systems', ['cornflake'])(cloneOptions),
     ).rejects.toThrow('clone failed');
     expect(writeFileMock).not.toHaveBeenCalled();
+    expect(renameMock).not.toHaveBeenCalled();
+    expect(rmMock).toHaveBeenCalledWith(temporaryDestination, {
+      recursive: true,
+      force: true,
+    });
+    expect(rmMock).not.toHaveBeenCalledWith(destination, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('reuses a complete entry that wins a concurrent rename', async () => {
+    existsSyncMock
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    readFileMock.mockResolvedValueOnce(metadata());
+    renameMock.mockRejectedValueOnce(
+      Object.assign(new Error('destination exists'), { code: 'ENOTEMPTY' }),
+    );
+
+    await expect(
+      cloneIntoCache('systems', ['cornflake'])(cloneOptions),
+    ).resolves.toBeUndefined();
+
+    expect(renameMock).toHaveBeenCalledWith(temporaryDestination, destination);
+    expect(rmMock).not.toHaveBeenCalledWith(destination, {
+      recursive: true,
+      force: true,
+    });
+    expect(rmMock).toHaveBeenCalledWith(temporaryDestination, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('cleans abandoned temp directories without removing active peers', async () => {
+    const abandonedName = `${basename(destination)}.tmp-12345-abc123`;
+    const abandonedPath = join(dirname(destination), abandonedName);
+    const activeName = `${basename(destination)}.tmp-67890-def456`;
+    const activePath = join(dirname(destination), activeName);
+    const legitimateName = `${basename(destination)}.tmp-custom`;
+    const legitimatePath = join(dirname(destination), legitimateName);
+    existsSyncMock.mockReturnValueOnce(true);
+    readFileMock.mockResolvedValueOnce(metadata());
+    readdirMock.mockResolvedValueOnce([
+      {
+        name: abandonedName,
+        isDirectory: () => true,
+      },
+      {
+        name: activeName,
+        isDirectory: () => true,
+      },
+      {
+        name: legitimateName,
+        isDirectory: () => true,
+      },
+    ]);
+    statMock
+      .mockResolvedValueOnce({
+        mtimeMs: Date.now() - 24 * 60 * 60 * 1_000 - 1,
+      })
+      .mockResolvedValueOnce({ mtimeMs: Date.now() });
+
+    await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
+
+    expect(rmMock).toHaveBeenCalledWith(abandonedPath, {
+      recursive: true,
+      force: true,
+    });
+    expect(rmMock).not.toHaveBeenCalledWith(activePath, {
+      recursive: true,
+      force: true,
+    });
+    expect(rmMock).not.toHaveBeenCalledWith(legitimatePath, {
+      recursive: true,
+      force: true,
+    });
+    expect(gitCloneMock).not.toHaveBeenCalled();
+    expect(renameMock).not.toHaveBeenCalled();
   });
 
   it('reuses a complete cache entry without contacting the remote by default', async () => {
@@ -269,7 +389,7 @@ describe('cloneIntoCache', () => {
   });
 
   it('re-clones when the requested branch or tag no longer exists', async () => {
-    existsSyncMock.mockReturnValueOnce(true);
+    existsSyncMock.mockReturnValue(true);
     readFileMock.mockResolvedValueOnce(metadata());
     listRemoteMock.mockResolvedValueOnce('');
 
@@ -282,7 +402,7 @@ describe('cloneIntoCache', () => {
   });
 
   it('removes and re-clones an entry with no sidecar', async () => {
-    existsSyncMock.mockReturnValueOnce(true);
+    existsSyncMock.mockReturnValue(true);
 
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
 
@@ -294,7 +414,7 @@ describe('cloneIntoCache', () => {
   });
 
   it('removes and re-clones an entry with malformed sidecar JSON', async () => {
-    existsSyncMock.mockReturnValueOnce(true);
+    existsSyncMock.mockReturnValue(true);
     readFileMock.mockResolvedValueOnce('{not-json');
 
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
@@ -341,7 +461,7 @@ describe('cloneIntoCache', () => {
       complete: false,
     },
   ])('re-clones an entry with incomplete metadata: %p', async (value) => {
-    existsSyncMock.mockReturnValueOnce(true);
+    existsSyncMock.mockReturnValue(true);
     readFileMock.mockResolvedValueOnce(JSON.stringify(value));
 
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
@@ -351,7 +471,7 @@ describe('cloneIntoCache', () => {
   });
 
   it('removes and re-clones an entry for a different repository', async () => {
-    existsSyncMock.mockReturnValueOnce(true);
+    existsSyncMock.mockReturnValue(true);
     readFileMock.mockResolvedValueOnce(
       metadata({ repository: 'different-repo-path' }),
     );
@@ -364,7 +484,7 @@ describe('cloneIntoCache', () => {
   });
 
   it('removes and re-clones an entry whose origin does not match', async () => {
-    existsSyncMock.mockReturnValueOnce(true);
+    existsSyncMock.mockReturnValue(true);
     readFileMock.mockResolvedValueOnce(metadata());
     getRemotesMock.mockResolvedValueOnce([
       {
@@ -380,7 +500,7 @@ describe('cloneIntoCache', () => {
   });
 
   it('removes and re-clones an entry whose origin cannot be inspected', async () => {
-    existsSyncMock.mockReturnValueOnce(true);
+    existsSyncMock.mockReturnValue(true);
     readFileMock.mockResolvedValueOnce(metadata());
     getRemotesMock.mockRejectedValueOnce(new Error('not a git repository'));
 
@@ -391,7 +511,7 @@ describe('cloneIntoCache', () => {
   });
 
   it('removes and re-clones an entry whose local HEAD changed', async () => {
-    existsSyncMock.mockReturnValueOnce(true);
+    existsSyncMock.mockReturnValue(true);
     readFileMock.mockResolvedValueOnce(metadata());
     revparseMock
       .mockResolvedValueOnce('different-local-ref\n')
@@ -404,7 +524,7 @@ describe('cloneIntoCache', () => {
   });
 
   it('removes and re-clones when a moving remote ref advances', async () => {
-    existsSyncMock.mockReturnValueOnce(true);
+    existsSyncMock.mockReturnValue(true);
     readFileMock.mockResolvedValueOnce(metadata());
     listRemoteMock.mockResolvedValueOnce(
       'new-resolved-ref\trefs/heads/branch-name\n',
@@ -427,7 +547,7 @@ describe('cloneIntoCache', () => {
 
     expect(gitCloneMock).toHaveBeenCalledWith(
       normalizedRepository,
-      defaultDestination,
+      `${defaultDestination}.tmp-${process.pid}-abc123`,
       {},
     );
     const writtenMetadata = JSON.parse(writeFileMock.mock.calls[0][1]);
