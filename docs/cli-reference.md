@@ -135,8 +135,8 @@ Options:
 | `-p, --platform <platform-expression>` | Variant target: `none`, a concrete platform, or a compound compatibility expression. |
 | `--git`                                | Initialize a Git repository in the generated system.                                 |
 | `--no-git`                             | Generate the system without initializing Git.                                        |
-| `--homepage <url>`                     | Override the homepage metadata written to `system.emulsify.json`.                    |
-| `--repository <url>`                   | Override the repository metadata written to `system.emulsify.json`.                  |
+| `--homepage <url>`                     | Replace the generated `TODO.invalid` homepage metadata.                              |
+| `--repository <url>`                   | Replace the generated `TODO.invalid` repository metadata.                            |
 | `-y, --yes`                            | Accept defaults for every missing prompt value.                                      |
 
 In an interactive terminal, missing name, parent directory, platform expression,
@@ -151,9 +151,11 @@ With `--yes`, missing values default to:
 - Platform expression: `none`
 - Git initialization: enabled
 
-The generated homepage and repository metadata use placeholder example URLs
-derived from the normalized name unless `--homepage` or `--repository` is
-provided. Replace placeholders before publishing.
+The generated homepage and repository metadata use the schema-valid reserved
+placeholders `https://TODO.invalid/<name>` and
+`https://TODO.invalid/<name>.git` unless `--homepage` or `--repository` is
+provided. The `TODO.invalid` host is deliberately non-resolving and must be
+replaced before publishing.
 
 The command refuses to overwrite an existing target. A successful scaffold
 contains:

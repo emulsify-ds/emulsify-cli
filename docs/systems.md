@@ -242,7 +242,7 @@ emulsify system create my-system \
   --repository https://github.com/acme/my-system.git
 ```
 
-Without those overrides, the metadata defaults to `https://example.com/<name>` and `https://github.com/example/<name>.git`. Replace these placeholders before publishing. The generated `LICENSE` is also a placeholder; choose a license appropriate for the system before distribution.
+Without those overrides, the metadata defaults to `https://TODO.invalid/<name>` and `https://TODO.invalid/<name>.git`. The reserved, non-resolving host keeps the scaffold schema-valid while making the unfinished metadata obvious. Replace these placeholders before publishing. The generated `LICENSE` is also a placeholder; choose a license appropriate for the system before distribution.
 
 Use `--no-git` instead of `--git` when another tool will initialize the repository. In non-interactive environments, supply the positional name, `--directory`, `--platform`, and either `--git` or `--no-git`, or use `--yes`. `--yes` supplies these defaults for anything omitted:
 
@@ -278,8 +278,8 @@ When Git initialization is enabled, `.git/` is also created with `main` as the i
 ```json
 {
   "name": "my-system",
-  "homepage": "https://example.com/my-system",
-  "repository": "https://github.com/example/my-system.git",
+  "homepage": "https://TODO.invalid/my-system",
+  "repository": "https://TODO.invalid/my-system.git",
   "structure": [
     {
       "name": "components",

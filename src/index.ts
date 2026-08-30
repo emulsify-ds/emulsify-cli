@@ -79,8 +79,14 @@ system
   )
   .option('--git', 'Initialize a Git repository on branch main.')
   .option('--no-git', 'Do not initialize a Git repository.')
-  .option('--homepage <url>', 'Homepage URI for system.emulsify.json.')
-  .option('--repository <url>', 'Repository URI for system.emulsify.json.')
+  .option(
+    '--homepage <url>',
+    'Homepage URI; overrides the generated TODO.invalid placeholder.',
+  )
+  .option(
+    '--repository <url>',
+    'Repository URI; overrides the generated TODO.invalid placeholder.',
+  )
   .option(
     '-y, --yes',
     'Accept defaults for all missing system scaffold values without prompting.',

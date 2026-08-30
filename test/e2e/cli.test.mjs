@@ -466,6 +466,14 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       readFileSync(join(generatedSystemRoot, 'system.emulsify.json'), 'utf8'),
     );
     assert.equal(systemConfig.name, systemName);
+    assert.equal(
+      systemConfig.homepage,
+      'https://TODO.invalid/round-trip-system',
+    );
+    assert.equal(
+      systemConfig.repository,
+      'https://TODO.invalid/round-trip-system.git',
+    );
     assert.equal(systemConfig.variants[0].platform, 'drupal || wordpress');
     assert.deepEqual(systemConfig.variants[0].components, [
       {

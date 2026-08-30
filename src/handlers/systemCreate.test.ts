@@ -243,8 +243,8 @@ describe('systemCreate', () => {
     const target = join(resolve('/interactive-systems'), 'fancy-system');
     const scaffold = expectedScaffold({
       name: 'fancy-system',
-      homepage: 'https://example.com/fancy-system',
-      repository: 'https://github.com/example/fancy-system.git',
+      homepage: 'https://TODO.invalid/fancy-system',
+      repository: 'https://TODO.invalid/fancy-system.git',
     });
     expect(validateSystemConfigMock).toHaveBeenCalledWith(
       scaffold.systemConfig,
@@ -262,8 +262,8 @@ describe('systemCreate', () => {
     const scaffold = expectedScaffold({
       name: 'custom-system',
       platform: 'none',
-      homepage: 'https://example.com/custom-system',
-      repository: 'https://github.com/example/custom-system.git',
+      homepage: 'https://TODO.invalid/custom-system',
+      repository: 'https://TODO.invalid/custom-system.git',
     });
 
     await systemCreate(undefined, { yes: true });
@@ -280,6 +280,27 @@ describe('systemCreate', () => {
     expect(gitInitMock).toHaveBeenCalledWith(false, {
       '--initial-branch': 'main',
     });
+  });
+
+  it('uses non-resolving TODO metadata when URL options are omitted', async () => {
+    const scaffold = expectedScaffold({
+      homepage: 'https://TODO.invalid/acme-system',
+      repository: 'https://TODO.invalid/acme-system.git',
+    });
+
+    await systemCreate('acme-system', {
+      directory: parentDirectory,
+      platform: 'drupal || wordpress',
+      git: false,
+    });
+
+    expect(validateSystemConfigMock).toHaveBeenCalledWith(
+      scaffold.systemConfig,
+    );
+    expect(writeToJsonFileMock).toHaveBeenCalledWith(
+      join(parentDirectory, 'acme-system', EMULSIFY_SYSTEM_CONFIG_FILE),
+      scaffold.systemConfig,
+    );
   });
 
   it.each<{

@@ -192,6 +192,16 @@ const sections: HelpSection[] = [
         label: 'system create [name]',
         description: 'Scaffold a system others can install from',
       },
+      {
+        kind: 'option',
+        label: '--homepage <url>',
+        description: 'Replace TODO.invalid homepage metadata',
+      },
+      {
+        kind: 'option',
+        label: '--repository <url>',
+        description: 'Replace TODO.invalid repository metadata',
+      },
     ],
   },
   {

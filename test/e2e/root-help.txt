@@ -42,6 +42,8 @@ SYSTEMS
   system detach                   Detach the system and keep project components
       -y, --yes                      Skip the confirmation prompt
   system create [name]            Scaffold a system others can install from
+      --homepage <url>               Replace TODO.invalid homepage metadata
+      --repository <url>             Replace TODO.invalid repository metadata
 
 MAINTENANCE
   audit [args...]                 Run the Emulsify Core audit

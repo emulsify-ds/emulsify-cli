@@ -56,6 +56,9 @@ emulsify system create "My System" --directory ./systems --platform "drupal || w
 This creates `./systems/my-system` with valid system and variant configuration,
 an installable `example-card` component, repository documentation, a
 `.gitignore`, and a license placeholder to replace before distribution.
+Unless overridden, its required URL metadata uses obvious, schema-valid
+`https://TODO.invalid/...` placeholders that must also be replaced before
+publishing.
 
 When components installed from another system have evolved into the basis of
 your own, detach the configured system before authoring a replacement:

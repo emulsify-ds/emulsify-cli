@@ -175,9 +175,8 @@ export default async function systemCreate(
   const scaffold = buildSystemScaffold({
     name: systemName,
     platform,
-    homepage: options.homepage || `https://example.com/${systemName}`,
-    repository:
-      options.repository || `https://github.com/example/${systemName}.git`,
+    homepage: options.homepage || `https://TODO.invalid/${systemName}`,
+    repository: options.repository || `https://TODO.invalid/${systemName}.git`,
   });
   const validation = await validateSystemConfig(scaffold.systemConfig);
   if (!validation.valid) {
