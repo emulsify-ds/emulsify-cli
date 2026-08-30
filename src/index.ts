@@ -91,6 +91,10 @@ system
     '-y, --yes',
     'Accept defaults for all missing system scaffold values without prompting.',
   )
+  .option(
+    '--dry-run',
+    'Preview the system scaffold without creating files or initializing Git.',
+  )
   .action(systemCreate);
 system
   .command('install [name]')

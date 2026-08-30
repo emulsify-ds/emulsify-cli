@@ -255,6 +255,10 @@ Use `--no-git` instead of `--git` when another tool will initialize the reposito
 
 The command never merges into or overwrites an existing target. If the normalized target directory already exists, choose another name or parent directory.
 
+Pass `--dry-run` to preview the normalized target, generated files, and Git
+initialization without creating directories or files. An occupied target is
+reported as a condition that a real run would refuse.
+
 ### Generated Repository Anatomy
 
 The scaffold has a valid `system.emulsify.json`, repository guidance, and one real component that can be installed immediately:
@@ -320,6 +324,7 @@ Use `none` for a platform-neutral system, a concrete target such as `drupal` or 
 emulsify system create generic-system --directory ./systems --platform none --git
 emulsify system create drupal-system --directory ./systems --platform drupal --git
 emulsify system create shared-system --directory ./systems --platform "drupal || wordpress" --git
+emulsify system create preview-system --directory ./systems --platform none --git --dry-run
 ```
 
 Quote expressions containing `||` so the shell passes the whole value to the CLI. The generated variant stores the normalized expression in `system.emulsify.json`; installation uses it when selecting a variant for the project's concrete platform.

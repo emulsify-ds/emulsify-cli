@@ -339,6 +339,22 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.match(result.stdout, /-a, --all/u);
   });
 
+  test('advertises system scaffold dry runs in detailed help', () => {
+    const result = runCli(tempRoot, ['system', 'create', '--help']);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('system create --help', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.match(result.stdout, /--dry-run/u);
+    assert.match(
+      result.stdout,
+      /Preview the system scaffold without\s+creating files or initializing Git/u,
+    );
+  });
+
   test('prints the package version', () => {
     const result = runCli(tempRoot, ['--version']);
 
@@ -414,6 +430,45 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       /Pass the \[name\] positional argument or use --yes/,
     );
     assert.equal(existsSync(join(tempRoot, 'custom-system')), false);
+  });
+
+  test('previews a complete system scaffold without writing files or Git metadata', () => {
+    const systemName = 'dry-run-system';
+    const target = join(tempRoot, systemName);
+    const result = runCli(tempRoot, [
+      'system',
+      'create',
+      systemName,
+      '--directory',
+      tempRoot,
+      '--platform',
+      'none',
+      '--git',
+      '--dry-run',
+    ]);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('system create --dry-run', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.match(result.stdout, /Dry run: system create/u);
+    assert.match(result.stdout, /dry-run-system \(would be created\)/u);
+    assert.match(
+      result.stdout,
+      /Git: would initialize a repository on branch main/u,
+    );
+    assert.match(result.stdout, /system\.emulsify\.json/u);
+    assert.match(
+      result.stdout,
+      /components[/\\]example-card[/\\]example-card\.twig/u,
+    );
+    assert.match(
+      result.stdout,
+      /No directories or files were written, and Git was not initialized\./u,
+    );
+    assert.equal(existsSync(target), false);
   });
 
   test('fails fast without changing the project when system install has no source outside a TTY', () => {

@@ -60,6 +60,9 @@ Unless overridden, its required URL metadata uses obvious, schema-valid
 `https://TODO.invalid/...` placeholders that must also be replaced before
 publishing.
 
+Add `--dry-run` to preview the normalized target, every generated file, and
+whether Git would be initialized without changing the filesystem.
+
 When components installed from another system have evolved into the basis of
 your own, detach the configured system before authoring a replacement:
 
@@ -101,6 +104,7 @@ the CLI exits with an actionable error instead of waiting for input:
 ```bash
 emulsify init "My Theme" ./web/themes/custom --platform drupal --yes
 emulsify system create my-system --directory ./systems --platform none --git
+emulsify system create my-system --directory ./systems --platform none --git --dry-run
 emulsify system install compound
 emulsify component install card --force
 # Or install every available component:

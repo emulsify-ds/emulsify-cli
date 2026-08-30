@@ -83,6 +83,78 @@ function formatValidationErrors(
   );
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isAlreadyExistsError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === 'EEXIST'
+  );
+}
+
+type PlannedSystemFile = {
+  destination: string;
+  contents: string;
+};
+
+function logDryRun(
+  target: string,
+  targetExists: boolean,
+  platform: PlatformExpression,
+  initializeGit: boolean,
+  files: readonly string[],
+): void {
+  const plannedFiles = files
+    .map((destination) => `  - ${destination}`)
+    .join('\n');
+  const realRunAction = targetExists
+    ? 'refuse because the target is already occupied'
+    : 'create the system scaffold';
+  const gitAction = initializeGit
+    ? 'would initialize a repository on branch main'
+    : 'would not initialize a repository';
+
+  log(
+    'info',
+    [
+      'Dry run: system create',
+      `Target: ${target} (${targetExists ? 'exists' : 'would be created'})`,
+      `Platform: ${platform}`,
+      `Git: ${gitAction}`,
+      `Real run would: ${realRunAction}`,
+      'Generated files:',
+      plannedFiles,
+      'No directories or files were written, and Git was not initialized.',
+    ].join('\n'),
+  );
+}
+
+async function writeExclusiveSystemFile({
+  destination,
+  contents,
+}: PlannedSystemFile): Promise<void> {
+  try {
+    await fs.mkdir(dirname(destination), { recursive: true });
+    await fs.writeFile(destination, contents, {
+      encoding: 'utf-8',
+      flag: 'wx',
+      flush: true,
+    });
+  } catch (error) {
+    if (isAlreadyExistsError(error)) {
+      throw new CliError(
+        `System scaffold file "${destination}" appeared during creation and was not replaced. The target may contain a partial scaffold; remove it before retrying.`,
+      );
+    }
+
+    throw error;
+  }
+}
+
 /**
  * Handler for `emulsify system create [name]`.
  */
@@ -91,6 +163,7 @@ export default async function systemCreate(
   options: CreateSystemHandlerOptions = {},
 ): Promise<void> {
   const acceptDefaults = options.yes === true;
+  const dryRun = options.dryRun === true;
 
   let requestedName = name?.trim();
   if (!requestedName) {
@@ -166,7 +239,8 @@ export default async function systemCreate(
   }
 
   const target = join(resolve(targetParent), systemName);
-  if (existsSync(target)) {
+  const targetExists = existsSync(target);
+  if (targetExists && !dryRun) {
     throw new CliError(
       `The system target is already occupied: ${target}. Choose another parent directory with --directory.`,
     );
@@ -185,30 +259,62 @@ export default async function systemCreate(
     );
   }
 
+  const systemConfigDestination = safeResolveWithin(
+    target,
+    EMULSIFY_SYSTEM_CONFIG_FILE,
+    'System scaffold file',
+  );
+  const plannedArtifactFiles = scaffold.files.map(({ path, contents }) => ({
+    destination: safeResolveWithin(target, path, 'System scaffold file'),
+    contents,
+  }));
+  const plannedDestinations = [
+    systemConfigDestination,
+    ...plannedArtifactFiles.map(({ destination }) => destination),
+  ];
+
+  if (dryRun) {
+    logDryRun(
+      target,
+      targetExists,
+      platform,
+      initializeGit,
+      plannedDestinations,
+    );
+    return;
+  }
+
   try {
-    await fs.mkdir(target, { recursive: true });
-    await Promise.all([
-      writeToJsonFile(
-        join(target, EMULSIFY_SYSTEM_CONFIG_FILE),
-        scaffold.systemConfig,
-      ),
-      ...scaffold.files.map(async ({ path, contents }) => {
-        const destination = safeResolveWithin(
-          target,
-          path,
-          'System scaffold file',
+    await fs.mkdir(dirname(target), { recursive: true });
+    try {
+      // A non-recursive mkdir fails with EEXIST if the target appears after
+      // the initial check, closing the check-then-create race.
+      await fs.mkdir(target, { recursive: false });
+    } catch (error) {
+      if (isAlreadyExistsError(error)) {
+        throw new CliError(
+          `The system target became occupied during creation: ${target}. No existing files were replaced.`,
         );
-        await fs.mkdir(dirname(destination), { recursive: true });
-        await fs.writeFile(destination, contents, { encoding: 'utf-8' });
-      }),
+      }
+
+      throw error;
+    }
+
+    await Promise.all([
+      writeToJsonFile(systemConfigDestination, scaffold.systemConfig),
+      ...plannedArtifactFiles.map(writeExclusiveSystemFile),
     ]);
 
     if (initializeGit) {
       await simpleGit(target).init(false, { '--initial-branch': 'main' });
     }
   } catch (error) {
+    if (error instanceof CliError) {
+      throw error;
+    }
+
     throw new CliError(
-      `Unable to create the system in ${target}: ${error instanceof Error ? error.message : String(error)}`,
+      `Unable to create the system in ${target}: ${getErrorMessage(error)}`,
     );
   }
 

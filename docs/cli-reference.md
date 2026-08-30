@@ -138,6 +138,7 @@ Options:
 | `--homepage <url>`                     | Replace the generated `TODO.invalid` homepage metadata.                              |
 | `--repository <url>`                   | Replace the generated `TODO.invalid` repository metadata.                            |
 | `-y, --yes`                            | Accept defaults for every missing prompt value.                                      |
+| `--dry-run`                            | Preview the target, generated files, and Git action without changing the filesystem. |
 
 In an interactive terminal, missing name, parent directory, platform expression,
 and Git choice are prompted. In a non-interactive environment, provide them as
@@ -178,6 +179,11 @@ The generated `example-card` is marked as required, so installing the system
 also proves that its component source layout is usable. `--git` additionally
 creates the `.git/` metadata directory with `main` as the initial branch.
 
+Use `--dry-run` to inspect the normalized target, every generated file, and
+whether Git would be initialized. If the target already exists, the preview
+reports that a real run would refuse it; no directories, files, or Git metadata
+are created.
+
 Examples:
 
 ```bash
@@ -185,6 +191,7 @@ emulsify system create
 emulsify system create "My System" --directory ./systems --platform none --git
 emulsify system create shared-system --directory ./systems --platform "drupal || wordpress" --no-git
 emulsify system create my-system --yes
+emulsify system create my-system --directory ./systems --platform none --git --dry-run
 emulsify system create my-system --directory ./systems --platform drupal --git \
   --homepage https://design.example.com/my-system \
   --repository https://github.com/example/my-system.git

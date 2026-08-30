@@ -202,6 +202,11 @@ const sections: HelpSection[] = [
         label: '--repository <url>',
         description: 'Replace TODO.invalid repository metadata',
       },
+      {
+        kind: 'option',
+        label: '--dry-run',
+        description: 'Preview files and Git setup',
+      },
     ],
   },
   {

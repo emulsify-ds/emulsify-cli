@@ -129,9 +129,12 @@ describe('systemCreate', () => {
     expect(validateSystemConfigMock).toHaveBeenCalledWith(
       scaffold.systemConfig,
     );
-    expect(mkdirMock).toHaveBeenCalledTimes(scaffold.files.length + 1);
-    expect(mkdirMock).toHaveBeenNthCalledWith(1, target, {
+    expect(mkdirMock).toHaveBeenCalledTimes(scaffold.files.length + 2);
+    expect(mkdirMock).toHaveBeenNthCalledWith(1, dirname(target), {
       recursive: true,
+    });
+    expect(mkdirMock).toHaveBeenNthCalledWith(2, target, {
+      recursive: false,
     });
     expect(writeToJsonFileMock).toHaveBeenCalledTimes(1);
     expect(writeToJsonFileMock).toHaveBeenCalledWith(
@@ -147,6 +150,8 @@ describe('systemCreate', () => {
       });
       expect(writeFileMock).toHaveBeenCalledWith(destination, contents, {
         encoding: 'utf-8',
+        flag: 'wx',
+        flush: true,
       });
     }
 
@@ -409,6 +414,105 @@ describe('systemCreate', () => {
 
   it.each([
     {
+      targetExists: false,
+      git: true,
+      targetState: 'would be created',
+      gitAction: 'would initialize a repository on branch main',
+      realRunAction: 'create the system scaffold',
+    },
+    {
+      targetExists: true,
+      git: false,
+      targetState: 'exists',
+      gitAction: 'would not initialize a repository',
+      realRunAction: 'refuse because the target is already occupied',
+    },
+  ])(
+    'reports the complete plan without writes when target existence is $targetExists',
+    async ({ targetExists, git, targetState, gitAction, realRunAction }) => {
+      const target = join(parentDirectory, 'acme-system');
+      const scaffold = expectedScaffold();
+      existsSyncMock.mockReturnValueOnce(targetExists);
+
+      await systemCreate('acme-system', {
+        ...explicitOptions,
+        git,
+        dryRun: true,
+      });
+
+      expect(validateSystemConfigMock).toHaveBeenCalledWith(
+        scaffold.systemConfig,
+      );
+      expectNoWrites();
+      expect(logMock).toHaveBeenCalledTimes(1);
+      expect(logMock).toHaveBeenCalledWith(
+        'info',
+        expect.stringMatching(
+          new RegExp(
+            [
+              'Dry run: system create',
+              `Target: ${target} \\(${targetState}\\)`,
+              'Platform: drupal \\|\\| wordpress',
+              `Git: ${gitAction}`,
+              `Real run would: ${realRunAction}`,
+              `Generated files:[\\s\\S]*${EMULSIFY_SYSTEM_CONFIG_FILE}`,
+              '[\\s\\S]*README\\.md',
+              'No directories or files were written, and Git was not initialized\\.',
+            ].join('[\\s\\S]*'),
+          ),
+        ),
+      );
+    },
+  );
+
+  it('refuses a target that appears after the initial existence check', async () => {
+    const target = join(parentDirectory, 'acme-system');
+    mkdirMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(
+        Object.assign(new Error('exists'), { code: 'EEXIST' }),
+      );
+
+    await expect(
+      systemCreate('acme-system', explicitOptions),
+    ).rejects.toMatchObject({
+      name: 'CliError',
+      message: `The system target became occupied during creation: ${target}. No existing files were replaced.`,
+      exitCode: 1,
+    });
+
+    expect(mkdirMock).toHaveBeenNthCalledWith(1, dirname(target), {
+      recursive: true,
+    });
+    expect(mkdirMock).toHaveBeenNthCalledWith(2, target, {
+      recursive: false,
+    });
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(simpleGitMock).not.toHaveBeenCalled();
+    expect(logMock).not.toHaveBeenCalled();
+  });
+
+  it('wraps a non-collision target reservation failure', async () => {
+    const target = join(parentDirectory, 'acme-system');
+    mkdirMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('directory is read-only'));
+
+    await expect(
+      systemCreate('acme-system', explicitOptions),
+    ).rejects.toMatchObject({
+      name: 'CliError',
+      message: `Unable to create the system in ${target}: directory is read-only`,
+      exitCode: 1,
+    });
+
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(simpleGitMock).not.toHaveBeenCalled();
+    expect(logMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
       errors: [
         { instancePath: '/name', message: 'must match pattern' },
         { instancePath: '', message: undefined },
@@ -443,7 +547,13 @@ describe('systemCreate', () => {
 
   it('wraps an artifact write failure and does not initialize Git or log success', async () => {
     const target = join(parentDirectory, 'acme-system');
-    writeFileMock.mockRejectedValueOnce(new Error('disk full'));
+    writeFileMock.mockImplementation(
+      async (destination: string): Promise<void> => {
+        if (destination.endsWith('README.md')) {
+          throw new Error('disk full');
+        }
+      },
+    );
 
     await expect(
       systemCreate('acme-system', { ...explicitOptions, git: true }),
@@ -453,7 +563,6 @@ describe('systemCreate', () => {
       exitCode: 1,
     });
 
-    expect(writeToJsonFileMock).toHaveBeenCalledTimes(1);
     expect(writeFileMock).toHaveBeenCalled();
     expect(simpleGitMock).not.toHaveBeenCalled();
     expect(logMock).not.toHaveBeenCalled();
@@ -473,6 +582,38 @@ describe('systemCreate', () => {
       exitCode: 1,
     });
 
+    expect(simpleGitMock).not.toHaveBeenCalled();
+    expect(logMock).not.toHaveBeenCalled();
+  });
+
+  it('does not replace a scaffold file that appears during creation', async () => {
+    const target = join(parentDirectory, 'acme-system');
+    const artifactPath = join(target, 'README.md');
+    writeFileMock.mockImplementation(
+      async (destination: string): Promise<void> => {
+        if (destination === artifactPath) {
+          throw Object.assign(new Error('already exists'), { code: 'EEXIST' });
+        }
+      },
+    );
+
+    await expect(
+      systemCreate('acme-system', explicitOptions),
+    ).rejects.toMatchObject({
+      name: 'CliError',
+      message: `System scaffold file "${artifactPath}" appeared during creation and was not replaced. The target may contain a partial scaffold; remove it before retrying.`,
+      exitCode: 1,
+    });
+
+    expect(writeFileMock).toHaveBeenCalledWith(
+      artifactPath,
+      expect.any(String),
+      {
+        encoding: 'utf-8',
+        flag: 'wx',
+        flush: true,
+      },
+    );
     expect(simpleGitMock).not.toHaveBeenCalled();
     expect(logMock).not.toHaveBeenCalled();
   });

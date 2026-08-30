@@ -35,6 +35,7 @@ describe('getRootHelp', () => {
     expect(help).toContain('system create [name]');
     expect(help).toContain('Replace TODO.invalid homepage metadata');
     expect(help).toContain('Replace TODO.invalid repository metadata');
+    expect(help).toContain('Preview files and Git setup');
     expect(help).toContain('MAINTENANCE');
     expect(help).toContain('audit [args...]');
     expect(help).toContain('component eject-templates [type]');

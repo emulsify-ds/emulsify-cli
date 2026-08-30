@@ -39,6 +39,8 @@ declare module '@emulsify-cli/handlers' {
     repository?: string | void;
     /** Accept defaults for all missing system scaffold values. */
     yes?: boolean;
+    /** Preview the system scaffold without creating files or initializing Git. */
+    dryRun?: boolean;
   };
 
   export type DetachSystemHandlerOptions = {
