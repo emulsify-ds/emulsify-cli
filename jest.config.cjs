@@ -29,8 +29,8 @@ module.exports = {
     "^(\\.\\.?\\/.+)\\.js$": "$1",
   },
   coveragePathIgnorePatterns: [
-    '<rootDir>/node_modules/',
-    '<rootDir>/src/index.ts',
+    '[\\\\/]node_modules[\\\\/]',
+    '[\\\\/]src[\\\\/]index\\.ts$',
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
 };
