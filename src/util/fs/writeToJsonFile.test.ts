@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { basename, dirname } from 'path';
+import { basename, dirname, resolve } from 'path';
 import writeToJsonFile from './writeToJsonFile.js';
 
 const writeFileMock = fs.writeFile as jest.Mock;
@@ -15,7 +15,7 @@ describe('writeToJsonFile', () => {
   });
 
   it('writes to a unique sibling temp file before renaming it over the target', async () => {
-    const path = '/project/project.emulsify.json';
+    const path = resolve('/project/project.emulsify.json');
     const json = { key: 'value' };
 
     await expect(writeToJsonFile(path, json)).resolves.toBe(undefined);
@@ -39,7 +39,7 @@ describe('writeToJsonFile', () => {
   });
 
   it('leaves the original untouched and removes the temp after a failed write', async () => {
-    const path = '/project/project.emulsify.json';
+    const path = resolve('/project/project.emulsify.json');
     const json = { secret: 'must not appear in the error' };
     const writeError = new Error('ENOSPC: no space left on device');
     writeFileMock.mockRejectedValueOnce(writeError);
@@ -58,7 +58,7 @@ describe('writeToJsonFile', () => {
   });
 
   it('removes the temp after a failed rename', async () => {
-    const path = '/project/project.emulsify.json';
+    const path = resolve('/project/project.emulsify.json');
     const renameError = new Error('EPERM: rename failed');
     renameMock.mockRejectedValueOnce(renameError);
 
@@ -73,7 +73,7 @@ describe('writeToJsonFile', () => {
   });
 
   it('reports a cleanup failure without exposing the serialized JSON', async () => {
-    const path = '/project/project.emulsify.json';
+    const path = resolve('/project/project.emulsify.json');
     const writeError = new Error('EIO: write failed');
     writeFileMock.mockRejectedValueOnce(writeError);
     rmMock.mockRejectedValueOnce(new Error('EACCES: cleanup failed'));
