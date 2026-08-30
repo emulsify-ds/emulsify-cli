@@ -23,7 +23,7 @@ function getRootHelp(): string {
   return [
     `${packageInfo.productName} ${packageInfo.version}`,
     '',
-    'Create Emulsify projects, choose component systems, install components, generate local components, and route audits to Emulsify Core.',
+    'Build and use component systems in Drupal, WordPress, or standalone front ends.',
     '',
     'Usage:',
     '  emulsify',

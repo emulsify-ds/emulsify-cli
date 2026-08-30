@@ -1,5 +1,7 @@
 # Emulsify CLI Documentation
 
+Build and use component systems in Drupal, WordPress, or standalone front ends.
+
 These docs expand on the short project README and are organized by the task a project user or maintainer is usually trying to complete.
 
 | Topic                                                             | Use This When                                                                                                           |

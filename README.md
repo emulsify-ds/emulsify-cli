@@ -3,7 +3,7 @@
 
 # Emulsify CLI
 
-Command line interface for creating Emulsify projects, authoring and installing component systems, installing system components, generating local components, and routing project audits to Emulsify Core.
+Build and use component systems in Drupal, WordPress, or standalone front ends.
 
 ## Requirements
 
