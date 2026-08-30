@@ -8,6 +8,7 @@ import { EMULSIFY_CACHE_METADATA_FILE } from '../../lib/constants.js';
 
 import getCachedItemPath from './getCachedItemPath.js';
 import normalizeRepositoryUrl from './normalizeRepositoryUrl.js';
+import getNonInteractiveGitEnvironment from '../getNonInteractiveGitEnvironment.js';
 
 type CacheMetadata = {
   repository: string;
@@ -161,10 +162,7 @@ async function getRemoteResolvedRef(
         stdOut: false,
         stdErr: false,
       },
-    }).env({
-      ...process.env,
-      GIT_TERMINAL_PROMPT: '0',
-    });
+    }).env(getNonInteractiveGitEnvironment());
     const output = await git.listRemote([repository, ...remoteRefs]);
     const resolvedRefs = new Map<string, string>();
 

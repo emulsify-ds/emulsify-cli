@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import getNonInteractiveGitEnvironment from './getNonInteractiveGitEnvironment.js';
 
 type ParsedTag = {
   tag: string;
@@ -11,14 +12,31 @@ type ParsedTag = {
 const tagPattern =
   /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
 
+const REMOTE_TAG_LOOKUP_TIMEOUT_MS = 10_000;
+
+class RemoteTagLookupTimeoutError extends Error {}
+
 function getRemoteTagRefs(repoUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       'git',
-      ['ls-remote', '--tags', '--refs', repoUrl],
-      { encoding: 'utf8' },
+      ['ls-remote', '--tags', '--refs', '--', repoUrl],
+      {
+        encoding: 'utf8',
+        timeout: REMOTE_TAG_LOOKUP_TIMEOUT_MS,
+        env: getNonInteractiveGitEnvironment(),
+      },
       (error, stdout, stderr) => {
         if (error) {
+          if (error.killed && error.signal === 'SIGTERM') {
+            reject(
+              new RemoteTagLookupTimeoutError(
+                `The lookup timed out after ${REMOTE_TAG_LOOKUP_TIMEOUT_MS / 1_000} seconds.`,
+              ),
+            );
+            return;
+          }
+
           reject(new Error(stderr.trim() || error.message));
           return;
         }
@@ -122,8 +140,12 @@ const getRepositoryLatestTag = async (repoUrl: string): Promise<string> => {
     refs = await getRemoteTagRefs(repoUrl);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const checkoutSuggestion =
+      error instanceof RemoteTagLookupTimeoutError
+        ? ` Retry with --repository "${repoUrl}" --checkout <branch, tag, or commit> to skip automatic tag lookup.`
+        : '';
     throw new Error(
-      `Unable to read tags from repository ${repoUrl}: ${message}`,
+      `Unable to read tags from repository ${repoUrl}: ${message}${checkoutSuggestion}`,
     );
   }
 
