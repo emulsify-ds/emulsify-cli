@@ -219,10 +219,17 @@ filename already contains one, that filename becomes the tag name. For example,
 For a single-word component, the CLI prefixes the filename with the project's
 machine name. In a project whose machine name is `acme-theme`, `card` generates
 `<acme-theme-card>`. The interactive wizard confirms the derived tag name and
-lets you override it. In non-interactive mode, the CLI derives the value
-silently and validates it before writing files; an invalid tag fails with an
-actionable error rather than generating a custom element the browser would
-reject.
+lets you override it. Pass `--tag-name <tag-name>` to set the tag explicitly:
+
+```bash
+emulsify component create card --directory base --type web-component --tag-name acme-card
+```
+
+In non-interactive mode, the CLI otherwise derives the value silently and
+validates it before writing files. Use `--tag-name` when a project machine name
+cannot produce a valid derived tag. Explicit and derived tags follow the same
+browser-compatible validation rules, and `--tag-name` is rejected for types
+other than `web-component`.
 
 ## Create Dry Runs
 

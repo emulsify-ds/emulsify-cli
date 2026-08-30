@@ -467,6 +467,7 @@ Options:
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `-d, --directory <directory>`                       | Variant structure name where the component should be created.                                       |
 | `-t, --type <twig\|twig-sdc\|react\|web-component>` | Component renderer and packaging type.                                                              |
+| `--tag-name <tag-name>`                             | Explicit custom element tag for `--type web-component`.                                             |
 | `-f, --format <default\|sdc>`                       | Deprecated alias: `default` maps to `twig`; `sdc` maps to `twig-sdc`. Prints a deprecation warning. |
 | `--force`                                           | Replace an existing generated component without prompting.                                          |
 | `-y, --yes`                                         | Compatibility alias for `--force`.                                                                  |
@@ -480,6 +481,7 @@ emulsify component create promo-card --directory molecules --type twig
 emulsify component create teaser --directory molecules --type twig-sdc
 emulsify component create promo-card --directory molecules --type react
 emulsify component create promo-card --directory molecules --type web-component
+emulsify component create card --directory molecules --type web-component --tag-name acme-card
 emulsify component create promo-card --directory molecules --type twig --dry-run
 ```
 
@@ -488,7 +490,11 @@ use Emulsify Core's `renderWebComponent` helper. For Web Components, a
 hyphenated component filename is also the custom element tag. A single-word
 filename is prefixed with the project's machine name, so `card` in `acme-theme`
 becomes `<acme-theme-card>`. The wizard confirms this tag and allows an
-override; non-interactive creation derives and validates it silently.
+override. Pass `--tag-name <tag-name>` to set it explicitly, including when a
+project machine name cannot produce a valid derived tag in a non-interactive
+environment. Explicit and derived values follow the same browser-compatible
+validation rules. `--tag-name` is rejected for types other than
+`web-component`.
 
 When standard input is not a TTY, provide the positional `[name]` plus both
 `--directory` and `--type`; otherwise the command exits with an actionable

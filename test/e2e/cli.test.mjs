@@ -325,6 +325,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.match(result.stdout, /--force/u);
     assert.match(result.stdout, /-y, --yes/u);
     assert.match(result.stdout, /Compatibility alias for --force/u);
+    assert.match(result.stdout, /--tag-name <tag-name>/u);
   });
 
   test('advertises all-types template ejection in detailed help', () => {
@@ -1032,6 +1033,40 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
         `${componentCase.type} should create only its documented artifacts`,
       );
     }
+  });
+
+  test('uses an explicit custom element tag name non-interactively', () => {
+    const result = runCli(projectRoot, [
+      'component',
+      'create',
+      'tag-override-example',
+      '--type',
+      'web-component',
+      '--tag-name',
+      'custom-tag-override',
+      '--directory',
+      'components',
+    ]);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component create --tag-name', result),
+    );
+    assert.match(result.stderr, /@emulsify\/core was not detected/u);
+    const componentSource = readFileSync(
+      join(
+        projectRoot,
+        'components',
+        'tag-override-example',
+        'tag-override-example.js',
+      ),
+      'utf8',
+    );
+    assert.match(
+      componentSource,
+      /customElements\.define\('custom-tag-override'/u,
+    );
   });
 
   test('executes the project system-install hook', () => {

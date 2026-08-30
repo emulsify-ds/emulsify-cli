@@ -25,6 +25,7 @@ COMPONENTS
   component create [name]         Generate a new local component
       -d, --directory <dir>          Variant structure to create it in
       -t, --type <type>              twig | twig-sdc | react | web-component
+      --tag-name <name>              Set the Web Component custom element tag
       -f, --format <default|sdc>     Deprecated Twig type alias
       --force                        Replace an existing generated component
       --dry-run                      Preview without writing files

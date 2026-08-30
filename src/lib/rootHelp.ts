@@ -114,6 +114,11 @@ const sections: HelpSection[] = [
       },
       {
         kind: 'option',
+        label: '--tag-name <name>',
+        description: 'Set the Web Component custom element tag',
+      },
+      {
+        kind: 'option',
         label: '-f, --format <default|sdc>',
         description: 'Deprecated Twig type alias',
       },

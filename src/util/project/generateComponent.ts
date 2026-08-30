@@ -19,7 +19,7 @@ import {
   assertValidCustomElementTagName,
   deriveCustomElementTagName,
 } from '../deriveCustomElementTagName.js';
-import { runPrompt } from '../prompt/index.js';
+import { isInteractiveTerminal, runPrompt } from '../prompt/index.js';
 import {
   componentTypeFromLegacyFormat,
   getAvailableComponentTypes,
@@ -125,6 +125,7 @@ function validateCustomElementTagName(value: string): true | string {
  * @param options commander options object.
  * @param options.directory string name of the directory where the component should be created.
  * @param options.type canonical component type to generate.
+ * @param options.tagName explicit custom element tag name for a Web Component.
  * @param options.format deprecated component format alias. "default" maps to "twig" and "sdc" maps to "twig-sdc".
  * @param options.force whether to replace existing components without prompting.
  * @param options.yes compatibility alias for options.force.
@@ -170,6 +171,12 @@ export default async function generateComponent(
         nonInteractive: { error: MISSING_COMPONENT_TYPE_ERROR },
       });
 
+  if (options.tagName !== undefined && type !== 'web-component') {
+    throw new Error(
+      'The --tag-name option can only be used with --type web-component.',
+    );
+  }
+
   if (
     providedType &&
     (type === 'react' || type === 'web-component') &&
@@ -183,22 +190,35 @@ export default async function generateComponent(
 
   let tagName = '';
   if (type === 'web-component') {
-    const derivedTagName = deriveCustomElementTagName(
-      filename,
-      projectConfig.project.machineName,
-    );
-    tagName = (
-      await runPrompt({
-        prompt: () =>
-          input({
-            message: cyan('Custom element tag name:'),
-            default: derivedTagName,
-            validate: validateCustomElementTagName,
-          }),
-        nonInteractive: { value: derivedTagName },
-      })
-    ).trim();
-    assertValidCustomElementTagName(tagName);
+    if (options.tagName !== undefined) {
+      tagName = options.tagName.trim();
+    } else {
+      const derivedTagName = deriveCustomElementTagName(
+        filename,
+        projectConfig.project.machineName,
+      );
+      tagName = (
+        await runPrompt({
+          prompt: () =>
+            input({
+              message: cyan('Custom element tag name:'),
+              default: derivedTagName,
+              validate: validateCustomElementTagName,
+            }),
+          nonInteractive: { value: derivedTagName },
+        })
+      ).trim();
+    }
+    try {
+      assertValidCustomElementTagName(tagName);
+    } catch (error) {
+      if (options.tagName === undefined && !isInteractiveTerminal()) {
+        throw new SyntaxError(
+          `${(error as Error).message} Pass --tag-name <tag-name> to provide a valid custom element name.`,
+        );
+      }
+      throw error;
+    }
   }
 
   // Choose the component's parent structure within the given variant configuration.

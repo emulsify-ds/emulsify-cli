@@ -66,6 +66,8 @@ declare module '@emulsify-cli/handlers' {
     directory?: string;
     /** Component implementation type to generate. */
     type?: string;
+    /** Explicit custom element tag name for a Web Component. */
+    tagName?: string;
     /** Deprecated component format alias. "default" maps to "twig" and "sdc" maps to "twig-sdc". */
     format?: string;
     /** Replace an existing component without prompting. */

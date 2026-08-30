@@ -170,6 +170,10 @@ component
     'Component implementation type to generate.',
   )
   .option(
+    '--tag-name <tag-name>',
+    'Custom element tag name for a Web Component.',
+  )
+  .option(
     '-f, --format <default|sdc>',
     'Deprecated alias: default maps to twig and sdc maps to twig-sdc.',
   )

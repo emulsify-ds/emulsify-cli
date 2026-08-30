@@ -746,6 +746,74 @@ describe('generateComponent', () => {
     );
   });
 
+  it('uses an explicit valid tag outside a TTY when the derived tag would be invalid', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+    pathExistsMock.mockResolvedValue(false);
+    const invalidMachineNameConfig: EmulsifyProjectConfiguration = {
+      ...projectConfig,
+      project: { ...projectConfig.project, machineName: '123theme' },
+    };
+
+    await generateComponent(variant, invalidMachineNameConfig, 'button', {
+      directory: 'base',
+      type: 'web-component',
+      tagName: ' valid-button ',
+    });
+
+    expect(inputMock).not.toHaveBeenCalled();
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('button', 'button.js'),
+      expect.stringContaining(
+        "customElements.define('valid-button', ButtonElement);",
+      ),
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('button', 'button.stories.js'),
+      expect.stringContaining("render: renderWebComponent('valid-button')"),
+    );
+  });
+
+  it('rejects an invalid explicit custom element tag without prompting or writing', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+    pathExistsMock.mockResolvedValue(false);
+
+    await expect(
+      generateComponent(variant, projectConfig, 'button', {
+        directory: 'base',
+        type: 'web-component',
+        tagName: 'button',
+      }),
+    ).rejects.toThrow(
+      'Invalid custom element tag name "button". Names must start with an ASCII lowercase letter',
+    );
+
+    expect(inputMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['twig', 'twig-sdc', 'react'] as const)(
+    'rejects --tag-name for the %s component type',
+    async (type) => {
+      expect.assertions(2);
+      setStdinIsTTY(false);
+      pathExistsMock.mockResolvedValue(false);
+
+      await expect(
+        generateComponent(variant, projectConfig, 'button', {
+          directory: 'base',
+          type,
+          tagName: 'custom-button',
+        }),
+      ).rejects.toThrow(
+        'The --tag-name option can only be used with --type web-component.',
+      );
+
+      expect(writeFileMock).not.toHaveBeenCalled();
+    },
+  );
+
   it('rejects an invalid derived tag outside a TTY without writing files', async () => {
     expect.assertions(3);
     setStdinIsTTY(false);
@@ -760,7 +828,7 @@ describe('generateComponent', () => {
         type: 'web-component',
       }),
     ).rejects.toThrow(
-      'Invalid custom element tag name "123theme-button". Names must start with an ASCII lowercase letter',
+      'Invalid custom element tag name "123theme-button". Names must start with an ASCII lowercase letter, contain a hyphen, use browser-supported custom-element name characters, and must not be a reserved name. Pass --tag-name <tag-name> to provide a valid custom element name.',
     );
 
     expect(inputMock).not.toHaveBeenCalled();

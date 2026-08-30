@@ -301,7 +301,8 @@ describe('componentCreate', () => {
   it('forwards project configuration and all generator options using the new signature', async () => {
     const options = {
       directory: 'base',
-      type: 'react',
+      type: 'web-component',
+      tagName: 'custom-button',
       yes: true,
       dryRun: true,
       refresh: true,

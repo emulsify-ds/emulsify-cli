@@ -44,6 +44,7 @@ describe('getRootHelp', () => {
     expect(help).toContain(
       '      --force                        Replace an existing generated component',
     );
+    expect(help).toContain('Set the Web Component custom element tag');
     expect(help).toContain('--refresh works on list, install, and create.');
     expect(help).not.toContain('component ls');
     expect(
@@ -69,6 +70,9 @@ describe('getRootHelp', () => {
     );
     expect(help).toContain(
       '      -f, --format <default|sdc>\n        Deprecated Twig type alias',
+    );
+    expect(help).toContain(
+      '      --tag-name <name>\n        Set the Web Component custom element tag',
     );
     expect(help).toContain(
       '  component eject-templates [type]\n    Write editable built-in templates',

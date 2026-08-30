@@ -110,6 +110,7 @@ emulsify component install card --force
 # Or install every available component:
 emulsify component install --all
 emulsify component create promo-card --directory molecules --type twig --force
+emulsify component create card --directory molecules --type web-component --tag-name acme-card
 emulsify component eject-templates --all
 emulsify system detach --yes
 ```
@@ -122,7 +123,9 @@ creation, provide the positional name plus `--type` and `--directory`, and use
 `--type` values are honored even when project detection would hide that choice
 from the wizard. The deprecated `--format default` and `--format sdc` forms
 remain available as aliases for `--type twig` and `--type twig-sdc`,
-respectively, and print a deprecation warning.
+respectively, and print a deprecation warning. Web Components derive their tag
+name from the component and project names; pass `--tag-name` to override it,
+including when the derived value would be invalid in a non-interactive run.
 For template ejection, provide the component type or `--all` outside a TTY; use
 `--dry-run` to preview paths and `--force` only when existing customizations
 should be replaced.
