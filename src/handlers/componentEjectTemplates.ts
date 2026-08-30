@@ -285,19 +285,18 @@ async function installTransactionItem(
     } catch (error) {
       if (!isUnsupportedHardLinkError(error)) throw error;
 
-      // Filesystems without hard links cannot publish the staged inode. Keep
-      // the exclusive-create backstop and record ownership before writing so
-      // rollback removes a destination left partial by a failed write.
+      // Filesystems without hard links cannot publish the staged inode. An
+      // exclusive open proves this transaction created the destination before
+      // rollback is allowed to remove a partial write.
+      const destinationHandle = await fs.open(item.destination, 'wx');
       item.installed = true;
       try {
-        await fs.writeFile(item.destination, item.contents, {
+        await fs.writeFile(destinationHandle, item.contents, {
           encoding: 'utf-8',
-          flag: 'wx',
           flush: true,
         });
-      } catch (writeError) {
-        if (isAlreadyExistsError(writeError)) item.installed = false;
-        throw writeError;
+      } finally {
+        await destinationHandle.close();
       }
     }
     item.installed = true;

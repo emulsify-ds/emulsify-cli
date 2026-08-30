@@ -37,6 +37,7 @@ jest.mock('fs', () => ({
     mkdir: jest.fn(),
     mkdtemp: jest.fn(),
     link: jest.fn(),
+    open: jest.fn(),
     rename: jest.fn(),
     stat: jest.fn(),
     copyFile: jest.fn(),

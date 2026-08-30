@@ -25,6 +25,7 @@ const findFileMock = findFileInCurrentPath as jest.Mock;
 const logMock = log as jest.Mock;
 const linkMock = fs.link as jest.Mock;
 const mkdirMock = fs.mkdir as jest.Mock;
+const openMock = fs.open as jest.Mock;
 const pathExistsMock = pathExists as jest.Mock;
 const renameMock = fs.rename as jest.Mock;
 const rmMock = fs.rm as jest.Mock;
@@ -56,6 +57,7 @@ function transactionPathPrefix(
 function expectNoWrites(): void {
   expect(copyFileMock).not.toHaveBeenCalled();
   expect(mkdirMock).not.toHaveBeenCalled();
+  expect(openMock).not.toHaveBeenCalled();
   expect(writeFileMock).not.toHaveBeenCalled();
   expect(linkMock).not.toHaveBeenCalled();
   expect(renameMock).not.toHaveBeenCalled();
@@ -66,20 +68,41 @@ function filesystemError(code: string, message = code): NodeJS.ErrnoException {
   return Object.assign(new Error(message), { code });
 }
 
+type InMemoryFileHandle = {
+  target: string;
+  close: jest.Mock;
+};
+
 function mockInMemoryFilesystem(
   initialFiles: Readonly<Record<string, string>> = {},
 ) {
   const files = new Map(Object.entries(initialFiles));
+  const handles = new Map<string, InMemoryFileHandle>();
 
   const writeFile = async (
-    target: string,
+    target: string | InMemoryFileHandle,
     contents: string,
     options?: { flag?: string },
   ): Promise<void> => {
-    if (options?.flag === 'wx' && files.has(target)) {
+    const writeTarget = typeof target === 'string' ? target : target.target;
+    if (options?.flag === 'wx' && files.has(writeTarget)) {
       throw filesystemError('EEXIST');
     }
-    files.set(target, String(contents));
+    files.set(writeTarget, String(contents));
+  };
+  const open = async (
+    target: string,
+    flag: string,
+  ): Promise<InMemoryFileHandle> => {
+    if (flag === 'wx' && files.has(target)) throw filesystemError('EEXIST');
+
+    files.set(target, '');
+    const handle = {
+      target,
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    handles.set(target, handle);
+    return handle;
   };
   const link = async (source: string, target: string): Promise<void> => {
     if (!files.has(source)) throw filesystemError('ENOENT');
@@ -101,6 +124,7 @@ function mockInMemoryFilesystem(
     files.has(target),
   );
   writeFileMock.mockImplementation(writeFile);
+  openMock.mockImplementation(open);
   linkMock.mockImplementation(link);
   copyFileMock.mockImplementation(copyFile);
   renameMock.mockImplementation(rename);
@@ -108,7 +132,7 @@ function mockInMemoryFilesystem(
     files.delete(target);
   });
 
-  return { files, rename, writeFile };
+  return { files, handles, open, rename, writeFile };
 }
 
 describe('buildComponentTemplateEjectionPlan', () => {
@@ -148,6 +172,9 @@ describe('componentEjectTemplates', () => {
     pathExistsMock.mockResolvedValue(false);
     mkdirMock.mockResolvedValue(undefined);
     linkMock.mockResolvedValue(undefined);
+    openMock.mockResolvedValue({
+      close: jest.fn().mockResolvedValue(undefined),
+    });
     renameMock.mockResolvedValue(undefined);
     rmMock.mockResolvedValue(undefined);
     writeFileMock.mockResolvedValue(undefined);
@@ -208,7 +235,7 @@ describe('componentEjectTemplates', () => {
   it.each(['EPERM', 'ENOTSUP'])(
     'publishes exclusive destination files when hard links fail with %s',
     async (code) => {
-      const { files } = mockInMemoryFilesystem();
+      const { files, handles } = mockInMemoryFilesystem();
       linkMock.mockRejectedValue(filesystemError(code, 'links unsupported'));
 
       await componentEjectTemplates('react');
@@ -223,11 +250,14 @@ describe('componentEjectTemplates', () => {
         ),
       );
       for (const artifact of artifacts) {
-        expect(writeFileMock).toHaveBeenCalledWith(
-          destination('react', artifact.logicalName),
-          artifact.contents,
-          { encoding: 'utf-8', flag: 'wx', flush: true },
-        );
+        const target = destination('react', artifact.logicalName);
+        const handle = handles.get(target);
+        expect(openMock).toHaveBeenCalledWith(target, 'wx');
+        expect(writeFileMock).toHaveBeenCalledWith(handle, artifact.contents, {
+          encoding: 'utf-8',
+          flush: true,
+        });
+        expect(handle?.close).toHaveBeenCalledTimes(1);
       }
       expect(copyFileMock).not.toHaveBeenCalled();
       expect(renameMock).not.toHaveBeenCalled();
@@ -484,12 +514,18 @@ describe('componentEjectTemplates', () => {
   it('rolls back successful and partial exclusive writes after publication fails', async () => {
     const firstTarget = destination('react', 'component.jsx');
     const failedTarget = destination('react', 'component.scss');
-    const { files, writeFile } = mockInMemoryFilesystem();
+    const { files, handles, writeFile } = mockInMemoryFilesystem();
     linkMock.mockRejectedValue(filesystemError('EPERM'));
     writeFileMock.mockImplementation(
-      async (target: string, contents: string, options?: { flag?: string }) => {
+      async (
+        target: string | InMemoryFileHandle,
+        contents: string,
+        options?: { flag?: string },
+      ) => {
         await writeFile(target, contents, options);
-        if (target === failedTarget) throw new Error('write interrupted');
+        if (typeof target !== 'string' && target.target === failedTarget) {
+          throw new Error('write interrupted');
+        }
       },
     );
 
@@ -503,18 +539,17 @@ describe('componentEjectTemplates', () => {
     expect(Object.fromEntries(files)).toEqual({});
     expect(rmMock).toHaveBeenCalledWith(firstTarget, { force: true });
     expect(rmMock).toHaveBeenCalledWith(failedTarget, { force: true });
+    expect(handles.get(failedTarget)?.close).toHaveBeenCalledTimes(1);
   });
 
   it('preserves a destination that appears before the exclusive-write fallback', async () => {
     const firstTarget = destination('react', 'component.jsx');
-    const { files, writeFile } = mockInMemoryFilesystem();
+    const { files, open } = mockInMemoryFilesystem();
     linkMock.mockRejectedValue(filesystemError('EPERM'));
-    writeFileMock.mockImplementation(
-      async (target: string, contents: string, options?: { flag?: string }) => {
-        if (target === firstTarget) files.set(target, 'concurrent contents');
-        await writeFile(target, contents, options);
-      },
-    );
+    openMock.mockImplementation(async (target: string, flag: string) => {
+      if (target === firstTarget) files.set(target, 'concurrent contents');
+      return open(target, flag);
+    });
 
     await expect(componentEjectTemplates('react')).rejects.toMatchObject({
       name: 'CliError',
