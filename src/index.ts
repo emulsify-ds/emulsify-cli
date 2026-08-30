@@ -164,8 +164,12 @@ component
     'Deprecated alias: default maps to twig and sdc maps to twig-sdc.',
   )
   .option(
+    '--force',
+    'Replace an existing generated component without prompting.',
+  )
+  .option(
     '-y, --yes',
-    'Skip overwrite confirmation prompts and replace existing components.',
+    'Compatibility alias for --force when replacing an existing component.',
   )
   .option(
     '--dry-run',

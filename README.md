@@ -101,7 +101,7 @@ emulsify system install compound
 emulsify component install card --force
 # Or install every available component:
 emulsify component install --all
-emulsify component create promo-card --directory molecules --type twig --yes
+emulsify component create promo-card --directory molecules --type twig --force
 emulsify component eject-templates twig
 emulsify system detach --yes
 ```
@@ -109,7 +109,8 @@ emulsify system detach --yes
 For component installation, provide either a component name or `--all`, and use
 `--force` when an existing destination should be replaced. For component
 creation, provide the positional name plus `--type` and `--directory`, and use
-`--yes` when an existing generated component should be replaced. Explicit
+`--force` when an existing generated component should be replaced. The existing
+`-y, --yes` form remains available as a compatibility alias. Explicit
 `--type` values are honored even when project detection would hide that choice
 from the wizard. The deprecated `--format default` and `--format sdc` forms
 remain available as aliases for `--type twig` and `--type twig-sdc`,

@@ -591,6 +591,24 @@ describe('generateComponent', () => {
     );
   });
 
+  it('skips the overwrite confirm and replaces the component when force is set', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+
+    await generateComponent(variant, projectConfig, 'link', {
+      directory: 'base',
+      type: 'twig',
+      force: true,
+    });
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(removeMock).toHaveBeenCalledWith(componentPath('link'));
+    expect(log).toHaveBeenCalledWith(
+      'success',
+      expect.stringContaining('Success!'),
+    );
+  });
+
   it('should continue creation if user confirms overwrite', async () => {
     expect.assertions(2);
     confirmMock.mockResolvedValueOnce(true);

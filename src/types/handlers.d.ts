@@ -66,7 +66,9 @@ declare module '@emulsify-cli/handlers' {
     type?: string;
     /** Deprecated component format alias. "default" maps to "twig" and "sdc" maps to "twig-sdc". */
     format?: string;
-    /** Skip overwrite confirmation prompts and replace existing components. */
+    /** Replace an existing component without prompting. */
+    force?: boolean;
+    /** Compatibility alias for force. */
     yes?: boolean;
     /** Preview planned component operations without writing, copying, or removing files. */
     dryRun?: boolean;

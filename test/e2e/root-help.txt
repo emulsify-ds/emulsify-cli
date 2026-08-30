@@ -26,6 +26,7 @@ COMPONENTS
       -d, --directory <dir>          Variant structure to create it in
       -t, --type <type>              twig | twig-sdc | react | web-component
       -f, --format <default|sdc>     Deprecated Twig type alias
+      --force                        Replace an existing generated component
       --dry-run                      Preview without writing files
   component eject-templates [type]  Write editable built-in templates
       -f, --force                    Replace existing template files

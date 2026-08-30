@@ -251,10 +251,12 @@ For compatibility with existing scripts, deprecated `--format default` maps to
 `--type twig` and `--format sdc` maps to `--type twig-sdc`. Both legacy forms
 print a deprecation warning.
 
-Use `--yes` when the command should replace an existing generated component without asking:
+Use `--force` when the command should replace an existing generated component
+without asking. The existing `-y, --yes` form remains available as a
+compatibility alias.
 
 ```bash
-emulsify component create featured-item --directory base --type twig --yes
+emulsify component create featured-item --directory base --type twig --force
 ```
 
 ## Template Overrides

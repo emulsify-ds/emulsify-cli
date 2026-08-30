@@ -126,7 +126,8 @@ function validateCustomElementTagName(value: string): true | string {
  * @param options.directory string name of the directory where the component should be created.
  * @param options.type canonical component type to generate.
  * @param options.format deprecated component format alias. "default" maps to "twig" and "sdc" maps to "twig-sdc".
- * @param options.yes whether to skip overwrite confirmation prompts and replace existing components.
+ * @param options.force whether to replace existing components without prompting.
+ * @param options.yes compatibility alias for options.force.
  * @param options.dryRun whether to preview generated files without changing the project.
  * @returns
  * @throws {Error} if the component name is invalid, the current path is not within an Emulsify project, the requested structure is invalid, or required non-interactive options are missing.
@@ -141,6 +142,7 @@ export default async function generateComponent(
   const { filename, className, camelName, pascalName, snakeName, humanName } =
     deriveComponentNames(componentName);
   const providedType = resolveProvidedComponentType(options);
+  const force = options.force === true || options.yes === true;
   let directory = options.directory || '';
 
   // Gather information about the current Emulsify project. If none exists,
@@ -274,7 +276,7 @@ export default async function generateComponent(
 
   if (options.dryRun) {
     const realRunAction = componentExists
-      ? options.yes
+      ? force
         ? 'replace the existing component directory'
         : 'prompt before replacing the existing component directory'
       : 'create the component directory';
@@ -315,7 +317,7 @@ export default async function generateComponent(
           default: false,
         }),
       nonInteractive: { value: false },
-      accept: { when: options.yes === true, value: true },
+      accept: { when: force, value: true },
     });
 
     if (!shouldReplace) {

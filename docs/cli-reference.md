@@ -456,7 +456,8 @@ Options:
 | `-d, --directory <directory>`                       | Variant structure name where the component should be created.                                       |
 | `-t, --type <twig\|twig-sdc\|react\|web-component>` | Component renderer and packaging type.                                                              |
 | `-f, --format <default\|sdc>`                       | Deprecated alias: `default` maps to `twig`; `sdc` maps to `twig-sdc`. Prints a deprecation warning. |
-| `-y, --yes`                                         | Replace an existing generated component without prompting.                                          |
+| `--force`                                           | Replace an existing generated component without prompting.                                          |
+| `-y, --yes`                                         | Compatibility alias for `--force`.                                                                  |
 | `--dry-run`                                         | Preview destination and generated files without writing, removing, or creating files.               |
 | `--refresh`                                         | Check the system's remote ref before reusing its local cache entry.                                 |
 
@@ -480,6 +481,7 @@ override; non-interactive creation derives and validates it silently.
 When standard input is not a TTY, provide the positional `[name]` plus both
 `--directory` and `--type`; otherwise the command exits with an actionable
 error instead of waiting for prompts that cannot be answered. If the generated
-component already exists, also pass `--yes` to replace it without an overwrite
-prompt. Existing scripts may continue using `--format default` or
-`--format sdc`; both aliases work and print a deprecation warning.
+component already exists, also pass `--force` to replace it without an
+overwrite prompt. Existing scripts may continue using the `-y, --yes`
+compatibility alias. The deprecated `--format default` and `--format sdc`
+forms also remain available and print a deprecation warning.

@@ -134,7 +134,8 @@ Options:
 - `--directory <directory>`: Sets the variant structure where the component is created.
 - `--type <type>`: Sets the component type. Supported values are `twig`, `twig-sdc`, `react`, and `web-component`.
 - `--format <format>`: Deprecated compatibility alias. `default` maps to `twig`; `sdc` maps to `twig-sdc`, and both print a warning.
-- `--yes`: Replaces an existing component without an overwrite confirmation prompt.
+- `--force`: Replaces an existing component without an overwrite confirmation prompt.
+- `--yes`: Compatibility alias for `--force`.
 - `--dry-run`: Previews the destination and generated files without writing, removing, or creating files.
 
 In the interactive wizard, Twig is always available, Twig SDC is shown only
@@ -150,7 +151,7 @@ Examples:
 
 ```bash
 emulsify component create promo-card --directory molecules --type twig
-emulsify component create teaser --directory molecules --type twig-sdc --yes
+emulsify component create teaser --directory molecules --type twig-sdc --force
 emulsify component create promo-card --directory molecules --type react
 emulsify component create promo-card --directory molecules --type web-component
 emulsify component create promo-card --directory molecules --type twig --dry-run

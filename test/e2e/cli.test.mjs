@@ -322,6 +322,9 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     );
     assert.match(result.stdout, /--format <default\|sdc>/u);
     assert.match(result.stdout, /Deprecated alias/u);
+    assert.match(result.stdout, /--force/u);
+    assert.match(result.stdout, /-y, --yes/u);
+    assert.match(result.stdout, /Compatibility alias for --force/u);
   });
 
   test('prints the package version', () => {

@@ -119,6 +119,11 @@ const sections: HelpSection[] = [
       },
       {
         kind: 'option',
+        label: '--force',
+        description: 'Replace an existing generated component',
+      },
+      {
+        kind: 'option',
         label: '--dry-run',
         description: 'Preview without writing files',
       },
