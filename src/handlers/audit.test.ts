@@ -1,6 +1,7 @@
 import type { SpawnSyncReturns } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import audit, {
   executeCoreAudit,
   getAuditProjectRoot,
@@ -21,6 +22,7 @@ const { mkdir, mkdtemp, realpath, rm, writeFile } =
 
 const repositoryRoot = process.cwd();
 const registerPath = join(repositoryRoot, 'src/register.mjs');
+const registerUrl = pathToFileURL(registerPath).href;
 const cliPath = join(repositoryRoot, 'src/index.ts');
 const fakeAuditRelativePath = './bin with spaces/fake audit.mjs';
 const fakeAuditSource = `
@@ -139,7 +141,7 @@ function createSpawnResult(
 function runSourceCli(cwd: string, args: string[], input = ''): CliResult {
   const result = spawnSync(
     process.execPath,
-    ['--import', registerPath, cliPath, ...args],
+    ['--import', registerUrl, cliPath, ...args],
     {
       cwd,
       encoding: 'utf8',
@@ -197,8 +199,9 @@ test('selects the last valid separate or inline root without rewriting args', ()
 
 test('resolves the declared Core audit target through fake package metadata', async () => {
   const fixture = await createFakeCoreProject();
+  const resolvedAuditPath = resolveCoreAuditBin(fixture.projectRoot);
 
-  expect(resolveCoreAuditBin(fixture.projectRoot)).toBe(fixture.auditPath);
+  expect(await realpath(resolvedAuditPath)).toBe(fixture.auditPath);
   expect(fixture.auditPath).toContain(' ');
 });
 
@@ -375,12 +378,15 @@ test('the handler resolves from --root and assigns Core status without logging',
   expect(process.exitCode).toBe(1);
   expect(spawnProcess).toHaveBeenCalledWith(
     '/node path/node',
-    [fixture.auditPath, ...args],
+    [expect.any(String), ...args],
     {
       cwd: callerRoot,
       shell: false,
       stdio: 'inherit',
     },
+  );
+  expect(await realpath(spawnProcess.mock.calls[0][1][0])).toBe(
+    fixture.auditPath,
   );
 });
 
