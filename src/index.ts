@@ -76,10 +76,9 @@ function getRootHelp(): string {
     '',
     '  system install [name]',
     '    Install a built-in or repository-backed component system. With no name or repository in',
-    '    an interactive terminal, prompts for compound, emulsify-ui-kit, create a new system,',
-    '    or cancel.',
+    '    an interactive terminal, prompts for compound, emulsify-ui-kit, or cancel.',
     '    Options:',
-    '      -r, --repository <repository>       Install from a custom system repository ending in .git.',
+    '      -r, --repository <repository>       Install from a remote .git URL or local repository path.',
     '      -c, --checkout <commit/branch/tag>  Checkout to use with --repository.',
     '          --variant <platform-expression> Select an exact variant platform expression.',
     '      -a, --all                           Install every component in the selected variant.',
@@ -185,12 +184,10 @@ system
   .action(systemCreate);
 system
   .command('install [name]')
-  .description(
-    'Install a component system, prompt for a system, or scaffold a local system definition',
-  )
+  .description('Install a component system or prompt for a built-in system')
   .option(
     '-r --repository <repository>',
-    'Git repository containing the system to install. Custom repository URLs must end in .git.',
+    'Git repository containing the system to install. Remote URLs must end in .git; local paths are accepted.',
   )
   .option(
     '-c --checkout <commit/branch/tag>',

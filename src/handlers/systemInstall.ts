@@ -1,10 +1,6 @@
 import type { InstallSystemHandlerOptions } from '@emulsify-cli/handlers';
 import type { GitCloneOptions } from '@emulsify-cli/git';
-import type {
-  EmulsifyProjectConfiguration,
-  EmulsifySystem,
-  Platform,
-} from '@emulsify-cli/config';
+import type { EmulsifySystem, Platform } from '@emulsify-cli/config';
 
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
@@ -29,7 +25,6 @@ import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import executeScript from '../util/fs/executeScript.js';
-import writeToJsonFile from '../util/fs/writeToJsonFile.js';
 import validateSystemConfig from '../util/system/validateSystemConfig.js';
 import {
   getVariantPlatformExpressions,
@@ -39,7 +34,6 @@ import {
 } from '../util/platform/platformCompatibility.js';
 import { runPrompt } from '../util/prompt/index.js';
 
-const CREATE_NEW_SYSTEM_CHOICE = 'create a new system';
 const CANCEL_SYSTEM_INSTALL_CHOICE = 'cancel';
 const SYSTEM_INSTALL_ERROR =
   'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.';
@@ -112,7 +106,6 @@ async function promptForSystemInstallChoice(): Promise<string | void> {
         message: 'Choose a component system:',
         choices: [
           ...availableSystems.map(({ name }) => name),
-          CREATE_NEW_SYSTEM_CHOICE,
           CANCEL_SYSTEM_INSTALL_CHOICE,
         ],
       });
@@ -220,70 +213,6 @@ async function resolveSystemVariant(
   );
 }
 
-function getCustomSystemPlatform(platform: string): Platform {
-  return isPlatform(platform) ? platform : 'none';
-}
-
-function buildCustomSystemDefinition(platform: Platform): EmulsifySystem {
-  return {
-    name: 'custom-system',
-    homepage: 'https://example.com/custom-system',
-    repository: 'https://github.com/example/custom-system.git',
-    structure: [
-      {
-        name: 'components',
-        description: 'Project component library',
-      },
-    ],
-    variants: [
-      {
-        platform,
-        structureImplementations: [
-          {
-            name: 'components',
-            directory: './src/components',
-          },
-        ],
-        components: [],
-      },
-    ],
-  };
-}
-
-async function scaffoldCustomSystemDefinition(
-  projectConfig: EmulsifyProjectConfiguration,
-): Promise<void> {
-  const projectConfigPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
-  if (!projectConfigPath) {
-    throw new CliError(
-      `Unable to find ${EMULSIFY_PROJECT_CONFIG_FILE}. Run this command from within an Emulsify project.`,
-    );
-  }
-
-  const systemConfigPath = join(
-    dirname(projectConfigPath),
-    EMULSIFY_SYSTEM_CONFIG_FILE,
-  );
-  if (existsSync(systemConfigPath)) {
-    throw new CliError(
-      `${EMULSIFY_SYSTEM_CONFIG_FILE} already exists. Remove or rename it before creating a new custom system definition.`,
-    );
-  }
-
-  await writeToJsonFile<EmulsifySystem>(
-    systemConfigPath,
-    buildCustomSystemDefinition(
-      getCustomSystemPlatform(projectConfig.project.platform),
-    ),
-  );
-
-  log('success', `Created ${EMULSIFY_SYSTEM_CONFIG_FILE}.`);
-  log(
-    'info',
-    'Add your real system name, repository, structures, variants, and components before using this system to install or generate components.',
-  );
-}
-
 /**
  * Handler for the `system install` command.
  *
@@ -318,11 +247,6 @@ export default async function systemInstall(
   if (!selectedName && !options.repository && !options.checkout) {
     selectedName = await promptForSystemInstallChoice();
     if (!selectedName) {
-      return;
-    }
-
-    if (selectedName === CREATE_NEW_SYSTEM_CHOICE) {
-      await scaffoldCustomSystemDefinition(projectConfig);
       return;
     }
   }

@@ -53,10 +53,9 @@ Commands:
 
   system install [name]
     Install a built-in or repository-backed component system. With no name or repository in
-    an interactive terminal, prompts for compound, emulsify-ui-kit, create a new system,
-    or cancel.
+    an interactive terminal, prompts for compound, emulsify-ui-kit, or cancel.
     Options:
-      -r, --repository <repository>       Install from a custom system repository ending in .git.
+      -r, --repository <repository>       Install from a remote .git URL or local repository path.
       -c, --checkout <commit/branch/tag>  Checkout to use with --repository.
           --variant <platform-expression> Select an exact variant platform expression.
       -a, --all                           Install every component in the selected variant.
