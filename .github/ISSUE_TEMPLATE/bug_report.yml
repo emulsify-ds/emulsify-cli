@@ -1,0 +1,52 @@
+name: Bug report
+description: Report reproducible Emulsify CLI behavior that differs from the documentation
+labels:
+  - '🐛  Bug'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Emulsify CLI. Search existing issues before filing a duplicate.
+
+        **Do not report vulnerabilities here.** Follow the repository's [security policy](https://github.com/emulsify-ds/emulsify-cli/security/policy) so sensitive details remain private.
+  - type: textarea
+    id: observed-behavior
+    attributes:
+      label: Observed behavior
+      description: What did the CLI do, including the exact error or unexpected result?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include the exact command and the smallest project or configuration needed to reproduce the problem.
+      placeholder: |
+        1. Run `emulsify ...`
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Emulsify CLI version, Node.js version, operating system, and project platform.
+      placeholder: |
+        Emulsify CLI: output of `emulsify --version`
+        Node.js: output of `node --version`
+        Operating system:
+        Project platform: drupal, wordpress, or none
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add relevant redacted logs or configuration. Do not include credentials, tokens, or other secrets.

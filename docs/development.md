@@ -47,6 +47,9 @@ emulsify --help
 | `npm run watch`              | Rebuild when files in `src` change.                                                                |
 | `npm run watch-ts`           | Recompile TypeScript when files in `src` change.                                                   |
 | `npm run format`             | Run Prettier on source TypeScript and JavaScript files.                                            |
+| `npm run husky:commit-msg`   | Validate a commit message with the repository's conventional commitlint rules.                     |
+| `npm run husky:pre-commit`   | Run the repository's lint-staged pre-commit checks.                                                |
+| `npm run husky:pre-push`     | Run the complete test suite before pushing.                                                        |
 | `npm run lint`               | Run the complete test suite through `npm run test`.                                                |
 | `npm run test`               | Run unit and release tests, build the CLI, then run the end-to-end suite.                          |
 | `npm run test:e2e`           | Run the built CLI end to end with Node's test runner.                                              |
@@ -58,6 +61,7 @@ emulsify --help
 | `npm run release:analyze`    | Verify the predicted release without invoking publishing plugins.                                  |
 | `npm run release:verify`     | Run every build, test, package, smoke, and release-analysis gate used before publication.          |
 | `npm run semantic-release`   | Publish through semantic-release; use `-- --dry-run` unless publication is explicitly intended.    |
+| `npm run prepare`            | Install this repository's Husky Git hooks after installing dependencies.                           |
 
 Run one test file by passing the path after `--`:
 
