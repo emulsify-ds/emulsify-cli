@@ -5,9 +5,9 @@ import { select, confirm } from '@inquirer/prompts';
 import { promises as fs } from 'fs';
 import { dirname } from 'path';
 import { pathExists, remove } from 'fs-extra';
-import { cyan, green, bold, yellow } from 'colorette';
 
 import log from '../../lib/log.js';
+import getTerminalColors from '../../lib/terminalColors.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import safeResolveWithin from '../fs/safeResolveWithin.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
@@ -24,17 +24,6 @@ import {
   buildTwigTemplate,
   buildYmlTemplate,
 } from './componentTemplates/index.js';
-
-const COMPONENT_FORMAT_CHOICES = [
-  {
-    name: `${bold('Default')} (Standard Emulsify component)`,
-    value: 'default',
-  },
-  {
-    name: `${bold('SDC')} (Single Directory Component for Drupal)`,
-    value: 'sdc',
-  },
-];
 
 const COMPONENT_FORMATS = ['default', 'sdc'] as const;
 
@@ -83,6 +72,7 @@ export default async function generateComponent(
   componentName: string,
   options: CreateComponentHandlerOptions = {},
 ): Promise<void> {
+  const { bold, cyan, green, yellow } = getTerminalColors();
   const { filename, className, camelName, snakeName, humanName } =
     deriveComponentNames(componentName);
   const providedFormat = options.format
@@ -108,7 +98,16 @@ export default async function generateComponent(
         prompt: () =>
           select({
             message: cyan('Choose the component format:'),
-            choices: COMPONENT_FORMAT_CHOICES,
+            choices: [
+              {
+                name: `${bold('Default')} (Standard Emulsify component)`,
+                value: 'default',
+              },
+              {
+                name: `${bold('SDC')} (Single Directory Component for Drupal)`,
+                value: 'sdc',
+              },
+            ],
           }),
         nonInteractive: {
           error:

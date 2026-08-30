@@ -362,7 +362,7 @@ Options:
 | Option                        | Description                                                                           |
 | ----------------------------- | ------------------------------------------------------------------------------------- |
 | `-d, --directory <directory>` | Variant structure name where the component should be created.                         |
-| `-f, --format <format>`       | Component format to generate. Supported values are `default` and `sdc`.               |
+| `-f, --format <default\|sdc>` | Component format to generate.                                                         |
 | `-y, --yes`                   | Replace an existing generated component without prompting.                            |
 | `--dry-run`                   | Preview destination and generated files without writing, removing, or creating files. |
 | `--refresh`                   | Check the system's remote ref before reusing its local cache entry.                   |

@@ -95,11 +95,11 @@ function createGitRepository(directory, files) {
   ]);
 }
 
-function runCli(cwd, args) {
+function runCli(cwd, args, environment = isolatedEnvironment()) {
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd,
     encoding: 'utf8',
-    env: isolatedEnvironment(),
+    env: environment,
     shell: false,
     timeout: 15_000,
     windowsHide: true,
@@ -262,6 +262,28 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(result.status, 0, commandFailure('--help', result));
     assert.equal(result.stderr, '');
     assert.equal(result.stdout, expectedRootHelp);
+  });
+
+  test('does not emit ANSI escapes when root help is piped', () => {
+    const environment = isolatedEnvironment();
+    delete environment.NO_COLOR;
+    const result = runCli(tempRoot, [], environment);
+
+    assert.equal(result.status, 0, commandFailure('piped root help', result));
+    assert.equal(result.stderr, '');
+    assert.doesNotMatch(result.stdout, /\u001b\[/u);
+  });
+
+  test('uses the supported format values in detailed component create help', () => {
+    const result = runCli(tempRoot, ['component', 'create', '--help']);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component create --help', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.match(result.stdout, /--format <default\|sdc>/u);
   });
 
   test('prints the package version', () => {

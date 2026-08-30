@@ -3,32 +3,29 @@
  * Exports methods that MUST be used when writing to the console.
  */
 
-import { cyan, red, yellow, green, dim, bold } from 'colorette';
 import consolaGlobalInstance, { type ConsolaInstance } from 'consola';
+import getTerminalColors from './terminalColors.js';
 
 export type LogMethod =
-  | 'info'
-  | 'error'
-  | 'warn'
-  | 'debug'
-  | 'verbose'
-  | 'success';
-
-const logMethodColorMap: {
-  [name in LogMethod]: (message: string) => string;
-} = {
-  info: cyan,
-  error: (message: string) => bold(red(message)),
-  warn: (message: string) => bold(yellow(message)),
-  debug: dim,
-  verbose: dim,
-  success: green,
-};
+  'info' | 'error' | 'warn' | 'debug' | 'verbose' | 'success';
 
 const withColor =
   (logger: ConsolaInstance['log']) =>
-  (method: LogMethod, message: string): void =>
+  (method: LogMethod, message: string): void => {
+    const { bold, cyan, dim, green, red, yellow } = getTerminalColors();
+    const logMethodColorMap: {
+      [name in LogMethod]: (value: string) => string;
+    } = {
+      info: cyan,
+      error: (value: string) => bold(red(value)),
+      warn: (value: string) => bold(yellow(value)),
+      debug: dim,
+      verbose: dim,
+      success: green,
+    };
+
     logger(logMethodColorMap[method](message));
+  };
 
 /**
  * Lib function that allows for info, error, warn, debug, verbose, and success messages
