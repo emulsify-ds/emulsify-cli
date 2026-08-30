@@ -64,7 +64,7 @@ const projectRoot = resolve('/project');
 const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
 const systemConfigPath = join(projectRoot, EMULSIFY_SYSTEM_CONFIG_FILE);
 const systemInstallHookPath = join(
-  systemConfigPath,
+  projectRoot,
   EMULSIFY_PROJECT_HOOK_FOLDER,
   EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
 );
@@ -226,8 +226,8 @@ describe('systemInstall', () => {
     setEmulsifyConfigMock.mockResolvedValue(undefined);
     getEmulsifyConfigMock.mockResolvedValue(projectConfig);
     writeToJsonFileMock.mockResolvedValue(undefined);
-    // A found system config plus an existing hook covers the optional hook branch.
-    findFileInCurrentPathMock.mockReturnValue(systemConfigPath);
+    // A found project config plus an existing hook covers the optional hook branch.
+    findFileInCurrentPathMock.mockReturnValue(projectConfigPath);
     existsSyncMock.mockReturnValue(true);
     executeScriptMock.mockResolvedValue(undefined);
   });
@@ -1022,14 +1022,14 @@ describe('systemInstall', () => {
     );
   });
 
-  it('skips the install hook when no system config path is found', async () => {
+  it('skips the install hook when no project config path is found', async () => {
     findFileInCurrentPathMock.mockReturnValueOnce(undefined);
 
     await systemInstall('compound', {});
 
     expect(executeScriptMock).not.toHaveBeenCalled();
     expect(findFileInCurrentPathMock).toHaveBeenCalledWith(
-      EMULSIFY_SYSTEM_CONFIG_FILE,
+      EMULSIFY_PROJECT_CONFIG_FILE,
     );
   });
 

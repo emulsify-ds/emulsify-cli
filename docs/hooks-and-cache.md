@@ -33,13 +33,13 @@ await writeFile(resolve('..', '.env.example'), 'STORYBOOK_PORT=6006\n');
 
 ## System Install Hook
 
-The CLI has a `systemInstall.js` hook constant for system installation workflows:
+During `emulsify system install`, the CLI checks the current project root for:
 
 ```text
 .cli/systemInstall.js
 ```
 
-When system install can discover the hook location, it executes the file with Node.js after required components and general assets are installed.
+The project root is the directory containing `project.emulsify.json`. If the hook exists, the CLI executes it with Node.js after required components and general assets are installed.
 
 Use this hook for setup that must happen after a system has populated project files. Keep it idempotent because system installs may be repeated in local development or test projects.
 

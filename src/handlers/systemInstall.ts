@@ -415,10 +415,12 @@ export default async function systemInstall(
     await installGeneralAssetsFromCache(systemConf, variantConf);
 
     // Execute system install hook.
-    const path = findFileInCurrentPath(EMULSIFY_SYSTEM_CONFIG_FILE);
-    const hookPath = path
+    const projectConfigPath = findFileInCurrentPath(
+      EMULSIFY_PROJECT_CONFIG_FILE,
+    );
+    const hookPath = projectConfigPath
       ? join(
-          path,
+          dirname(projectConfigPath),
           EMULSIFY_PROJECT_HOOK_FOLDER,
           EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
         )
