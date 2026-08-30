@@ -9,6 +9,7 @@ import systemDetach from './handlers/systemDetach.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
 import componentCreate from './handlers/componentCreate.js';
+import componentEjectTemplates from './handlers/componentEjectTemplates.js';
 import audit from './handlers/audit.js';
 import cacheClear from './handlers/cacheClear.js';
 import CliError from './lib/CliError.js';
@@ -118,7 +119,7 @@ system
 // Component sub-commands.
 const component = program
   .command('component')
-  .description('List, install, or create components');
+  .description('List, install, create, or customize components');
 component
   .command('list')
   .description(
@@ -177,6 +178,18 @@ component
   .alias('c')
   .description('Generate a new local component in the current project')
   .action(componentCreate);
+component
+  .command('eject-templates [type]')
+  .description('Write editable copies of the built-in component templates')
+  .option(
+    '-f, --force',
+    'Replace existing template files in the selected type set.',
+  )
+  .option(
+    '--dry-run',
+    'Preview template destinations and conflicts without writing files.',
+  )
+  .action(componentEjectTemplates);
 
 // Cache sub-commands.
 const cache = program

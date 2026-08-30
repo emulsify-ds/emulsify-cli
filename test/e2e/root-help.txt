@@ -27,6 +27,9 @@ COMPONENTS
       -t, --type <type>              twig | twig-sdc | react | web-component
       -f, --format <default|sdc>     Deprecated Twig type alias
       --dry-run                      Preview without writing files
+  component eject-templates [type]  Write editable built-in templates
+      -f, --force                    Replace existing template files
+      --dry-run                      Preview paths and conflicts
 
 SYSTEMS
   system list                     Show built-in systems
@@ -43,5 +46,5 @@ MAINTENANCE
   cache clear                     Remove cached system repositories
       --dry-run                      Preview cache removal
 
-  --refresh works on every component command.   -V, --version   -h, --help
+  --refresh works on list, install, and create.   -V, --version   -h, --help
   emulsify <command> --help for the full option list.

@@ -33,25 +33,7 @@ import {
 } from './componentTypes.js';
 import resolveComponentTemplate from './resolveComponentTemplate.js';
 import type { ComponentTemplateVars } from './renderTemplate.js';
-import {
-  buildReactStoriesTemplate,
-  buildReactTemplate,
-  buildScssTemplate,
-  buildSdcJsTemplate,
-  buildSdcMetadataTemplate,
-  buildSdcStoriesTemplate,
-  buildStoriesTemplate,
-  buildTwigTemplate,
-  buildWebComponentStoriesTemplate,
-  buildWebComponentTemplate,
-  buildYmlTemplate,
-} from './componentTemplates/index.js';
-
-type ComponentArtifact = {
-  logicalName: string;
-  destinationName: string;
-  build: () => string;
-};
+import { buildComponentArtifacts } from './componentTemplates/index.js';
 
 const TYPE_LABELS: Record<ComponentType, string> = {
   twig: 'Twig',
@@ -281,136 +263,7 @@ export default async function generateComponent(
     type,
     tagName,
   };
-  let artifacts: ComponentArtifact[];
-
-  switch (type) {
-    case 'twig':
-      artifacts = [
-        {
-          logicalName: 'component.twig',
-          destinationName: `${filename}.twig`,
-          build: () =>
-            buildTwigTemplate(filename, snakeName, className, formatLabel),
-        },
-        {
-          logicalName: 'component.scss',
-          destinationName: `${filename}.scss`,
-          build: () => buildScssTemplate(className, formatLabel),
-        },
-        {
-          logicalName: 'component.yml',
-          destinationName: `${filename}.yml`,
-          build: () => buildYmlTemplate(snakeName, humanName),
-        },
-        {
-          logicalName: 'component.stories.js',
-          destinationName: `${filename}.stories.js`,
-          build: () =>
-            buildStoriesTemplate(
-              camelName,
-              filename,
-              humanName,
-              directoryTitle,
-            ),
-        },
-      ];
-      break;
-    case 'twig-sdc':
-      artifacts = [
-        {
-          logicalName: 'component.twig',
-          destinationName: `${filename}.twig`,
-          build: () =>
-            buildTwigTemplate(filename, snakeName, className, formatLabel),
-        },
-        {
-          logicalName: 'component.scss',
-          destinationName: `${filename}.scss`,
-          build: () => buildScssTemplate(className, formatLabel),
-        },
-        {
-          logicalName: 'component.component.yml',
-          destinationName: `${filename}.component.yml`,
-          build: () => buildSdcMetadataTemplate(snakeName, humanName),
-        },
-        {
-          logicalName: 'component.js',
-          destinationName: `${filename}.js`,
-          build: () => buildSdcJsTemplate(camelName, filename, className),
-        },
-        {
-          logicalName: 'component.stories.js',
-          destinationName: `${filename}.stories.js`,
-          build: () =>
-            buildSdcStoriesTemplate(
-              camelName,
-              filename,
-              snakeName,
-              humanName,
-              directoryTitle,
-            ),
-        },
-      ];
-      break;
-    case 'react':
-      artifacts = [
-        {
-          logicalName: 'component.jsx',
-          destinationName: `${filename}.jsx`,
-          build: () =>
-            buildReactTemplate(pascalName, filename, className, humanName),
-        },
-        {
-          logicalName: 'component.scss',
-          destinationName: `${filename}.scss`,
-          build: () => buildScssTemplate(className, formatLabel),
-        },
-        {
-          logicalName: 'component.stories.jsx',
-          destinationName: `${filename}.stories.jsx`,
-          build: () =>
-            buildReactStoriesTemplate(
-              pascalName,
-              filename,
-              humanName,
-              directoryTitle,
-            ),
-        },
-      ];
-      break;
-    case 'web-component':
-      artifacts = [
-        {
-          logicalName: 'component.js',
-          destinationName: `${filename}.js`,
-          build: () =>
-            buildWebComponentTemplate(
-              pascalName,
-              filename,
-              className,
-              humanName,
-              tagName,
-            ),
-        },
-        {
-          logicalName: 'component.scss',
-          destinationName: `${filename}.scss`,
-          build: () => buildScssTemplate(className, formatLabel),
-        },
-        {
-          logicalName: 'component.stories.js',
-          destinationName: `${filename}.stories.js`,
-          build: () =>
-            buildWebComponentStoriesTemplate(
-              filename,
-              humanName,
-              directoryTitle,
-              tagName,
-            ),
-        },
-      ];
-      break;
-  }
+  const artifacts = buildComponentArtifacts(type, templateVars);
   const artifactDestinations = artifacts.map((artifact) =>
     safeResolveWithin(
       projectRoot,
@@ -485,7 +338,7 @@ export default async function generateComponent(
         type,
         artifact.logicalName,
         templateVars,
-      )) ?? artifact.build();
+      )) ?? artifact.contents;
     const artifactDestination = artifactDestinations[index];
 
     await fs.writeFile(artifactDestination, templateFile);

@@ -259,5 +259,18 @@ emulsify component create featured-item --directory base --type twig --yes
 
 ## Template Overrides
 
-Projects can override the generated files with `.cli/templates/<type>/...`
-files. See [Component Template Overrides](./component-template-overrides.md).
+Start a project override from the CLI's actual built-in templates:
+
+```bash
+emulsify component eject-templates twig
+```
+
+In an interactive terminal, omit the type to select one or more types. In a
+non-interactive environment, provide one of `twig`, `twig-sdc`, `react`, or
+`web-component`. The command protects existing customizations unless `--force`
+is passed, and `--dry-run` previews every destination without writing files.
+
+Edit the resulting `.cli/templates/<type>/...` files. Then use `component
+create` normally. See
+[Component Template Overrides](./component-template-overrides.md) for template
+resolution rules and supported tokens.

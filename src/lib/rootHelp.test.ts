@@ -35,7 +35,9 @@ describe('getRootHelp', () => {
     expect(help).toContain('system create [name]');
     expect(help).toContain('MAINTENANCE');
     expect(help).toContain('audit [args...]');
-    expect(help).toContain('--refresh works on every component command.');
+    expect(help).toContain('component eject-templates [type]');
+    expect(help).toContain('Write editable built-in templates');
+    expect(help).toContain('--refresh works on list, install, and create.');
     expect(help).not.toContain('component ls');
     expect(
       Math.max(...visibleLines(help).map((line) => line.length)),
@@ -60,6 +62,9 @@ describe('getRootHelp', () => {
     );
     expect(help).toContain(
       '      -f, --format <default|sdc>\n        Deprecated Twig type alias',
+    );
+    expect(help).toContain(
+      '  component eject-templates [type]\n    Write editable built-in templates',
     );
     expect(
       Math.max(...visibleLines(help).map((line) => line.length)),

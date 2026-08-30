@@ -3,6 +3,12 @@
  */
 
 export { buildScssTemplate } from './scss.js';
+export {
+  default as buildComponentArtifacts,
+  buildEjectableComponentTemplates,
+  COMPONENT_TEMPLATE_TOKEN_VARS,
+  type ComponentArtifact,
+} from './buildComponentArtifacts.js';
 export { buildReactStoriesTemplate } from './reactStories.js';
 export { buildReactTemplate } from './react.js';
 export { buildSdcJsTemplate } from './sdcJs.js';

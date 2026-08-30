@@ -74,6 +74,13 @@ declare module '@emulsify-cli/handlers' {
     refresh?: boolean;
   };
 
+  export type EjectComponentTemplatesHandlerOptions = {
+    /** Replace existing selected component template overrides. */
+    force?: boolean;
+    /** Preview component template destinations without writing files. */
+    dryRun?: boolean;
+  };
+
   export type ClearCacheHandlerOptions = {
     /** Report cache contents without removing them. */
     dryRun?: boolean;

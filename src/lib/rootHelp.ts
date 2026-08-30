@@ -122,6 +122,21 @@ const sections: HelpSection[] = [
         label: '--dry-run',
         description: 'Preview without writing files',
       },
+      {
+        kind: 'command',
+        label: 'component eject-templates [type]',
+        description: 'Write editable built-in templates',
+      },
+      {
+        kind: 'option',
+        label: '-f, --force',
+        description: 'Replace existing template files',
+      },
+      {
+        kind: 'option',
+        label: '--dry-run',
+        description: 'Preview paths and conflicts',
+      },
     ],
   },
   {
@@ -338,7 +353,7 @@ export default function getRootHelp({
     lines.push('');
   }
 
-  const refresh = '--refresh works on every component command.';
+  const refresh = '--refresh works on list, install, and create.';
   const switches = '-V, --version   -h, --help';
   if (width >= NATURAL_WIDTH) {
     lines.push(colors.dim(`  ${refresh}   ${switches}`));

@@ -12,18 +12,19 @@ The examples below reflect the command definitions in `src/index.ts` and the gen
 
 ## Commands
 
-| Command                             | Alias                         | Description                                                      |
-| ----------------------------------- | ----------------------------- | ---------------------------------------------------------------- |
-| `emulsify init [name] [path]`       |                               | Initialize an Emulsify project from a starter.                   |
-| `emulsify audit [...args]`          |                               | Run the project-installed Emulsify Core audit.                   |
-| `emulsify system list`              | `emulsify system ls`          | List built-in systems available for installation.                |
-| `emulsify system create [name]`     |                               | Create a standalone, distributable component system.             |
-| `emulsify system install [name]`    |                               | Install a system in the current Emulsify project.                |
-| `emulsify system detach`            |                               | Detach the system and keep project components.                   |
-| `emulsify component list`           | `emulsify component ls`       | List components available from the installed system and variant. |
-| `emulsify component install [name]` | `emulsify component i [name]` | Install a component from the installed system and variant.       |
-| `emulsify component create [name]`  | `emulsify component c [name]` | Generate a new local component in the current project.           |
-| `emulsify cache clear`              |                               | Clear locally cached system repositories.                        |
+| Command                                     | Alias                         | Description                                                      |
+| ------------------------------------------- | ----------------------------- | ---------------------------------------------------------------- |
+| `emulsify init [name] [path]`               |                               | Initialize an Emulsify project from a starter.                   |
+| `emulsify audit [...args]`                  |                               | Run the project-installed Emulsify Core audit.                   |
+| `emulsify system list`                      | `emulsify system ls`          | List built-in systems available for installation.                |
+| `emulsify system create [name]`             |                               | Create a standalone, distributable component system.             |
+| `emulsify system install [name]`            |                               | Install a system in the current Emulsify project.                |
+| `emulsify system detach`                    |                               | Detach the system and keep project components.                   |
+| `emulsify component list`                   | `emulsify component ls`       | List components available from the installed system and variant. |
+| `emulsify component install [name]`         | `emulsify component i [name]` | Install a component from the installed system and variant.       |
+| `emulsify component create [name]`          | `emulsify component c [name]` | Generate a new local component in the current project.           |
+| `emulsify component eject-templates [type]` |                               | Write editable built-in component templates into the project.    |
+| `emulsify cache clear`                      |                               | Clear locally cached system repositories.                        |
 
 ## `init`
 
@@ -383,6 +384,50 @@ When standard input is not a TTY, provide either `[name]` or `--all`; the CLI
 exits with an actionable error instead of opening the picker. If a named
 component destination already exists, the command also exits unless `--force`
 is passed to replace it without an overwrite prompt.
+
+## `component eject-templates`
+
+```bash
+emulsify component eject-templates [type]
+```
+
+Writes the CLI's built-in component templates into
+`.cli/templates/<type>/` in the current Emulsify project. The files are the
+real defaults used by `component create`, expressed with the same supported
+template tokens, so they can be edited in place rather than recreated from
+scratch. The command reports every destination with its real project path.
+
+Supported types are `twig`, `twig-sdc`, `react`, and `web-component`. In an
+interactive terminal, omitting `[type]` opens a multi-select prompt where one,
+several, or all four types can be selected. When standard input is not a TTY,
+provide one type; otherwise the command exits immediately with an actionable
+message naming the argument.
+
+Before writing, the command checks every target in the selected set. If any
+target already exists, it reports all conflicts and writes nothing. Pass
+`--force` only when every conflicting file in the selection may be replaced.
+
+Options:
+
+| Option        | Description                                                                    |
+| ------------- | ------------------------------------------------------------------------------ |
+| `-f, --force` | Replace existing template files after the selection-wide conflict check.       |
+| `--dry-run`   | Report template destinations and conflicts without creating or changing files. |
+
+Examples:
+
+```bash
+emulsify component eject-templates
+emulsify component eject-templates twig
+emulsify component eject-templates react --dry-run
+emulsify component eject-templates web-component --force
+```
+
+The command must run inside an Emulsify project. It writes only to canonical
+type directories and does not add provenance headers to the templates, so an
+unedited ejected template renders byte-for-byte like the corresponding
+built-in. Deleting an override restores the usual fallback behavior: a legacy
+Twig alias where one exists, then the built-in template.
 
 ## `component create`
 

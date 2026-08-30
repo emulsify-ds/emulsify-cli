@@ -791,6 +791,67 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(existsSync(join(isolatedHome, '.emulsify', 'cache')), true);
   });
 
+  test('requires an explicit template type outside a TTY without writing files', () => {
+    const templatesRoot = join(projectRoot, '.cli', 'templates');
+    const before = snapshotFiles(templatesRoot);
+    const result = runCli(projectRoot, ['component', 'eject-templates']);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /\[type\] positional argument/u);
+    assert.deepEqual(snapshotFiles(templatesRoot), before);
+  });
+
+  test('uses a customized ejected template during component creation', () => {
+    const ejectResult = runCli(projectRoot, [
+      'component',
+      'eject-templates',
+      'twig',
+    ]);
+    assert.equal(
+      ejectResult.status,
+      0,
+      commandFailure('component eject-templates twig', ejectResult),
+    );
+    assert.equal(ejectResult.stderr, '');
+
+    const templatePath = join(
+      projectRoot,
+      '.cli',
+      'templates',
+      'twig',
+      'component.twig',
+    );
+    const template = readFileSync(templatePath, 'utf8');
+    writeFileSync(
+      templatePath,
+      `${template}\n{# Ejected override for {{ humanName }} #}\n`,
+    );
+
+    const createResult = runCli(projectRoot, [
+      'component',
+      'create',
+      'ejected-card',
+      '--type',
+      'twig',
+      '--directory',
+      'components',
+    ]);
+    assert.equal(
+      createResult.status,
+      0,
+      commandFailure('component create with ejected template', createResult),
+    );
+    assert.equal(createResult.stderr, '');
+    assert.match(
+      readFileSync(
+        join(projectRoot, 'components', 'ejected-card', 'ejected-card.twig'),
+        'utf8',
+      ),
+      /Ejected override for Ejected Card/u,
+    );
+  });
+
   test('scaffolds the exact artifact set for every component type', () => {
     const componentCases = [
       {
