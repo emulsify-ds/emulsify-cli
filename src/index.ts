@@ -72,6 +72,8 @@ function getRootHelp(): string {
     '',
     '  component list',
     '    List components available from the installed system and selected variant. Alias: component ls.',
+    '    Options:',
+    '          --refresh                       Check the system remote before reusing the local cache.',
     '',
     '  component install [name]',
     '    Install one component, dependencies, or all components from the installed system. Alias: component i.',
@@ -79,6 +81,7 @@ function getRootHelp(): string {
     '      -f, --force                         Replace an existing component destination.',
     '      -a, --all                           Install all available components.',
     '          --dry-run                       Preview installs without writing files.',
+    '          --refresh                       Check the system remote before reusing the local cache.',
     '',
     '  component create [name]',
     '    Generate a new local component in this project. Alias: component c.',
@@ -87,6 +90,7 @@ function getRootHelp(): string {
     '      -f, --format <default|sdc>          Component format to generate.',
     '      -y, --yes                           Replace existing generated components without prompting.',
     '          --dry-run                       Preview generated files without writing them.',
+    '          --refresh                       Check the system remote before reusing the local cache.',
     '',
     '  cache clear',
     '    Remove all locally cached Emulsify repositories.',
@@ -184,6 +188,10 @@ component
   .description(
     'List components available from the installed system and variant',
   )
+  .option(
+    '--refresh',
+    'Check the configured system remote before reusing its local cache entry.',
+  )
   .alias('ls')
   .action(componentList);
 component
@@ -197,6 +205,10 @@ component
   .option(
     '--dry-run',
     'Preview component installs without copying or removing files.',
+  )
+  .option(
+    '--refresh',
+    'Check the configured system remote before reusing its local cache entry.',
   )
   .alias('i')
   .action(componentInstall);
@@ -217,6 +229,10 @@ component
   .option(
     '--dry-run',
     'Preview generated component files without writing or removing files.',
+  )
+  .option(
+    '--refresh',
+    'Check the configured system remote before reusing its local cache entry.',
   )
   .alias('c')
   .description('Generate a new local component in the current project')

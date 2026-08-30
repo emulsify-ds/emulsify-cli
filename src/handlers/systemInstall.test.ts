@@ -277,7 +277,9 @@ describe('systemInstall', () => {
 
     await systemInstall(undefined, {});
 
-    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound']);
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
+      refresh: true,
+    });
     expect(cloneSystemMock).toHaveBeenCalledWith({
       repository: 'https://github.com/emulsify-ds/compound.git',
       checkout: 'v1.0.0',
@@ -988,9 +990,11 @@ describe('systemInstall', () => {
     });
 
     expect(selectMock).not.toHaveBeenCalled();
-    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', [
-      'custom-system',
-    ]);
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith(
+      'systems',
+      ['custom-system'],
+      { refresh: true },
+    );
     expect(cloneSystemMock).toHaveBeenCalledWith({
       repository: 'https://github.com/example/custom-system.git',
       checkout: 'release',

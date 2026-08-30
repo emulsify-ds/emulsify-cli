@@ -315,6 +315,14 @@ describe('componentCreate', () => {
     );
   });
 
+  it('requests a remote freshness check when refresh is enabled', async () => {
+    await componentCreate('button', { directory: 'base', refresh: true });
+
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
+      refresh: true,
+    });
+  });
+
   it('creates a component non-interactively when flags provide format, directory, and yes', async () => {
     setStdinIsTTY(false);
     mockComponentExistsWithoutTemplateOverrides();

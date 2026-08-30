@@ -22,6 +22,12 @@ type RemoteRefResult =
   | { status: 'missing' }
   | { status: 'unavailable' };
 
+type CacheReuseOptions = {
+  refresh?: boolean;
+};
+
+const REMOTE_REF_LOOKUP_TIMEOUT_MS = 2_000;
+
 function isCacheMetadata(value: unknown): value is CacheMetadata {
   if (!value || typeof value !== 'object') {
     return false;
@@ -96,7 +102,17 @@ async function getRemoteResolvedRef(
   const remoteRefs = getRemoteRefCandidates(checkout);
 
   try {
-    const output = await simpleGit().listRemote([repository, ...remoteRefs]);
+    const git = simpleGit({
+      timeout: {
+        block: REMOTE_REF_LOOKUP_TIMEOUT_MS,
+        stdOut: false,
+        stdErr: false,
+      },
+    }).env({
+      ...process.env,
+      GIT_TERMINAL_PROMPT: '0',
+    });
+    const output = await git.listRemote([repository, ...remoteRefs]);
     const resolvedRefs = new Map<string, string>();
 
     for (const line of output.trim().split(/\r?\n/)) {
@@ -124,6 +140,7 @@ async function canReuseCacheEntry(
   destination: string,
   repository: string,
   checkout: string | void,
+  refresh: boolean,
 ): Promise<boolean> {
   const metadata = await readCacheMetadata(destination);
   const expectedCheckout = checkout || null;
@@ -152,6 +169,10 @@ async function canReuseCacheEntry(
     return false;
   }
 
+  if (!refresh) {
+    return true;
+  }
+
   const remoteRef = await getRemoteResolvedRef(repository, checkout);
   return (
     remoteRef.status === 'unavailable' ||
@@ -165,12 +186,15 @@ async function canReuseCacheEntry(
  *
  * @param type CacheBucket value that specifies what type of cache this repository is.
  * @param itemPath array of strings describing the path to the item cache within the specified bucket.
+ * @param options cache reuse behavior.
+ * @param options.refresh whether to compare the cached ref with the remote before reuse.
  *
  * @returns void, or throws an error if the repository could not be cloned.
  */
 export default function cloneIntoCache(
   bucket: CacheBucket,
   itemPath: CacheItemPath,
+  { refresh = false }: CacheReuseOptions = {},
 ) {
   return async ({ repository, checkout }: GitCloneOptions): Promise<void> => {
     const normalizedRepository = normalizeRepositoryUrl(repository);
@@ -185,7 +209,12 @@ export default function cloneIntoCache(
     // Reuse only complete clones whose identity, origin, and resolved ref match.
     if (existsSync(destination)) {
       if (
-        await canReuseCacheEntry(destination, normalizedRepository, checkout)
+        await canReuseCacheEntry(
+          destination,
+          normalizedRepository,
+          checkout,
+          refresh,
+        )
       ) {
         return;
       }

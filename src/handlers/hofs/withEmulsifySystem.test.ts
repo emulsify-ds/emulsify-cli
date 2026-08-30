@@ -287,7 +287,18 @@ describe('withEmulsifySystem', () => {
       systemConf: system,
       variantConf: variant,
     });
-    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound']);
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
+      refresh: false,
+    });
+    expect(cloneSystemMock).toHaveBeenCalledWith(projectConfig.system);
+  });
+
+  it('requests a remote freshness check only when refresh is enabled', async () => {
+    await withEmulsifySystem('list components', { refresh: true });
+
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
+      refresh: true,
+    });
     expect(cloneSystemMock).toHaveBeenCalledWith(projectConfig.system);
   });
 

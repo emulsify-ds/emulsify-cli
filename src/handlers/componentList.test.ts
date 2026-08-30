@@ -193,4 +193,12 @@ describe('componentList', () => {
     expect(logMock).toHaveBeenCalledWith('info', 'base -> button');
     expect(logMock).toHaveBeenCalledWith('info', 'base -> card');
   });
+
+  it('requests a remote freshness check when refresh is enabled', async () => {
+    await componentList({ refresh: true });
+
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
+      refresh: true,
+    });
+  });
 });

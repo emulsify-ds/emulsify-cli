@@ -24,10 +24,17 @@ declare module '@emulsify-cli/handlers' {
     all?: boolean;
   };
 
+  export type ListComponentHandlerOptions = {
+    /** Check the configured system's remote ref before reusing its local cache entry. */
+    refresh?: boolean;
+  };
+
   export type InstallComponentHandlerOptions = {
     force?: boolean;
     all?: boolean;
     dryRun?: boolean;
+    /** Check the configured system's remote ref before reusing its local cache entry. */
+    refresh?: boolean;
   };
 
   export type CreateComponentHandlerOptions = {
@@ -39,6 +46,8 @@ declare module '@emulsify-cli/handlers' {
     yes?: boolean;
     /** Preview planned component operations without writing, copying, or removing files. */
     dryRun?: boolean;
+    /** Check the configured system's remote ref before reusing its local cache entry. */
+    refresh?: boolean;
   };
 
   export type ClearCacheHandlerOptions = {

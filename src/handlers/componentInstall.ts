@@ -111,7 +111,7 @@ function logComponentInstallDryRun(
  */
 export default async function componentInstall(
   name: string,
-  { force, all, dryRun }: InstallComponentHandlerOptions,
+  { force, all, dryRun, refresh }: InstallComponentHandlerOptions,
 ): Promise<void> {
   if (!name && !all) {
     throw new CliError(
@@ -120,8 +120,10 @@ export default async function componentInstall(
   }
 
   // Load the configured system and variant before resolving component installs.
-  const { systemConf, variantConf } =
-    await withEmulsifySystem('install components');
+  const { systemConf, variantConf } = await withEmulsifySystem(
+    'install components',
+    { refresh },
+  );
 
   // If all components are to be installed, spawn promises for installing all available components.
   const components: [string, boolean, Promise<void>][] = [];

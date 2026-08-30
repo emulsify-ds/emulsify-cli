@@ -23,6 +23,7 @@ const gitMock = simpleGit();
 const gitCloneMock = gitMock.clone as jest.Mock;
 const getRemotesMock = gitMock.getRemotes as jest.Mock;
 const listRemoteMock = gitMock.listRemote as jest.Mock;
+const envMock = gitMock.env as jest.Mock;
 const revparseMock = gitMock.revparse as jest.Mock;
 
 const projectPath = resolve('fixtures', 'emulsify');
@@ -143,12 +144,9 @@ describe('cloneIntoCache', () => {
     expect(writeFileMock).not.toHaveBeenCalled();
   });
 
-  it('reuses a complete cache entry with matching origin and refs', async () => {
+  it('reuses a complete cache entry without contacting the remote by default', async () => {
     existsSyncMock.mockReturnValueOnce(true);
     readFileMock.mockResolvedValueOnce(metadata());
-    listRemoteMock.mockResolvedValueOnce(
-      'resolved-ref\trefs/heads/branch-name\n',
-    );
 
     await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
 
@@ -158,6 +156,7 @@ describe('cloneIntoCache', () => {
     expect(gitCloneMock).not.toHaveBeenCalled();
     expect(rmMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
+    expect(listRemoteMock).not.toHaveBeenCalled();
   });
 
   it('reuses a valid local entry when the remote cannot be reached', async () => {
@@ -165,10 +164,50 @@ describe('cloneIntoCache', () => {
     readFileMock.mockResolvedValueOnce(metadata());
     listRemoteMock.mockRejectedValueOnce(new Error('offline'));
 
-    await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
+    await cloneIntoCache('systems', ['cornflake'], { refresh: true })(
+      cloneOptions,
+    );
 
     expect(gitCloneMock).not.toHaveBeenCalled();
     expect(rmMock).not.toHaveBeenCalled();
+  });
+
+  it('reuses a valid local entry when the remote lookup times out', async () => {
+    existsSyncMock.mockReturnValueOnce(true);
+    readFileMock.mockResolvedValueOnce(metadata());
+    listRemoteMock.mockRejectedValueOnce(
+      Object.assign(new Error('block timeout reached'), { plugin: 'timeout' }),
+    );
+
+    await cloneIntoCache('systems', ['cornflake'], { refresh: true })(
+      cloneOptions,
+    );
+
+    expect(gitCloneMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalled();
+  });
+
+  it('bounds remote lookups and disables terminal prompts', async () => {
+    existsSyncMock.mockReturnValueOnce(true);
+    readFileMock.mockResolvedValueOnce(metadata());
+    listRemoteMock.mockResolvedValueOnce(
+      'resolved-ref\trefs/heads/branch-name\n',
+    );
+
+    await cloneIntoCache('systems', ['cornflake'], { refresh: true })(
+      cloneOptions,
+    );
+
+    expect(simpleGitMock).toHaveBeenCalledWith({
+      timeout: {
+        block: 2_000,
+        stdOut: false,
+        stdErr: false,
+      },
+    });
+    expect(envMock).toHaveBeenCalledWith(
+      expect.objectContaining({ GIT_TERMINAL_PROMPT: '0' }),
+    );
   });
 
   it('reuses a valid default-branch entry when remote HEAD matches', async () => {
@@ -177,7 +216,7 @@ describe('cloneIntoCache', () => {
     readFileMock.mockResolvedValueOnce(metadata({ checkout: null }));
     listRemoteMock.mockResolvedValueOnce('resolved-ref\tHEAD\n');
 
-    await cloneIntoCache('systems', ['cornflake'])({
+    await cloneIntoCache('systems', ['cornflake'], { refresh: true })({
       repository: 'repo-path',
     });
 
@@ -197,7 +236,9 @@ describe('cloneIntoCache', () => {
       'resolved-ref\trefs/tags/branch-name\n',
     );
 
-    await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
+    await cloneIntoCache('systems', ['cornflake'], { refresh: true })(
+      cloneOptions,
+    );
 
     expect(listRemoteMock).toHaveBeenCalledWith([
       normalizedRepository,
@@ -219,7 +260,9 @@ describe('cloneIntoCache', () => {
       ].join('\n'),
     );
 
-    await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
+    await cloneIntoCache('systems', ['cornflake'], { refresh: true })(
+      cloneOptions,
+    );
 
     expect(gitCloneMock).not.toHaveBeenCalled();
     expect(rmMock).not.toHaveBeenCalled();
@@ -230,7 +273,9 @@ describe('cloneIntoCache', () => {
     readFileMock.mockResolvedValueOnce(metadata());
     listRemoteMock.mockResolvedValueOnce('');
 
-    await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
+    await cloneIntoCache('systems', ['cornflake'], { refresh: true })(
+      cloneOptions,
+    );
 
     expect(rmMock).toHaveBeenCalledTimes(1);
     expect(gitCloneMock).toHaveBeenCalledTimes(1);
@@ -365,7 +410,9 @@ describe('cloneIntoCache', () => {
       'new-resolved-ref\trefs/heads/branch-name\n',
     );
 
-    await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
+    await cloneIntoCache('systems', ['cornflake'], { refresh: true })(
+      cloneOptions,
+    );
 
     expect(rmMock).toHaveBeenCalledTimes(1);
     expect(gitCloneMock).toHaveBeenCalledTimes(1);

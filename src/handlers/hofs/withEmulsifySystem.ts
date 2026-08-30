@@ -36,6 +36,10 @@ export type EmulsifySystemContext = {
   variantConf: EmulsifyVariant;
 };
 
+type WithEmulsifySystemOptions = {
+  refresh?: boolean;
+};
+
 /**
  * Error thrown when a handler requires an installed Emulsify system, but the
  * current project or cached system state does not satisfy that requirement.
@@ -116,6 +120,7 @@ function formatPlatformExpressions(expressions: readonly string[]): string {
  */
 export async function withEmulsifySystem(
   actionLabel: string,
+  { refresh = false }: WithEmulsifySystemOptions = {},
 ): Promise<EmulsifySystemContext> {
   const emulsifyConfig = await getEmulsifyConfig();
   if (!emulsifyConfig) {
@@ -140,7 +145,7 @@ export async function withEmulsifySystem(
   }
 
   try {
-    await cloneIntoCache('systems', [systemName])(systemReference);
+    await cloneIntoCache('systems', [systemName], { refresh })(systemReference);
   } catch {
     throw new EmulsifySystemError(
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',

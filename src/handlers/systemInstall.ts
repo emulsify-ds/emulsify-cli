@@ -315,7 +315,7 @@ export default async function systemInstall(
   }
 
   // Clone the system into the cache.
-  await cloneIntoCache('systems', [repo.name])({
+  await cloneIntoCache('systems', [repo.name], { refresh: true })({
     repository: repo.repository,
     checkout: repo.checkout,
   });

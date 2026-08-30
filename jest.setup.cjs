@@ -4,6 +4,7 @@ jest.mock('simple-git', () => {
     branch: jest.fn(),
     getRemotes: jest.fn(),
     listRemote: jest.fn(),
+    env: jest.fn().mockReturnThis(),
     revparse: jest.fn(),
     checkout: jest.fn(),
     fetch: jest.fn().mockReturnThis(),

@@ -67,7 +67,9 @@ The project path, normalized repository URL, and checkout are hashed, so the ful
 
 After a successful clone, the CLI writes `.emulsify-cache.json` inside the cache entry. The sidecar records the repository, requested checkout, resolved Git ref, clone time, and a completion marker. It is written only after cloning and ref resolution succeed.
 
-Before reusing an entry, the CLI validates the sidecar, repository, checkout, local `origin` fetch URL, and local `HEAD`. Missing, malformed, incomplete, or mismatched entries are removed and cloned again. When the remote is reachable, the CLI also compares a named checkout such as `main` (or the default remote `HEAD`) with the recorded resolved ref and re-clones when it has advanced. If that remote check is unavailable, a locally valid clone remains usable.
+Before reusing an entry, the CLI validates the sidecar, repository, checkout, local `origin` fetch URL, and local `HEAD`. Missing, malformed, incomplete, or mismatched entries are removed and cloned again. Routine component commands perform only these local checks, so an installed system remains usable offline.
+
+`system install` checks remote freshness when reusing a cache entry. Component commands do so only when passed `--refresh`. The bounded lookup compares a named checkout such as `main` (or the default remote `HEAD`) with the recorded resolved ref and re-clones when it has advanced. If the remote check times out or is otherwise unavailable, a locally valid clone remains usable.
 
 To inspect how much would be removed without changing files, run:
 

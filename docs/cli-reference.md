@@ -165,9 +165,12 @@ Pass `--variant` to choose an exact variant platform expression instead of autom
 ```bash
 emulsify component list
 emulsify component ls
+emulsify component list --refresh
 ```
 
 Lists components available from the installed system and selected variant. Output uses the component structure followed by the component name, for example `atoms -> buttons`.
+
+Pass `--refresh` to check the system's remote ref before listing. Without it, the command validates and reuses the local cache without touching the network.
 
 ## `component install`
 
@@ -183,11 +186,13 @@ Options:
 | `-f, --force` | Replace an existing component destination without prompting.                                        |
 | `-a, --all`   | Install all available components instead of one named component.                                    |
 | `--dry-run`   | Preview dependencies, destinations, overwrite behavior, and copy operations without changing files. |
+| `--refresh`   | Check the system's remote ref before reusing its local cache entry.                                 |
 
 Examples:
 
 ```bash
 emulsify component install card
+emulsify component install card --refresh
 emulsify component install card --dry-run
 emulsify component i accordion --force
 emulsify component install --all
@@ -208,11 +213,13 @@ Options:
 | `-f, --format <format>`       | Component format to generate. Supported values are `default` and `sdc`.               |
 | `-y, --yes`                   | Replace an existing generated component without prompting.                            |
 | `--dry-run`                   | Preview destination and generated files without writing, removing, or creating files. |
+| `--refresh`                   | Check the system's remote ref before reusing its local cache entry.                   |
 
 Examples:
 
 ```bash
 emulsify component create promo-card --directory molecules --format default
+emulsify component create promo-card --directory molecules --format default --refresh
 emulsify component create promo-card --directory molecules --format default --dry-run
 emulsify component c teaser --directory molecules --format sdc --yes
 ```

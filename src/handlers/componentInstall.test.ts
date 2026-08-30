@@ -291,6 +291,14 @@ describe('componentInstall', () => {
     );
   });
 
+  it('requests a remote freshness check when refresh is enabled', async () => {
+    await componentInstall('button', { force: true, refresh: true });
+
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
+      refresh: true,
+    });
+  });
+
   it('previews a single component install without copying in dry-run mode', async () => {
     await componentInstall('card', { dryRun: true });
 
