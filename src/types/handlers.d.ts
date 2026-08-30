@@ -24,6 +24,21 @@ declare module '@emulsify-cli/handlers' {
     all?: boolean;
   };
 
+  export type CreateSystemHandlerOptions = {
+    /** Parent directory in which the standalone system repository is created. */
+    directory?: string | void;
+    /** Platform compatibility expression for the scaffold's first variant. */
+    platform?: PlatformExpression | string | void;
+    /** Whether to initialize the generated system as a Git repository. */
+    git?: boolean;
+    /** Homepage URI written to the generated system configuration. */
+    homepage?: string | void;
+    /** Repository URI written to the generated system configuration. */
+    repository?: string | void;
+    /** Accept defaults for all missing system scaffold values. */
+    yes?: boolean;
+  };
+
   export type ListComponentHandlerOptions = {
     /** Check the configured system's remote ref before reusing its local cache entry. */
     refresh?: boolean;

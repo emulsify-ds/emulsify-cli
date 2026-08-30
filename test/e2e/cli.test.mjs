@@ -278,6 +278,122 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     );
   });
 
+  test('fails fast when system create has no values outside a TTY', () => {
+    const result = runCli(tempRoot, ['system', 'create']);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(
+      result.stderr,
+      /Pass the \[name\] positional argument or use --yes/,
+    );
+    assert.equal(existsSync(join(tempRoot, 'custom-system')), false);
+  });
+
+  test('creates a standalone system and installs it from a local path', () => {
+    const systemName = 'round-trip-system';
+    const generatedSystemRoot = join(tempRoot, systemName);
+    const generatedProjectRoot = join(projectsRoot, 'round-trip-project');
+    const createResult = runCli(tempRoot, [
+      'system',
+      'create',
+      'Round Trip System',
+      '--directory',
+      tempRoot,
+      '--platform',
+      'drupal || wordpress',
+      '--git',
+    ]);
+
+    assert.equal(
+      createResult.status,
+      0,
+      commandFailure('system create', createResult),
+    );
+    assert.equal(createResult.stderr, '');
+    assert.match(createResult.stdout, /Created the round-trip-system system/);
+    assert.equal(existsSync(join(generatedSystemRoot, '.git')), true);
+    assert.equal(existsSync(join(generatedSystemRoot, 'README.md')), true);
+    assert.equal(existsSync(join(generatedSystemRoot, '.gitignore')), true);
+    assert.equal(existsSync(join(generatedSystemRoot, 'LICENSE')), true);
+
+    const systemConfig = JSON.parse(
+      readFileSync(join(generatedSystemRoot, 'system.emulsify.json'), 'utf8'),
+    );
+    assert.equal(systemConfig.name, systemName);
+    assert.equal(systemConfig.variants[0].platform, 'drupal || wordpress');
+    assert.deepEqual(systemConfig.variants[0].components, [
+      {
+        name: 'example-card',
+        structure: 'components',
+        description: 'Example card included with the generated system',
+        required: true,
+      },
+    ]);
+
+    git(generatedSystemRoot, ['add', '.']);
+    git(generatedSystemRoot, [
+      '-c',
+      'user.email=e2e@example.test',
+      '-c',
+      'user.name=Emulsify E2E',
+      'commit',
+      '-m',
+      'test: commit generated system',
+    ]);
+
+    const initResult = runCli(tempRoot, [
+      'init',
+      'Round Trip Project',
+      projectsRoot,
+      '--machineName',
+      'round-trip-project',
+      '--starter',
+      starterRepository,
+      '--checkout',
+      'main',
+      '--platform',
+      'wordpress',
+      '--yes',
+    ]);
+    assert.equal(
+      initResult.status,
+      0,
+      commandFailure('round-trip init', initResult),
+    );
+
+    const installResult = runCli(generatedProjectRoot, [
+      'system',
+      'install',
+      '--repository',
+      generatedSystemRoot,
+      '--checkout',
+      'main',
+    ]);
+    assert.equal(
+      installResult.status,
+      0,
+      commandFailure('round-trip system install', installResult),
+    );
+    assert.match(
+      installResult.stdout,
+      /Successfully installed the round-trip-system system using the drupal \|\| wordpress variant/,
+    );
+
+    const installedComponentRoot = join(
+      generatedProjectRoot,
+      'components',
+      'example-card',
+    );
+    for (const extension of ['twig', 'scss', 'yml', 'stories.js']) {
+      assert.equal(
+        existsSync(join(installedComponentRoot, `example-card.${extension}`)),
+        true,
+        `generated example-card.${extension} should install`,
+      );
+    }
+  });
+
   test('initializes a WordPress project with starter hook metadata', () => {
     const result = runCli(tempRoot, [
       'init',

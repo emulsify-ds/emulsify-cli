@@ -3,7 +3,7 @@
 
 # Emulsify CLI
 
-Command line interface for creating Emulsify projects, installing component systems, installing system components, generating local components, and routing project audits to Emulsify Core.
+Command line interface for creating Emulsify projects, authoring and installing component systems, installing system components, generating local components, and routing project audits to Emulsify Core.
 
 ## Requirements
 
@@ -45,6 +45,18 @@ emulsify init "My Theme" ./wp-content/themes --platform wordpress
 
 When WordPress is auto-detected, Emulsify initializes child themes into the detected themes directory, such as `wp-content/themes/my-theme` or `web/app/themes/my-theme` for Bedrock.
 
+To author a standalone, distributable component system, run `system create`
+outside or inside any project. The target directory is created beneath the
+selected parent directory:
+
+```bash
+emulsify system create "My System" --directory ./systems --platform "drupal || wordpress" --git
+```
+
+This creates `./systems/my-system` with valid system and variant configuration,
+an installable `example-card` component, repository documentation, a
+`.gitignore`, and a license placeholder to replace before distribution.
+
 Interactive terminals can run `emulsify component create` with no arguments to
 walk through the component name, format, and directory prompts. Likewise,
 `emulsify component install` with no name presents the components available in
@@ -56,6 +68,7 @@ the CLI exits with an actionable error instead of waiting for input:
 
 ```bash
 emulsify init "My Theme" ./web/themes/custom --platform drupal --yes
+emulsify system create my-system --directory ./systems --platform none --git
 emulsify system install compound
 emulsify component install card --force
 # Or install every available component:
@@ -91,7 +104,8 @@ Detailed documentation lives in [docs](./docs/README.md).
 | `emulsify init [name] [path]`       |                               | Initializes an Emulsify project from a starter.                   |
 | `emulsify audit [...args]`          |                               | Runs the project-installed Emulsify Core audit.                   |
 | `emulsify system list`              | `emulsify system ls`          | Lists built-in systems available for installation.                |
-| `emulsify system install [name]`    |                               | Installs or scaffolds a system in the current Emulsify project.   |
+| `emulsify system create [name]`     |                               | Creates a standalone component-system repository.                 |
+| `emulsify system install [name]`    |                               | Installs a system in the current Emulsify project.                |
 | `emulsify component list`           | `emulsify component ls`       | Lists components available from the installed system and variant. |
 | `emulsify component install [name]` | `emulsify component i [name]` | Installs one component from the installed system and variant.     |
 | `emulsify component create [name]`  | `emulsify component c [name]` | Creates a local component in the current Emulsify project.        |

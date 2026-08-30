@@ -4,6 +4,7 @@ import withProgressBar from './handlers/hofs/withProgressBar.js';
 import init from './handlers/init.js';
 import systemList from './handlers/systemList.js';
 import systemInstall from './handlers/systemInstall.js';
+import systemCreate from './handlers/systemCreate.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
 import componentCreate from './handlers/componentCreate.js';
@@ -30,6 +31,7 @@ function getRootHelp(): string {
     '  emulsify <command> --help',
     '  emulsify init [name] [path] [options]',
     '  emulsify audit [...args]',
+    '  emulsify system create [name] [options]',
     '  emulsify system install [name] [options]',
     '  emulsify component <command> [options]',
     '  emulsify cache clear [options]',
@@ -60,6 +62,17 @@ function getRootHelp(): string {
     '',
     '  system list',
     '    List built-in component systems available for installation. Alias: system ls.',
+    '',
+    '  system create [name]',
+    '    Scaffold a standalone component-system repository. Missing values prompt in interactive terminals.',
+    '    Options:',
+    '      -d, --directory <directory>         Parent directory for the new system repository.',
+    '      -p, --platform <expression>         Platform targets for the first variant.',
+    '          --git                           Initialize a Git repository on branch main.',
+    '          --no-git                        Do not initialize a Git repository.',
+    '          --homepage <url>                Homepage URI for system.emulsify.json.',
+    '          --repository <url>              Repository URI for system.emulsify.json.',
+    '      -y, --yes                           Accept defaults for every missing value.',
     '',
     '  system install [name]',
     '    Install a built-in or repository-backed component system. With no name or repository in',
@@ -144,12 +157,32 @@ program
 // System sub-commands.
 const system = program
   .command('system')
-  .description('List, install, or scaffold component systems');
+  .description('List, create, or install component systems');
 system
   .command('list')
   .description('List built-in systems available for installation')
   .alias('ls')
   .action(systemList);
+system
+  .command('create [name]')
+  .description('Scaffold a standalone component-system repository')
+  .option(
+    '-d --directory <directory>',
+    'Parent directory in which to create the new system repository.',
+  )
+  .option(
+    '-p --platform <platform-expression>',
+    'Platform compatibility expression for the first variant.',
+  )
+  .option('--git', 'Initialize a Git repository on branch main.')
+  .option('--no-git', 'Do not initialize a Git repository.')
+  .option('--homepage <url>', 'Homepage URI for system.emulsify.json.')
+  .option('--repository <url>', 'Repository URI for system.emulsify.json.')
+  .option(
+    '-y --yes',
+    'Accept defaults for all missing system scaffold values without prompting.',
+  )
+  .action(systemCreate);
 system
   .command('install [name]')
   .description(

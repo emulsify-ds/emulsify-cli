@@ -177,6 +177,21 @@ describe('getSystemRepoInfo', () => {
     });
   });
 
+  it('returns repository information from a local path without a .git suffix', async () => {
+    const repository = resolve('/fixtures/custom-system');
+
+    await expect(
+      getSystemRepoInfo(undefined, {
+        repository,
+        checkout: 'main',
+      }),
+    ).resolves.toEqual({
+      name: 'custom-system',
+      repository,
+      checkout: 'main',
+    });
+  });
+
   it('throws invalid explicit repository URLs', async () => {
     await expect(
       getSystemRepoInfo(undefined, {
@@ -1053,6 +1068,25 @@ describe('systemInstall', () => {
     expect(cloneSystemMock).toHaveBeenCalledWith({
       repository: 'https://github.com/example/custom-system.git',
       checkout: 'release',
+    });
+  });
+
+  it('clones an explicit local repository path without a .git suffix', async () => {
+    const repository = resolve('/fixtures/custom-system');
+
+    await systemInstall(undefined, {
+      repository,
+      checkout: 'main',
+    });
+
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith(
+      'systems',
+      ['custom-system'],
+      { refresh: true },
+    );
+    expect(cloneSystemMock).toHaveBeenCalledWith({
+      repository,
+      checkout: 'main',
     });
   });
 

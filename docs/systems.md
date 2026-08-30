@@ -32,7 +32,6 @@ In an interactive terminal, the CLI prompts for a system:
 ? Choose a component system:
 ❯ compound
   emulsify-ui-kit
-  create a new system
   cancel
 ```
 
@@ -78,53 +77,173 @@ emulsify system install \
   --variant wordpress
 ```
 
-Custom system repository URLs must end in `.git`, because the CLI parses the system name from the repository filename.
+Remote custom-system URLs must end in `.git`, because the CLI parses the system name from the repository filename. You can also pass an ordinary relative or absolute path to a local Git repository without a `.git` suffix:
+
+```bash
+emulsify system install \
+  --repository /absolute/path/to/example-system \
+  --checkout v1.0.0
+```
 
 Omit `--variant` to use automatic platform compatibility selection. Pass it to select an exact variant platform expression; quote shared expressions such as `--variant "drupal || wordpress"`.
 
 Prefer tags or commit hashes for `--checkout` so subsequent installs use the same system version.
 
-## Create A New System Definition
+## Author A Standalone System
 
-Choose `create a new system` from the interactive prompt to scaffold a local `system.emulsify.json` in the current Emulsify project root.
+`system create` generates a complete, distributable system repository. It is a standalone command: run it inside or outside an Emulsify project, and it will not read or update `project.emulsify.json`.
 
-```text
-Created system.emulsify.json.
-
-Add your real system name, repository, structures, variants, and components before using this system to install or generate components.
+```bash
+emulsify system create [name]
 ```
 
-The scaffold is intentionally minimal and must be completed before it represents a real component system:
+In an interactive terminal, omit values to walk through prompts for the system name, target parent directory, platform targets, and Git initialization. Names are normalized to lowercase, hyphenated machine names. The `--directory` option is a parent directory, so this command creates `./systems/my-system`:
+
+```bash
+emulsify system create "My System" \
+  --directory ./systems \
+  --platform "drupal || wordpress" \
+  --git
+```
+
+Use `--homepage` and `--repository` to write real project metadata at creation time:
+
+```bash
+emulsify system create my-system \
+  --directory ./systems \
+  --platform drupal \
+  --git \
+  --homepage https://design.example.org/my-system \
+  --repository https://github.com/acme/my-system.git
+```
+
+Without those overrides, the metadata defaults to `https://example.com/<name>` and `https://github.com/example/<name>.git`. Replace these placeholders before publishing. The generated `LICENSE` is also a placeholder; choose a license appropriate for the system before distribution.
+
+Use `--no-git` instead of `--git` when another tool will initialize the repository. In non-interactive environments, supply the positional name, `--directory`, `--platform`, and either `--git` or `--no-git`, or use `--yes`. `--yes` supplies these defaults for anything omitted:
+
+| Value              | Default         |
+| ------------------ | --------------- |
+| Name               | `custom-system` |
+| Parent directory   | `./`            |
+| Platform           | `none`          |
+| Git initialization | Enabled         |
+
+The command never merges into or overwrites an existing target. If the normalized target directory already exists, choose another name or parent directory.
+
+### Generated Repository Anatomy
+
+The scaffold has a valid `system.emulsify.json`, repository guidance, and one real component that can be installed immediately:
+
+```text
+my-system/
+├── .gitignore
+├── LICENSE
+├── README.md
+├── system.emulsify.json
+└── components/
+    └── example-card/
+        ├── example-card.scss
+        ├── example-card.stories.js
+        ├── example-card.twig
+        └── example-card.yml
+```
+
+When Git initialization is enabled, `.git/` is also created with `main` as the initial branch. The generated configuration follows this shape:
 
 ```json
 {
-  "name": "custom-system",
-  "homepage": "https://example.com/custom-system",
-  "repository": "https://github.com/example/custom-system.git",
+  "name": "my-system",
+  "homepage": "https://example.com/my-system",
+  "repository": "https://github.com/example/my-system.git",
   "structure": [
     {
       "name": "components",
-      "description": "Project component library"
+      "description": "Reusable components provided by this system"
     }
   ],
   "variants": [
     {
-      "platform": "drupal",
+      "platform": "drupal || wordpress",
       "structureImplementations": [
         {
           "name": "components",
-          "directory": "./src/components"
+          "directory": "components"
         }
       ],
-      "components": []
+      "components": [
+        {
+          "name": "example-card",
+          "structure": "components",
+          "description": "Example card included with the generated system",
+          "required": true
+        }
+      ]
     }
   ]
 }
 ```
 
-The generated variant platform follows the current project platform when it is `drupal`, `wordpress`, or `none`. If `system.emulsify.json` already exists, the CLI stops rather than overwrite it.
+`structure` declares the system's logical component groups. Each variant's `structureImplementations` maps those groups to source directories in the repository. Here the `components` structure maps directly to `components`, so the `example-card` source resolves to `components/example-card`. Because the component is marked `required: true`, `system install` copies it without needing `--all`.
 
-Creating a new system definition does not clone a remote system, install components, install general assets, run install hooks, or update `project.emulsify.json`.
+The example provides Twig, Sass, YAML data, and Storybook story files. Customize or replace it, then keep the component entries and on-disk directories in sync as the library grows.
+
+### Choose Platform Targets
+
+Use `none` for a platform-neutral system, a concrete target such as `drupal` or `wordpress`, or a compatibility expression for a shared implementation:
+
+```bash
+emulsify system create generic-system --directory ./systems --platform none --git
+emulsify system create drupal-system --directory ./systems --platform drupal --git
+emulsify system create shared-system --directory ./systems --platform "drupal || wordpress" --git
+```
+
+Quote expressions containing `||` so the shell passes the whole value to the CLI. The generated variant stores the normalized expression in `system.emulsify.json`; installation uses it when selecting a variant for the project's concrete platform.
+
+### Test A Scaffold Locally
+
+Commit and tag the generated repository before installing it. Local installs accept an ordinary filesystem path, so this workflow does not require a remote host:
+
+```bash
+emulsify system create my-system \
+  --directory /tmp/emulsify-systems \
+  --platform none \
+  --git
+cd /tmp/emulsify-systems/my-system
+git add .
+git commit -m "feat: create component system"
+git tag v0.1.0
+
+cd /path/to/emulsify-project
+emulsify system install \
+  --repository /tmp/emulsify-systems/my-system \
+  --checkout v0.1.0
+emulsify component list
+```
+
+Installing the scaffold records the system and selected variant in `project.emulsify.json` and installs its required `example-card` under the mapped `components` directory. This local round trip is a useful validation before publishing.
+
+### Publish And Install A Release
+
+Before publishing, replace the placeholder homepage, repository, license, and example content if you did not supply final values during creation. Commit the finished repository, create a stable tag, and push both to your Git host:
+
+```bash
+git remote add origin https://github.com/acme/my-system.git
+git add .
+git commit -m "feat: publish initial system"
+git tag v1.0.0
+git push -u origin HEAD
+git push origin v1.0.0
+```
+
+Consumers can install the tagged release from an Emulsify project. Remote custom repository URLs must end in `.git`:
+
+```bash
+emulsify system install \
+  --repository https://github.com/acme/my-system.git \
+  --checkout v1.0.0
+```
+
+Use immutable tags or commit hashes for published integrations. Create a new tag for later releases so consumers can choose when to upgrade.
 
 ## Project Config After Install
 

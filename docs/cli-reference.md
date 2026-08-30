@@ -17,7 +17,8 @@ The examples below reflect the command definitions in `src/index.ts` and the gen
 | `emulsify init [name] [path]`       |                               | Initialize an Emulsify project from a starter.                   |
 | `emulsify audit [...args]`          |                               | Run the project-installed Emulsify Core audit.                   |
 | `emulsify system list`              | `emulsify system ls`          | List built-in systems available for installation.                |
-| `emulsify system install [name]`    |                               | Install or scaffold a system in the current Emulsify project.    |
+| `emulsify system create [name]`     |                               | Create a standalone, distributable component system.             |
+| `emulsify system install [name]`    |                               | Install a system in the current Emulsify project.                |
 | `emulsify component list`           | `emulsify component ls`       | List components available from the installed system and variant. |
 | `emulsify component install [name]` | `emulsify component i [name]` | Install a component from the installed system and variant.       |
 | `emulsify component create [name]`  | `emulsify component c [name]` | Generate a new local component in the current project.           |
@@ -112,19 +113,91 @@ emulsify system ls
 
 Lists the built-in system names and repositories known to this CLI version.
 
+## `system create`
+
+```bash
+emulsify system create [name]
+```
+
+Creates a standalone component-system repository. It does not require an
+Emulsify project and does not change `project.emulsify.json`. The supplied name
+is normalized to a lowercase, hyphenated machine name. The target is the
+normalized name beneath the parent passed to `--directory`; for example,
+`"My System" --directory ./systems` creates `./systems/my-system`.
+
+Options:
+
+| Option                                 | Description                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| `-d, --directory <directory>`          | Parent directory in which the normalized system directory is created.                |
+| `-p, --platform <platform-expression>` | Variant target: `none`, a concrete platform, or a compound compatibility expression. |
+| `--git`                                | Initialize a Git repository in the generated system.                                 |
+| `--no-git`                             | Generate the system without initializing Git.                                        |
+| `--homepage <url>`                     | Override the homepage metadata written to `system.emulsify.json`.                    |
+| `--repository <url>`                   | Override the repository metadata written to `system.emulsify.json`.                  |
+| `-y, --yes`                            | Accept defaults for every missing prompt value.                                      |
+
+In an interactive terminal, missing name, parent directory, platform expression,
+and Git choice are prompted. In a non-interactive environment, provide them as
+arguments and flags or use `--yes`; the command exits with an actionable error
+instead of waiting for input.
+
+With `--yes`, missing values default to:
+
+- Name: `custom-system`
+- Parent directory: `./`
+- Platform expression: `none`
+- Git initialization: enabled
+
+The generated homepage and repository metadata use placeholder example URLs
+derived from the normalized name unless `--homepage` or `--repository` is
+provided. Replace placeholders before publishing.
+
+The command refuses to overwrite an existing target. A successful scaffold
+contains:
+
+```text
+my-system/
+├── .gitignore
+├── LICENSE
+├── README.md
+├── system.emulsify.json
+└── components/
+    └── example-card/
+        ├── example-card.scss
+        ├── example-card.stories.js
+        ├── example-card.twig
+        └── example-card.yml
+```
+
+The generated `example-card` is marked as required, so installing the system
+also proves that its component source layout is usable. `--git` additionally
+creates the `.git/` metadata directory with `main` as the initial branch.
+
+Examples:
+
+```bash
+emulsify system create
+emulsify system create "My System" --directory ./systems --platform none --git
+emulsify system create shared-system --directory ./systems --platform "drupal || wordpress" --no-git
+emulsify system create my-system --yes
+emulsify system create my-system --directory ./systems --platform drupal --git \
+  --homepage https://design.example.com/my-system \
+  --repository https://github.com/example/my-system.git
+```
+
 ## `system install`
 
 ```bash
 emulsify system install [name]
 ```
 
-Run without `[name]` in an interactive terminal to choose from built-in systems, scaffold a new system definition, or cancel:
+Run without `[name]` in an interactive terminal to choose from built-in systems or cancel:
 
 ```text
 ? Choose a component system:
 ❯ compound
   emulsify-ui-kit
-  create a new system
   cancel
 ```
 
@@ -132,7 +205,7 @@ Options:
 
 | Option                               | Description                                                                                                                                      |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `-r, --repository <repository>`      | Install a system from a specific Git repository. Custom repository URLs must end in `.git`.                                                      |
+| `-r, --repository <repository>`      | Install from a remote Git repository or a local repository path. Remote URLs must end in `.git`.                                                 |
 | `-c, --checkout <commit/branch/tag>` | Checkout to use. This is required when `--repository` is used.                                                                                   |
 | `--variant <platform-expression>`    | Install the variant whose platform expression exactly matches this value. Quote compound expressions at the shell.                               |
 | `-a, --all`                          | Install every component in the selected variant. Without this flag, only components marked `required: true` are installed during system install. |
@@ -146,9 +219,8 @@ emulsify system install emulsify-ui-kit
 emulsify system install compound --all
 emulsify system install --repository https://github.com/example/example-system.git --checkout v1.0.0
 emulsify system install --repository https://github.com/example/example-system.git --checkout v1.0.0 --variant wordpress
+emulsify system install --repository /absolute/path/to/local-system --checkout v1.0.0
 ```
-
-Selecting `create a new system` writes `system.emulsify.json` in the current Emulsify project root. Complete the generated system name, repository, structures, variants, and components before using it to install or generate components.
 
 System variant compatibility is selected from each variant's `platform` expression. Examples:
 
