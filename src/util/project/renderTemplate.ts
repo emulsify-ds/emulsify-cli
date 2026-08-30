@@ -12,7 +12,9 @@ export type ComponentTemplateVars = {
   snakeName: string;
   humanName: string;
   directory: string;
+  directoryTitle: string;
   format: string;
+  formatLabel: string;
   type: string;
   tagName: string;
 };
@@ -24,7 +26,8 @@ const tokenPattern = /{{\s*([A-Za-z][A-Za-z0-9]*)\s*}}/g;
  *
  * Supported tokens are `{{ filename }}`, `{{ className }}`, `{{ camelName }}`,
  * `{{ pascalName }}`, `{{ snakeName }}`, `{{ humanName }}`, `{{ directory }}`,
- * `{{ format }}`, `{{ type }}`, and `{{ tagName }}`.
+ * `{{ directoryTitle }}`, `{{ format }}`, `{{ formatLabel }}`, `{{ type }}`,
+ * and `{{ tagName }}`.
  * Unknown tokens are left unchanged and logged as warnings.
  *
  * @param template raw template file content containing optional double-brace tokens.
@@ -41,7 +44,9 @@ const tokenPattern = /{{\s*([A-Za-z][A-Za-z0-9]*)\s*}}/g;
  *   snakeName: 'featured_item',
  *   humanName: 'Featured Item',
  *   directory: 'base',
+ *   directoryTitle: 'Base',
  *   format: 'default',
+ *   formatLabel: 'STANDARD',
  *   type: 'twig',
  *   tagName: '',
  * });

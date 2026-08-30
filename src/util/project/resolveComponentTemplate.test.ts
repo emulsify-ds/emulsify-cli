@@ -30,7 +30,9 @@ const vars: ComponentTemplateVars = {
   snakeName: 'featured_item',
   humanName: 'Featured Item',
   directory: 'base',
+  directoryTitle: 'Base',
   format: 'default',
+  formatLabel: 'STANDARD',
   type: 'twig',
   tagName: '',
 };

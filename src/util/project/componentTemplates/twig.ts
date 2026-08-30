@@ -8,22 +8,20 @@
  * @param filename Kebab-case component file and folder name.
  * @param snakeName Snake-case prefix used by Twig variables and blocks.
  * @param className CSS base class name used by the component markup.
- * @param format Uppercase component format label used in the file header.
+ * @param formatLabel Display-ready component format label used in the file header.
  * @returns Twig source content for the generated component markup file.
  */
 export function buildTwigTemplate(
   filename: string,
   snakeName: string,
   className: string,
-  format: string,
+  formatLabel: string,
 ): string {
-  const label = format === 'DEFAULT' ? 'STANDARD' : format;
-
   return `{#
 /**
  * @file
  * ${filename}.twig
- * Format: ${label}
+ * Format: ${formatLabel}
  *
  * Available variables:
  * - ${snakeName}__heading - the heading text for this component

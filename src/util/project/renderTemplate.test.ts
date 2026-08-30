@@ -16,7 +16,9 @@ const vars: ComponentTemplateVars = {
   snakeName: 'featured_item',
   humanName: 'Featured Item',
   directory: 'base',
+  directoryTitle: 'Base',
   format: 'default',
+  formatLabel: 'STANDARD',
   type: 'web-component',
   tagName: 'featured-item',
 };
@@ -31,11 +33,11 @@ describe('renderTemplate', () => {
 
     expect(
       renderTemplate(
-        '{{ filename }}|{{ className }}|{{ camelName }}|{{ pascalName }}|{{ snakeName }}|{{ humanName }}|{{ directory }}|{{ format }}|{{ type }}|{{ tagName }}',
+        '{{ filename }}|{{ className }}|{{ camelName }}|{{ pascalName }}|{{ snakeName }}|{{ humanName }}|{{ directory }}|{{ directoryTitle }}|{{ format }}|{{ formatLabel }}|{{ type }}|{{ tagName }}',
         vars,
       ),
     ).toBe(
-      'featured-item|featured-item|featuredItem|FeaturedItem|featured_item|Featured Item|base|default|web-component|featured-item',
+      'featured-item|featured-item|featuredItem|FeaturedItem|featured_item|Featured Item|base|Base|default|STANDARD|web-component|featured-item',
     );
   });
 

@@ -6,14 +6,15 @@
  * Generates the base SCSS file for a component.
  *
  * @param className CSS base class name used by the component markup.
- * @param format Uppercase component format label used in the file header.
+ * @param formatLabel Display-ready component format label used in the file header.
  * @returns SCSS source content for the generated component stylesheet.
  */
-export function buildScssTemplate(className: string, format: string): string {
-  const label = format === 'DEFAULT' ? 'STANDARD' : format;
-
+export function buildScssTemplate(
+  className: string,
+  formatLabel: string,
+): string {
   return `/*
- * Base Styles for ${className} (${label})
+ * Base Styles for ${className} (${formatLabel})
  *
  * These styles are provided as a starting point.
  * Replace or extend them to match your project's design system.

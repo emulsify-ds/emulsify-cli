@@ -25,6 +25,13 @@ const LEGACY_FORMAT_TO_TYPE = {
 
 type LegacyComponentFormat = keyof typeof LEGACY_FORMAT_TO_TYPE;
 
+const COMPONENT_FORMAT_LABELS: Record<ComponentType, string> = {
+  twig: 'STANDARD',
+  'twig-sdc': 'SDC',
+  react: 'REACT',
+  'web-component': 'WEB COMPONENT',
+};
+
 type ProjectPackage = {
   dependencies?: Record<string, unknown>;
   devDependencies?: Record<string, unknown>;
@@ -63,6 +70,11 @@ export function getCompatibleFormatToken(type: ComponentType): string {
   if (type === 'twig') return 'default';
   if (type === 'twig-sdc') return 'sdc';
   return type;
+}
+
+/** Return the display label used in generated component file headers. */
+export function getComponentFormatLabel(type: ComponentType): string {
+  return COMPONENT_FORMAT_LABELS[type];
 }
 
 /** Return the types the interactive wizard can safely recommend. */

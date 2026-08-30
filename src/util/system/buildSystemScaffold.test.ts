@@ -88,11 +88,11 @@ describe('buildSystemScaffold', () => {
         'example-card',
         'example_card',
         'example-card',
-        'DEFAULT',
+        'STANDARD',
       ),
     );
     expect(files['components/example-card/example-card.scss']).toBe(
-      buildScssTemplate('example-card', 'DEFAULT'),
+      buildScssTemplate('example-card', 'STANDARD'),
     );
     expect(files['components/example-card/example-card.yml']).toBe(
       buildYmlTemplate('example_card', 'Example Card'),
@@ -102,7 +102,7 @@ describe('buildSystemScaffold', () => {
         'exampleCard',
         'example-card',
         'Example Card',
-        'components',
+        'Components',
       ),
     );
   });

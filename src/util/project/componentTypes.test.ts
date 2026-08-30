@@ -10,6 +10,7 @@ import loadJsonFile from '../fs/loadJsonFile.js';
 import {
   componentTypeFromLegacyFormat,
   getAvailableComponentTypes,
+  getComponentFormatLabel,
   getCompatibleFormatToken,
   normalizeComponentType,
   projectDeclaresEmulsifyCore,
@@ -73,6 +74,20 @@ describe('component type utilities', () => {
 
     expect(getCompatibleFormatToken(type)).toBe(expected);
   });
+
+  it.each([
+    ['twig', 'STANDARD'],
+    ['twig-sdc', 'SDC'],
+    ['react', 'REACT'],
+    ['web-component', 'WEB COMPONENT'],
+  ] as const)(
+    'uses the display-ready format label for %s',
+    (type, expected) => {
+      expect.assertions(1);
+
+      expect(getComponentFormatLabel(type)).toBe(expected);
+    },
+  );
 
   describe('getAvailableComponentTypes', () => {
     it.each([

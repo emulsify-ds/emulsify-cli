@@ -11,7 +11,8 @@ const EXAMPLE_COMPONENT_NAME = 'example-card';
 const EXAMPLE_COMPONENT_CAMEL_NAME = 'exampleCard';
 const EXAMPLE_COMPONENT_SNAKE_NAME = 'example_card';
 const EXAMPLE_COMPONENT_HUMAN_NAME = 'Example Card';
-const DEFAULT_FORMAT_LABEL = 'DEFAULT';
+const STANDARD_FORMAT_LABEL = 'STANDARD';
+const COMPONENT_STRUCTURE_TITLE = 'Components';
 
 export type BuildSystemScaffoldOptions = {
   name: string;
@@ -130,14 +131,14 @@ export default function buildSystemScaffold(
           EXAMPLE_COMPONENT_NAME,
           EXAMPLE_COMPONENT_SNAKE_NAME,
           EXAMPLE_COMPONENT_NAME,
-          DEFAULT_FORMAT_LABEL,
+          STANDARD_FORMAT_LABEL,
         ),
       },
       {
         path: `${exampleComponentDirectory}/${EXAMPLE_COMPONENT_NAME}.scss`,
         contents: buildScssTemplate(
           EXAMPLE_COMPONENT_NAME,
-          DEFAULT_FORMAT_LABEL,
+          STANDARD_FORMAT_LABEL,
         ),
       },
       {
@@ -153,7 +154,7 @@ export default function buildSystemScaffold(
           EXAMPLE_COMPONENT_CAMEL_NAME,
           EXAMPLE_COMPONENT_NAME,
           EXAMPLE_COMPONENT_HUMAN_NAME,
-          COMPONENT_STRUCTURE_NAME,
+          COMPONENT_STRUCTURE_TITLE,
         ),
       },
     ],

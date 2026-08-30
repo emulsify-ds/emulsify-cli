@@ -7,14 +7,14 @@
  *
  * @param filename Kebab-case component file and folder name.
  * @param humanName Human-readable component name shown in Storybook.
- * @param directory Component structure name used as the Storybook title group.
+ * @param directoryTitle Display-ready Storybook title group.
  * @param tagName Valid autonomous custom-element tag name.
  * @returns JavaScript source content for the generated web component story.
  */
 export function buildWebComponentStoriesTemplate(
   filename: string,
   humanName: string,
-  directory: string,
+  directoryTitle: string,
   tagName: string,
 ): string {
   return `import { renderWebComponent } from '@emulsify/core/storybook';
@@ -24,7 +24,7 @@ import './${filename}.js';
  * Storybook Definition.
  */
 export default {
-  title: '${directory[0].toUpperCase() + directory.slice(1)}/${humanName}',
+  title: '${directoryTitle}/${humanName}',
   render: renderWebComponent('${tagName}'),
   args: {
     heading: '${humanName} Component',

@@ -23,6 +23,7 @@ import { runPrompt } from '../prompt/index.js';
 import {
   componentTypeFromLegacyFormat,
   getAvailableComponentTypes,
+  getComponentFormatLabel,
   getCompatibleFormatToken,
   MISSING_COMPONENT_DIRECTORY_ERROR,
   MISSING_COMPONENT_TYPE_ERROR,
@@ -244,6 +245,9 @@ export default async function generateComponent(
     );
   }
 
+  const directoryTitle = `${directory.charAt(0).toUpperCase()}${directory.slice(1)}`;
+  const formatLabel = getComponentFormatLabel(type);
+
   // Calculate the parent path based on the path to the Emulsify project and the component's structure.
   const parentPath = safeResolveWithin(
     projectRoot,
@@ -271,7 +275,9 @@ export default async function generateComponent(
     snakeName,
     humanName,
     directory,
+    directoryTitle,
     format: getCompatibleFormatToken(type),
+    formatLabel,
     type,
     tagName,
   };
@@ -284,12 +290,12 @@ export default async function generateComponent(
           logicalName: 'component.twig',
           destinationName: `${filename}.twig`,
           build: () =>
-            buildTwigTemplate(filename, snakeName, className, 'DEFAULT'),
+            buildTwigTemplate(filename, snakeName, className, formatLabel),
         },
         {
           logicalName: 'component.scss',
           destinationName: `${filename}.scss`,
-          build: () => buildScssTemplate(className, 'DEFAULT'),
+          build: () => buildScssTemplate(className, formatLabel),
         },
         {
           logicalName: 'component.yml',
@@ -300,7 +306,12 @@ export default async function generateComponent(
           logicalName: 'component.stories.js',
           destinationName: `${filename}.stories.js`,
           build: () =>
-            buildStoriesTemplate(camelName, filename, humanName, directory),
+            buildStoriesTemplate(
+              camelName,
+              filename,
+              humanName,
+              directoryTitle,
+            ),
         },
       ];
       break;
@@ -309,12 +320,13 @@ export default async function generateComponent(
         {
           logicalName: 'component.twig',
           destinationName: `${filename}.twig`,
-          build: () => buildTwigTemplate(filename, snakeName, className, 'SDC'),
+          build: () =>
+            buildTwigTemplate(filename, snakeName, className, formatLabel),
         },
         {
           logicalName: 'component.scss',
           destinationName: `${filename}.scss`,
-          build: () => buildScssTemplate(className, 'SDC'),
+          build: () => buildScssTemplate(className, formatLabel),
         },
         {
           logicalName: 'component.component.yml',
@@ -335,7 +347,7 @@ export default async function generateComponent(
               filename,
               snakeName,
               humanName,
-              directory,
+              directoryTitle,
             ),
         },
       ];
@@ -351,7 +363,7 @@ export default async function generateComponent(
         {
           logicalName: 'component.scss',
           destinationName: `${filename}.scss`,
-          build: () => buildScssTemplate(className, 'REACT'),
+          build: () => buildScssTemplate(className, formatLabel),
         },
         {
           logicalName: 'component.stories.jsx',
@@ -361,7 +373,7 @@ export default async function generateComponent(
               pascalName,
               filename,
               humanName,
-              directory,
+              directoryTitle,
             ),
         },
       ];
@@ -383,7 +395,7 @@ export default async function generateComponent(
         {
           logicalName: 'component.scss',
           destinationName: `${filename}.scss`,
-          build: () => buildScssTemplate(className, 'WEB COMPONENT'),
+          build: () => buildScssTemplate(className, formatLabel),
         },
         {
           logicalName: 'component.stories.js',
@@ -392,7 +404,7 @@ export default async function generateComponent(
             buildWebComponentStoriesTemplate(
               filename,
               humanName,
-              directory,
+              directoryTitle,
               tagName,
             ),
         },

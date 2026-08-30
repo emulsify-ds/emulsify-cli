@@ -1,9 +1,69 @@
 import {
   buildReactStoriesTemplate,
   buildReactTemplate,
+  buildScssTemplate,
+  buildSdcStoriesTemplate,
+  buildStoriesTemplate,
+  buildTwigTemplate,
   buildWebComponentStoriesTemplate,
   buildWebComponentTemplate,
 } from './index.js';
+
+describe('derived display values', () => {
+  it('uses the supplied format label without transforming it', () => {
+    expect.assertions(2);
+
+    expect(
+      buildTwigTemplate(
+        'featured-item',
+        'featured_item',
+        'featured-item',
+        'DEFAULT',
+      ),
+    ).toContain('* Format: DEFAULT');
+    expect(buildScssTemplate('featured-item', 'DEFAULT')).toContain(
+      '(DEFAULT)',
+    );
+  });
+
+  it('uses the supplied Storybook directory title without transforming it', () => {
+    expect.assertions(4);
+
+    expect(
+      buildStoriesTemplate(
+        'featuredItem',
+        'featured-item',
+        'Featured Item',
+        'components',
+      ),
+    ).toContain("title: 'components/Featured Item'");
+    expect(
+      buildSdcStoriesTemplate(
+        'featuredItem',
+        'featured-item',
+        'featured_item',
+        'Featured Item',
+        'components',
+      ),
+    ).toContain("title: 'components/Featured Item'");
+    expect(
+      buildReactStoriesTemplate(
+        'FeaturedItem',
+        'featured-item',
+        'Featured Item',
+        'components',
+      ),
+    ).toContain("title: 'components/Featured Item'");
+    expect(
+      buildWebComponentStoriesTemplate(
+        'featured-item',
+        'Featured Item',
+        'components',
+        'featured-item',
+      ),
+    ).toContain("title: 'components/Featured Item'");
+  });
+});
 
 describe('React component templates', () => {
   it('builds a named JSX component with the shared component class names', () => {
@@ -31,7 +91,7 @@ describe('React component templates', () => {
       'FeaturedItem',
       'featured-item',
       'Featured Item',
-      'components',
+      'Components',
     );
 
     expect(template).toContain(
@@ -76,7 +136,7 @@ describe('web component templates', () => {
     const template = buildWebComponentStoriesTemplate(
       'featured-item',
       'Featured Item',
-      'components',
+      'Components',
       'featured-item',
     );
 
