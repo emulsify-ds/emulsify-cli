@@ -474,7 +474,7 @@ describe('systemInstall', () => {
 
   it('throws a helpful error in non-interactive mode when no system is provided', async () => {
     await expect(systemInstall(undefined, {})).rejects.toThrow(
-      'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
+      'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.',
     );
   });
 
@@ -993,7 +993,7 @@ describe('systemInstall', () => {
 
   it('throws when no matching system repository is found', async () => {
     await expect(systemInstall('missing', {})).rejects.toThrow(
-      'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
+      'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.',
     );
   });
 
@@ -1004,7 +1004,7 @@ describe('systemInstall', () => {
         checkout: 'main',
       }),
     ).rejects.toThrow(
-      'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
+      'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.',
     );
   });
 

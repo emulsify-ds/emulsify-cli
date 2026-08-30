@@ -80,6 +80,5 @@ Commands:
     Show help for a command.
 
 Global options:
-  -c, --checkout <commit/branch/tag>      Shared checkout option for commands that clone repositories.
   -V, --version                           Show the installed CLI version.
   -h, --help                              Show this help output.

@@ -101,7 +101,6 @@ function getRootHelp(): string {
     '    Show help for a command.',
     '',
     'Global options:',
-    '  -c, --checkout <commit/branch/tag>      Shared checkout option for commands that clone repositories.',
     '  -V, --version                           Show the installed CLI version.',
     '  -h, --help                              Show this help output.',
     '',
@@ -109,13 +108,7 @@ function getRootHelp(): string {
 }
 
 // Main program commands.
-program
-  .name('emulsify')
-  .enablePositionalOptions()
-  .option(
-    '-c --checkout <commit/branch/tag>',
-    'Commit, branch or tag of the base repository that should be checked out',
-  );
+program.name('emulsify').enablePositionalOptions();
 
 program
   .command('init [name] [path]')

@@ -41,7 +41,7 @@ import {
 const CREATE_NEW_SYSTEM_CHOICE = 'create a new system';
 const CANCEL_SYSTEM_INSTALL_CHOICE = 'cancel';
 const SYSTEM_INSTALL_ERROR =
-  'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.';
+  'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.';
 
 /**
  * Helper function that uses InstallSystemHandlerOptions input to determine what
