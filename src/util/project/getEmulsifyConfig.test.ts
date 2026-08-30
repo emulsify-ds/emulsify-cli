@@ -101,6 +101,23 @@ describe('getEmulsifyConfig', () => {
     );
   });
 
+  it('names every unknown project property in schema validation errors', async () => {
+    loadJsonFileMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        generatedForm: 'emulsify-wordpress',
+        generatedFromVerison: '2.0.0',
+        descripton: 'A generated WordPress child theme.',
+      },
+    });
+
+    await expect(getEmulsifyConfig()).rejects.toMatchObject({
+      message:
+        'Invalid Emulsify project configuration in "/projects/project.emulsify.json": /project must NOT have additional property "generatedForm"; /project must NOT have additional property "generatedFromVerison"; /project must NOT have additional property "descripton"',
+    });
+  });
+
   it('accepts variant platform compatibility expressions', async () => {
     const expressionConfig = {
       ...projectConfig,
