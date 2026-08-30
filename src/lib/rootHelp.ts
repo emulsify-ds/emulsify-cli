@@ -134,6 +134,11 @@ const sections: HelpSection[] = [
       },
       {
         kind: 'option',
+        label: '-a, --all',
+        description: 'Eject every component template type',
+      },
+      {
+        kind: 'option',
         label: '-f, --force',
         description: 'Replace existing template files',
       },

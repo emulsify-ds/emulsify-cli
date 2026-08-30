@@ -185,6 +185,7 @@ component
 component
   .command('eject-templates [type]')
   .description('Write editable copies of the built-in component templates')
+  .option('-a, --all', 'Eject templates for every supported component type.')
   .option(
     '-f, --force',
     'Replace existing template files in the selected type set.',

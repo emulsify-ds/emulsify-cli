@@ -269,8 +269,9 @@ emulsify component eject-templates twig
 
 In an interactive terminal, omit the type to select one or more types. In a
 non-interactive environment, provide one of `twig`, `twig-sdc`, `react`, or
-`web-component`. The command protects existing customizations unless `--force`
-is passed, and `--dry-run` previews every destination without writing files.
+`web-component`, or pass `--all` to eject every type. Do not combine a type
+with `--all`. The command protects existing customizations unless `--force` is
+passed, and `--dry-run` previews every destination without writing files.
 
 Edit the resulting `.cli/templates/<type>/...` files. Then use `component
 create` normally. See

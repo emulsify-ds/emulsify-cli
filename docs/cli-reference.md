@@ -400,8 +400,9 @@ scratch. The command reports every destination with its real project path.
 Supported types are `twig`, `twig-sdc`, `react`, and `web-component`. In an
 interactive terminal, omitting `[type]` opens a multi-select prompt where one,
 several, or all four types can be selected. When standard input is not a TTY,
-provide one type; otherwise the command exits immediately with an actionable
-message naming the argument.
+provide one type or pass `--all`; otherwise the command exits immediately with
+an actionable message naming both choices. `[type]` and `--all` are mutually
+exclusive.
 
 Before writing, the command checks every target in the selected set. If any
 target already exists, it reports all conflicts and writes nothing. Pass
@@ -411,6 +412,7 @@ Options:
 
 | Option        | Description                                                                    |
 | ------------- | ------------------------------------------------------------------------------ |
+| `-a, --all`   | Eject templates for every supported component type.                            |
 | `-f, --force` | Replace existing template files after the selection-wide conflict check.       |
 | `--dry-run`   | Report template destinations and conflicts without creating or changing files. |
 
@@ -419,6 +421,7 @@ Examples:
 ```bash
 emulsify component eject-templates
 emulsify component eject-templates twig
+emulsify component eject-templates --all
 emulsify component eject-templates react --dry-run
 emulsify component eject-templates web-component --force
 ```

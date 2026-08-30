@@ -327,6 +327,18 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.match(result.stdout, /Compatibility alias for --force/u);
   });
 
+  test('advertises all-types template ejection in detailed help', () => {
+    const result = runCli(tempRoot, ['component', 'eject-templates', '--help']);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component eject-templates --help', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.match(result.stdout, /-a, --all/u);
+  });
+
   test('prints the package version', () => {
     const result = runCli(tempRoot, ['--version']);
 
@@ -802,7 +814,44 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.notEqual(result.status, 0);
     assert.equal(result.stdout, '');
     assert.match(result.stderr, /\[type\] positional argument/u);
+    assert.match(result.stderr, /--all/u);
     assert.deepEqual(snapshotFiles(templatesRoot), before);
+  });
+
+  test('ejects every component template type with --all', () => {
+    const templatesRoot = join(projectRoot, '.cli', 'templates');
+    const result = runCli(projectRoot, [
+      'component',
+      'eject-templates',
+      '--all',
+    ]);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component eject-templates --all', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.deepEqual(
+      Object.keys(snapshotFiles(templatesRoot)).sort(),
+      [
+        join('react', 'component.jsx'),
+        join('react', 'component.scss'),
+        join('react', 'component.stories.jsx'),
+        join('twig', 'component.scss'),
+        join('twig', 'component.stories.js'),
+        join('twig', 'component.twig'),
+        join('twig', 'component.yml'),
+        join('twig-sdc', 'component.component.yml'),
+        join('twig-sdc', 'component.js'),
+        join('twig-sdc', 'component.scss'),
+        join('twig-sdc', 'component.stories.js'),
+        join('twig-sdc', 'component.twig'),
+        join('web-component', 'component.js'),
+        join('web-component', 'component.scss'),
+        join('web-component', 'component.stories.js'),
+      ].sort(),
+    );
   });
 
   test('uses a customized ejected template during component creation', () => {
@@ -810,6 +859,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       'component',
       'eject-templates',
       'twig',
+      '--force',
     ]);
     assert.equal(
       ejectResult.status,

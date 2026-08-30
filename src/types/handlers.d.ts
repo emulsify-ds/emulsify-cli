@@ -77,6 +77,8 @@ declare module '@emulsify-cli/handlers' {
   };
 
   export type EjectComponentTemplatesHandlerOptions = {
+    /** Eject templates for every supported component type. */
+    all?: boolean;
     /** Replace existing selected component template overrides. */
     force?: boolean;
     /** Preview component template destinations without writing files. */

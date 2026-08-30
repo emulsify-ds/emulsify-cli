@@ -29,6 +29,7 @@ COMPONENTS
       --force                        Replace an existing generated component
       --dry-run                      Preview without writing files
   component eject-templates [type]  Write editable built-in templates
+      -a, --all                      Eject every component template type
       -f, --force                    Replace existing template files
       --dry-run                      Preview paths and conflicts
 

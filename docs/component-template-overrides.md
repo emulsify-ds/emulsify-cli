@@ -9,13 +9,14 @@ emulsify component eject-templates
 
 In an interactive terminal, the command lets you select one or more component
 types. To eject one type directly, including from a script or CI job, provide
-its canonical type:
+its canonical type. Use `--all` when all four types are wanted:
 
 ```bash
 emulsify component eject-templates twig
 emulsify component eject-templates twig-sdc
 emulsify component eject-templates react
 emulsify component eject-templates web-component
+emulsify component eject-templates --all
 ```
 
 The command writes the selected defaults beneath
@@ -43,8 +44,8 @@ changing files:
 emulsify component eject-templates react --dry-run
 ```
 
-When standard input is not a TTY, `[type]` is required. The CLI exits with an
-actionable error instead of opening a prompt.
+When standard input is not a TTY, `[type]` or `--all` is required. The CLI exits
+with an actionable error instead of opening a prompt. Do not combine them.
 
 ## How Overrides Are Resolved
 

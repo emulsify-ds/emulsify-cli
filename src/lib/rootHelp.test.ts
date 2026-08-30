@@ -37,6 +37,7 @@ describe('getRootHelp', () => {
     expect(help).toContain('audit [args...]');
     expect(help).toContain('component eject-templates [type]');
     expect(help).toContain('Write editable built-in templates');
+    expect(help).toContain('Eject every component template type');
     expect(help).toContain(
       '      --force                        Replace an existing generated component',
     );

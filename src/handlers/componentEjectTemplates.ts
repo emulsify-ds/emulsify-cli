@@ -22,7 +22,9 @@ import { buildEjectableComponentTemplates } from '../util/project/componentTempl
 import { requireInteractiveTerminal, runPrompt } from '../util/prompt/index.js';
 
 export const MISSING_TEMPLATE_TYPE_ERROR =
-  'Component template type is required in non-interactive mode. Pass the [type] positional argument (twig, twig-sdc, react, or web-component).';
+  'Component template selection is required in non-interactive mode. Pass the [type] positional argument (twig, twig-sdc, react, or web-component), or pass --all.';
+export const CONFLICTING_TEMPLATE_TYPE_ERROR =
+  'Pass either the [type] positional argument or --all, not both.';
 
 const TYPE_CHOICES: {
   name: string;
@@ -177,12 +179,20 @@ function isAlreadyExistsError(error: unknown): boolean {
 /** Handler for `emulsify component eject-templates [type]`. */
 export default async function componentEjectTemplates(
   type: string | void,
-  { force = false, dryRun = false }: EjectComponentTemplatesHandlerOptions = {},
+  {
+    all = false,
+    force = false,
+    dryRun = false,
+  }: EjectComponentTemplatesHandlerOptions = {},
 ): Promise<void> {
   const requestedType = type?.trim();
 
+  if (requestedType && all) {
+    throw new CliError(CONFLICTING_TEMPLATE_TYPE_ERROR);
+  }
+
   // CI must name the target before project lookup or any other work.
-  if (!requestedType) {
+  if (!requestedType && !all) {
     requireInteractiveTerminal(MISSING_TEMPLATE_TYPE_ERROR);
   }
 
@@ -194,18 +204,23 @@ export default async function componentEjectTemplates(
   }
   const projectRoot = dirname(projectConfigPath);
 
-  const selectedTypes = requestedType
-    ? [normalizeRequestedType(requestedType)]
-    : await runPrompt<ComponentType[]>({
-        prompt: () =>
-          checkbox<ComponentType>({
-            message: 'Which component template types should be ejected?',
-            choices: TYPE_CHOICES,
-            validate: (values) =>
-              values.length > 0 || 'Select at least one component type.',
-          }),
-        nonInteractive: { error: MISSING_TEMPLATE_TYPE_ERROR },
-      });
+  let selectedTypes: readonly ComponentType[];
+  if (all) {
+    selectedTypes = COMPONENT_TYPES;
+  } else if (requestedType) {
+    selectedTypes = [normalizeRequestedType(requestedType)];
+  } else {
+    selectedTypes = await runPrompt<ComponentType[]>({
+      prompt: () =>
+        checkbox<ComponentType>({
+          message: 'Which component template types should be ejected?',
+          choices: TYPE_CHOICES,
+          validate: (values) =>
+            values.length > 0 || 'Select at least one component type.',
+        }),
+      nonInteractive: { error: MISSING_TEMPLATE_TYPE_ERROR },
+    });
+  }
   const canonicalTypes = canonicalizeSelectedTypes(selectedTypes);
   if (canonicalTypes.length === 0) {
     throw new CliError('Select at least one component type.');

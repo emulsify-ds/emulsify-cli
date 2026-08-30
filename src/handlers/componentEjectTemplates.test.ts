@@ -14,6 +14,7 @@ import type { ComponentType } from '../util/project/componentTypes.js';
 import { buildEjectableComponentTemplates } from '../util/project/componentTemplates/index.js';
 import componentEjectTemplates, {
   buildComponentTemplateEjectionPlan,
+  CONFLICTING_TEMPLATE_TYPE_ERROR,
   MISSING_TEMPLATE_TYPE_ERROR,
 } from './componentEjectTemplates.js';
 
@@ -117,6 +118,39 @@ describe('componentEjectTemplates', () => {
       'info',
       'Edit these files to customize component create. Delete an override to restore its built-in template.',
     );
+  });
+
+  it('writes all 15 templates without prompting when --all is passed', async () => {
+    await componentEjectTemplates(undefined, { all: true });
+
+    expect(checkboxMock).not.toHaveBeenCalled();
+    expect(pathExistsMock).toHaveBeenCalledTimes(15);
+    expect(mkdirMock).toHaveBeenCalledTimes(15);
+    expect(writeFileMock).toHaveBeenCalledTimes(15);
+    expect(writeFileMock).toHaveBeenCalledWith(
+      destination('twig', 'component.twig'),
+      expect.any(String),
+      { encoding: 'utf-8', flag: 'wx' },
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      destination('web-component', 'component.stories.js'),
+      expect.any(String),
+      { encoding: 'utf-8', flag: 'wx' },
+    );
+  });
+
+  it('rejects combining an explicit type with --all before project lookup', async () => {
+    await expect(
+      componentEjectTemplates('twig', { all: true }),
+    ).rejects.toMatchObject({
+      name: 'CliError',
+      message: CONFLICTING_TEMPLATE_TYPE_ERROR,
+      exitCode: 1,
+    });
+
+    expect(findFileMock).not.toHaveBeenCalled();
+    expect(pathExistsMock).not.toHaveBeenCalled();
+    expectNoWrites();
   });
 
   it('prompts interactively for one, several, or all component types', async () => {

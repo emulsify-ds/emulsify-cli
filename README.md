@@ -88,7 +88,8 @@ emulsify component eject-templates twig
 ```
 
 Run the command without a type in an interactive terminal to select one or more
-component types. Existing overrides are protected unless `--force` is passed.
+component types. Use `--all` to eject every type non-interactively. Existing
+overrides are protected unless `--force` is passed.
 
 Prompts only run when standard input is a TTY. In CI, scripts, and commands with
 piped or redirected input, provide every required positional argument and flag;
@@ -102,7 +103,7 @@ emulsify component install card --force
 # Or install every available component:
 emulsify component install --all
 emulsify component create promo-card --directory molecules --type twig --force
-emulsify component eject-templates twig
+emulsify component eject-templates --all
 emulsify system detach --yes
 ```
 
@@ -115,7 +116,7 @@ creation, provide the positional name plus `--type` and `--directory`, and use
 from the wizard. The deprecated `--format default` and `--format sdc` forms
 remain available as aliases for `--type twig` and `--type twig-sdc`,
 respectively, and print a deprecation warning.
-For template ejection, provide the component type outside a TTY; use
+For template ejection, provide the component type or `--all` outside a TTY; use
 `--dry-run` to preview paths and `--force` only when existing customizations
 should be replaced.
 
