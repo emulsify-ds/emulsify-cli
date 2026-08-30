@@ -335,38 +335,33 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
 
   // Known failure: ../../src/handlers/systemInstall.ts:418-427 appends the
   // hook path to the system.emulsify.json file instead of its directory.
-  test(
-    'executes the project system-install hook',
-    {
-      todo: 'Known failure: src/handlers/systemInstall.ts:418-427',
-    },
-    () => {
-      assert.equal(existsSync(systemHookSentinel), true);
-      assert.equal(readFileSync(systemHookSentinel, 'utf8'), 'ran\n');
-    },
-  );
+  test('executes the project system-install hook', (t) => {
+    if (!existsSync(systemHookSentinel)) {
+      t.todo('Known failure: src/handlers/systemInstall.ts:418-427');
+      return;
+    }
+
+    assert.equal(readFileSync(systemHookSentinel, 'utf8'), 'ran\n');
+  });
 
   // Known failure: ../../src/handlers/componentInstall.ts:240-247 logs and
   // swallows a requested component copy failure instead of failing the CLI.
-  test(
-    'returns a non-zero exit when a requested component cannot be copied',
-    {
-      todo: 'Known failure: src/handlers/componentInstall.ts:240-247',
-    },
-    () => {
-      const result = runCli(projectRoot, ['component', 'install', 'missing']);
+  test('returns a non-zero exit when a requested component cannot be copied', (t) => {
+    const result = runCli(projectRoot, ['component', 'install', 'missing']);
 
-      assert.equal(result.stdout, '');
-      assert.match(result.stderr, /Unable to install missing:/);
-      assert.equal(
-        existsSync(join(projectRoot, 'components', 'missing')),
-        false,
-      );
-      assert.notEqual(
-        result.status,
-        0,
-        'component install must fail when its requested component is not copied',
-      );
-    },
-  );
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /Unable to install missing:/);
+    assert.equal(existsSync(join(projectRoot, 'components', 'missing')), false);
+
+    if (result.status === 0) {
+      t.todo('Known failure: src/handlers/componentInstall.ts:240-247');
+      return;
+    }
+
+    assert.notEqual(
+      result.status,
+      0,
+      'component install must fail when its requested component is not copied',
+    );
+  });
 });
