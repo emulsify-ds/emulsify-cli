@@ -232,7 +232,7 @@ describe('componentEjectTemplates', () => {
     );
   });
 
-  it.each(['EPERM', 'ENOTSUP'])(
+  it.each(['EPERM', 'ENOTSUP', 'EOPNOTSUPP'])(
     'publishes exclusive destination files when hard links fail with %s',
     async (code) => {
       const { files, handles } = mockInMemoryFilesystem();
@@ -263,6 +263,25 @@ describe('componentEjectTemplates', () => {
       expect(renameMock).not.toHaveBeenCalled();
     },
   );
+
+  it('surfaces non-link publish errors without using the fallback', async () => {
+    const firstTarget = destination('react', 'component.jsx');
+    const { files } = mockInMemoryFilesystem();
+    const linkError = filesystemError('EACCES', 'link permission denied');
+    linkMock.mockRejectedValueOnce(linkError);
+
+    await expect(componentEjectTemplates('react')).rejects.toMatchObject({
+      name: 'CliError',
+      message: expect.stringContaining('link permission denied'),
+    });
+
+    expect(linkMock).toHaveBeenCalledTimes(1);
+    expect(openMock).not.toHaveBeenCalled();
+    expect(copyFileMock).not.toHaveBeenCalled();
+    expect(renameMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalledWith(firstTarget, { force: true });
+    expect(Object.fromEntries(files)).toEqual({});
+  });
 
   it('writes all 15 templates without prompting when --all is passed', async () => {
     await componentEjectTemplates(undefined, { all: true });
@@ -459,7 +478,7 @@ describe('componentEjectTemplates', () => {
     }
   });
 
-  it.each(['EPERM', 'ENOTSUP'])(
+  it.each(['EPERM', 'ENOTSUP', 'EOPNOTSUPP'])(
     'copies restore points before replacement when hard links fail with %s',
     async (code) => {
       const artifacts = buildEjectableComponentTemplates('react');
@@ -492,6 +511,45 @@ describe('componentEjectTemplates', () => {
       }
     },
   );
+
+  it('keeps originals intact when fallback backup copying fails', async () => {
+    const artifacts = buildEjectableComponentTemplates('react');
+    const firstTarget = destination('react', 'component.jsx');
+    const initialFiles = Object.fromEntries(
+      artifacts.map(({ logicalName }) => [
+        destination('react', logicalName),
+        `original ${logicalName}`,
+      ]),
+    );
+    const { files } = mockInMemoryFilesystem(initialFiles);
+    linkMock.mockRejectedValue(filesystemError('ENOTSUP'));
+    let partialBackup: string | undefined;
+    copyFileMock.mockImplementationOnce(
+      async (_source: string, target: string) => {
+        partialBackup = target;
+        files.set(target, 'partial backup');
+        throw filesystemError('EIO', 'backup copy failed');
+      },
+    );
+
+    await expect(
+      componentEjectTemplates('react', { force: true }),
+    ).rejects.toMatchObject({
+      name: 'CliError',
+      message: expect.stringContaining('backup copy failed'),
+    });
+
+    expect(copyFileMock).toHaveBeenCalledTimes(1);
+    expect(copyFileMock).toHaveBeenCalledWith(
+      firstTarget,
+      expect.stringContaining(transactionPathPrefix(firstTarget, 'backup')),
+      fsConstants.COPYFILE_EXCL,
+    );
+    expect(renameMock).not.toHaveBeenCalled();
+    expect(rmMock).toHaveBeenCalledWith(partialBackup, { force: true });
+    expect(rmMock).not.toHaveBeenCalledWith(firstTarget, { force: true });
+    expect(Object.fromEntries(files)).toEqual(initialFiles);
+  });
 
   it('installs new files with --force when fallback backup copying finds no source', async () => {
     const { files } = mockInMemoryFilesystem();
@@ -560,6 +618,31 @@ describe('componentEjectTemplates', () => {
       [firstTarget]: 'concurrent contents',
     });
     expect(rmMock).not.toHaveBeenCalledWith(firstTarget, { force: true });
+  });
+
+  it('preserves a pre-existing destination when fallback exclusive open fails', async () => {
+    const firstTarget = destination('react', 'component.jsx');
+    const userContents = 'user contents';
+    const { files } = mockInMemoryFilesystem();
+    linkMock.mockRejectedValue(filesystemError('EPERM', 'link unavailable'));
+    openMock.mockImplementationOnce(async (target: string) => {
+      files.set(target, userContents);
+      throw filesystemError('EACCES', 'exclusive open denied');
+    });
+
+    await expect(componentEjectTemplates('react')).rejects.toMatchObject({
+      name: 'CliError',
+      message: expect.stringMatching(
+        /component\.jsx[\s\S]*exclusive open denied[\s\S]*All destination changes were rolled back\./u,
+      ),
+    });
+
+    expect(openMock).toHaveBeenCalledTimes(1);
+    expect(openMock).toHaveBeenCalledWith(firstTarget, 'wx');
+    expect(rmMock).not.toHaveBeenCalledWith(firstTarget, { force: true });
+    expect(Object.fromEntries(files)).toEqual({
+      [firstTarget]: userContents,
+    });
   });
 
   it('does not overwrite a template created after the conflict preflight', async () => {
