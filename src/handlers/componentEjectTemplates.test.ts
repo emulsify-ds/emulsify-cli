@@ -3,7 +3,7 @@ jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
 
 import { checkbox } from '@inquirer/prompts';
-import { promises as fs } from 'fs';
+import { constants as fsConstants, promises as fs } from 'fs';
 import { basename, dirname, join, resolve } from 'path';
 import { pathExists } from 'fs-extra';
 
@@ -20,6 +20,7 @@ import componentEjectTemplates, {
 } from './componentEjectTemplates.js';
 
 const checkboxMock = checkbox as jest.Mock;
+const copyFileMock = fs.copyFile as jest.Mock;
 const findFileMock = findFileInCurrentPath as jest.Mock;
 const logMock = log as jest.Mock;
 const linkMock = fs.link as jest.Mock;
@@ -53,11 +54,61 @@ function transactionPathPrefix(
 }
 
 function expectNoWrites(): void {
+  expect(copyFileMock).not.toHaveBeenCalled();
   expect(mkdirMock).not.toHaveBeenCalled();
   expect(writeFileMock).not.toHaveBeenCalled();
   expect(linkMock).not.toHaveBeenCalled();
   expect(renameMock).not.toHaveBeenCalled();
   expect(rmMock).not.toHaveBeenCalled();
+}
+
+function filesystemError(code: string, message = code): NodeJS.ErrnoException {
+  return Object.assign(new Error(message), { code });
+}
+
+function mockInMemoryFilesystem(
+  initialFiles: Readonly<Record<string, string>> = {},
+) {
+  const files = new Map(Object.entries(initialFiles));
+
+  const writeFile = async (
+    target: string,
+    contents: string,
+    options?: { flag?: string },
+  ): Promise<void> => {
+    if (options?.flag === 'wx' && files.has(target)) {
+      throw filesystemError('EEXIST');
+    }
+    files.set(target, String(contents));
+  };
+  const link = async (source: string, target: string): Promise<void> => {
+    if (!files.has(source)) throw filesystemError('ENOENT');
+    if (files.has(target)) throw filesystemError('EEXIST');
+    files.set(target, files.get(source)!);
+  };
+  const copyFile = async (source: string, target: string): Promise<void> => {
+    if (!files.has(source)) throw filesystemError('ENOENT');
+    if (files.has(target)) throw filesystemError('EEXIST');
+    files.set(target, files.get(source)!);
+  };
+  const rename = async (source: string, target: string): Promise<void> => {
+    if (!files.has(source)) throw filesystemError('ENOENT');
+    files.set(target, files.get(source)!);
+    files.delete(source);
+  };
+
+  pathExistsMock.mockImplementation(async (target: string) =>
+    files.has(target),
+  );
+  writeFileMock.mockImplementation(writeFile);
+  linkMock.mockImplementation(link);
+  copyFileMock.mockImplementation(copyFile);
+  renameMock.mockImplementation(rename);
+  rmMock.mockImplementation(async (target: string) => {
+    files.delete(target);
+  });
+
+  return { files, rename, writeFile };
 }
 
 describe('buildComponentTemplateEjectionPlan', () => {
@@ -92,6 +143,7 @@ describe('componentEjectTemplates', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setStdinIsTTY(false);
+    copyFileMock.mockResolvedValue(undefined);
     findFileMock.mockReturnValue(projectConfigPath);
     pathExistsMock.mockResolvedValue(false);
     mkdirMock.mockResolvedValue(undefined);
@@ -152,6 +204,35 @@ describe('componentEjectTemplates', () => {
       'Edit these files to customize component create. Delete an override to restore its built-in template.',
     );
   });
+
+  it.each(['EPERM', 'ENOTSUP'])(
+    'publishes exclusive destination files when hard links fail with %s',
+    async (code) => {
+      const { files } = mockInMemoryFilesystem();
+      linkMock.mockRejectedValue(filesystemError(code, 'links unsupported'));
+
+      await componentEjectTemplates('react');
+
+      const artifacts = buildEjectableComponentTemplates('react');
+      expect(Object.fromEntries(files)).toEqual(
+        Object.fromEntries(
+          artifacts.map(({ logicalName, contents }) => [
+            destination('react', logicalName),
+            contents,
+          ]),
+        ),
+      );
+      for (const artifact of artifacts) {
+        expect(writeFileMock).toHaveBeenCalledWith(
+          destination('react', artifact.logicalName),
+          artifact.contents,
+          { encoding: 'utf-8', flag: 'wx', flush: true },
+        );
+      }
+      expect(copyFileMock).not.toHaveBeenCalled();
+      expect(renameMock).not.toHaveBeenCalled();
+    },
+  );
 
   it('writes all 15 templates without prompting when --all is passed', async () => {
     await componentEjectTemplates(undefined, { all: true });
@@ -348,6 +429,104 @@ describe('componentEjectTemplates', () => {
     }
   });
 
+  it.each(['EPERM', 'ENOTSUP'])(
+    'copies restore points before replacement when hard links fail with %s',
+    async (code) => {
+      const artifacts = buildEjectableComponentTemplates('react');
+      const initialFiles = Object.fromEntries(
+        artifacts.map(({ logicalName }) => [
+          destination('react', logicalName),
+          `custom ${logicalName}`,
+        ]),
+      );
+      const { files } = mockInMemoryFilesystem(initialFiles);
+      linkMock.mockRejectedValue(filesystemError(code, 'links unsupported'));
+
+      await componentEjectTemplates('react', { force: true });
+
+      expect(Object.fromEntries(files)).toEqual(
+        Object.fromEntries(
+          artifacts.map(({ logicalName, contents }) => [
+            destination('react', logicalName),
+            contents,
+          ]),
+        ),
+      );
+      for (const artifact of artifacts) {
+        const target = destination('react', artifact.logicalName);
+        expect(copyFileMock).toHaveBeenCalledWith(
+          target,
+          expect.stringContaining(transactionPathPrefix(target, 'backup')),
+          fsConstants.COPYFILE_EXCL,
+        );
+      }
+    },
+  );
+
+  it('installs new files with --force when fallback backup copying finds no source', async () => {
+    const { files } = mockInMemoryFilesystem();
+    linkMock.mockRejectedValue(filesystemError('ENOTSUP'));
+
+    await componentEjectTemplates('react', { force: true });
+
+    const artifacts = buildEjectableComponentTemplates('react');
+    expect(Object.fromEntries(files)).toEqual(
+      Object.fromEntries(
+        artifacts.map(({ logicalName, contents }) => [
+          destination('react', logicalName),
+          contents,
+        ]),
+      ),
+    );
+    expect(copyFileMock).toHaveBeenCalledTimes(artifacts.length);
+  });
+
+  it('rolls back successful and partial exclusive writes after publication fails', async () => {
+    const firstTarget = destination('react', 'component.jsx');
+    const failedTarget = destination('react', 'component.scss');
+    const { files, writeFile } = mockInMemoryFilesystem();
+    linkMock.mockRejectedValue(filesystemError('EPERM'));
+    writeFileMock.mockImplementation(
+      async (target: string, contents: string, options?: { flag?: string }) => {
+        await writeFile(target, contents, options);
+        if (target === failedTarget) throw new Error('write interrupted');
+      },
+    );
+
+    await expect(componentEjectTemplates('react')).rejects.toMatchObject({
+      name: 'CliError',
+      message: expect.stringMatching(
+        /write interrupted[\s\S]*All destination changes were rolled back\./u,
+      ),
+    });
+
+    expect(Object.fromEntries(files)).toEqual({});
+    expect(rmMock).toHaveBeenCalledWith(firstTarget, { force: true });
+    expect(rmMock).toHaveBeenCalledWith(failedTarget, { force: true });
+  });
+
+  it('preserves a destination that appears before the exclusive-write fallback', async () => {
+    const firstTarget = destination('react', 'component.jsx');
+    const { files, writeFile } = mockInMemoryFilesystem();
+    linkMock.mockRejectedValue(filesystemError('EPERM'));
+    writeFileMock.mockImplementation(
+      async (target: string, contents: string, options?: { flag?: string }) => {
+        if (target === firstTarget) files.set(target, 'concurrent contents');
+        await writeFile(target, contents, options);
+      },
+    );
+
+    await expect(componentEjectTemplates('react')).rejects.toMatchObject({
+      name: 'CliError',
+      message: expect.stringMatching(/appeared.*not replaced.*--force/u),
+    });
+
+    expect(Object.fromEntries(files)).toEqual({
+      [firstTarget]: 'concurrent contents',
+    });
+    expect(rmMock).not.toHaveBeenCalledWith(firstTarget, { force: true });
+  });
+
   it('does not overwrite a template created after the conflict preflight', async () => {
     linkMock.mockRejectedValueOnce(
       Object.assign(new Error('already exists'), { code: 'EEXIST' }),
@@ -432,6 +611,41 @@ describe('componentEjectTemplates', () => {
       failedTarget,
     );
     expect(logMock).not.toHaveBeenCalled();
+  });
+
+  it('restores copied backups after a mid-transaction fallback failure', async () => {
+    const artifacts = buildEjectableComponentTemplates('react');
+    const initialFiles = Object.fromEntries(
+      artifacts.map(({ logicalName }) => [
+        destination('react', logicalName),
+        `original ${logicalName}`,
+      ]),
+    );
+    const { files, rename } = mockInMemoryFilesystem(initialFiles);
+    linkMock.mockRejectedValue(filesystemError('ENOTSUP'));
+    let installCount = 0;
+    renameMock.mockImplementation(async (source: string, target: string) => {
+      if (source.includes('.emulsify-temporary-')) {
+        installCount += 1;
+        if (installCount === 2) throw new Error('install failed');
+      }
+      await rename(source, target);
+    });
+
+    await expect(
+      componentEjectTemplates('react', { force: true }),
+    ).rejects.toMatchObject({
+      name: 'CliError',
+      message: expect.stringMatching(
+        /install failed[\s\S]*All destination changes were rolled back\./u,
+      ),
+    });
+
+    expect(Object.fromEntries(files)).toEqual(initialFiles);
+    expect(copyFileMock).toHaveBeenCalledTimes(2);
+    for (const [target, backup] of copyFileMock.mock.calls) {
+      expect(renameMock).toHaveBeenCalledWith(backup, target);
+    }
   });
 
   it('preserves and reports a backup when rollback cannot restore it', async () => {

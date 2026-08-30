@@ -2,7 +2,7 @@ import type { EjectComponentTemplatesHandlerOptions } from '@emulsify-cli/handle
 
 import { checkbox } from '@inquirer/prompts';
 import { randomUUID } from 'crypto';
-import { promises as fs } from 'fs';
+import { constants as fsConstants, promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 import { pathExists } from 'fs-extra';
 
@@ -193,6 +193,17 @@ function isMissingError(error: unknown): boolean {
   );
 }
 
+function isUnsupportedHardLinkError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error.code === 'EPERM' ||
+      error.code === 'ENOTSUP' ||
+      error.code === 'EOPNOTSUPP')
+  );
+}
+
 function getTransactionPath(
   destination: string,
   kind: 'temporary' | 'backup',
@@ -269,7 +280,26 @@ async function installTransactionItem(
   if (!force) {
     // link() publishes the fully-written staged file atomically and refuses an
     // existing destination, preserving the post-preflight EEXIST backstop.
-    await fs.link(item.temporaryPath, item.destination);
+    try {
+      await fs.link(item.temporaryPath, item.destination);
+    } catch (error) {
+      if (!isUnsupportedHardLinkError(error)) throw error;
+
+      // Filesystems without hard links cannot publish the staged inode. Keep
+      // the exclusive-create backstop and record ownership before writing so
+      // rollback removes a destination left partial by a failed write.
+      item.installed = true;
+      try {
+        await fs.writeFile(item.destination, item.contents, {
+          encoding: 'utf-8',
+          flag: 'wx',
+          flush: true,
+        });
+      } catch (writeError) {
+        if (isAlreadyExistsError(writeError)) item.installed = false;
+        throw writeError;
+      }
+    }
     item.installed = true;
     return;
   }
@@ -280,7 +310,22 @@ async function installTransactionItem(
     await fs.link(item.destination, item.backupPath);
     item.hasBackup = true;
   } catch (error) {
-    if (!isMissingError(error)) throw error;
+    if (!isMissingError(error)) {
+      if (!isUnsupportedHardLinkError(error)) throw error;
+
+      try {
+        // Copy to the private restore point before replacing the destination.
+        // A partial copy leaves hasBackup false and is removed by cleanup.
+        await fs.copyFile(
+          item.destination,
+          item.backupPath,
+          fsConstants.COPYFILE_EXCL,
+        );
+        item.hasBackup = true;
+      } catch (copyError) {
+        if (!isMissingError(copyError)) throw copyError;
+      }
+    }
   }
 
   await fs.rename(item.temporaryPath, item.destination);

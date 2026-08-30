@@ -20,6 +20,12 @@ import { after, before, describe, test } from 'node:test';
 
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 const cliPath = join(repositoryRoot, 'dist', 'index.js');
+const unsupportedHardLinksHookPath = join(
+  repositoryRoot,
+  'test',
+  'e2e',
+  'unsupported-hard-links.cjs',
+);
 const packageInfo = JSON.parse(
   readFileSync(join(repositoryRoot, 'package.json'), 'utf8'),
 );
@@ -128,8 +134,8 @@ function snapshotFiles(directory, excludedRelativePaths = new Set()) {
   return files;
 }
 
-function runCli(cwd, args, environment = isolatedEnvironment()) {
-  const result = spawnSync(process.execPath, [cliPath, ...args], {
+function runCli(cwd, args, environment = isolatedEnvironment(), execArgv = []) {
+  const result = spawnSync(process.execPath, [...execArgv, cliPath, ...args], {
     cwd,
     encoding: 'utf8',
     env: environment,
@@ -916,6 +922,96 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
         join('web-component', 'component.stories.js'),
       ].sort(),
     );
+  });
+
+  test('matches hard-link results when publish and backup links are unsupported', () => {
+    const linkedProjectRoot = join(projectsRoot, 'linked-template-project');
+    const fallbackProjectRoot = join(projectsRoot, 'fallback-template-project');
+    for (const [root, name] of [
+      [linkedProjectRoot, 'Linked Template Project'],
+      [fallbackProjectRoot, 'Fallback Template Project'],
+    ]) {
+      mkdirSync(root, { recursive: true });
+      writeFileSync(
+        join(root, 'project.emulsify.json'),
+        json({
+          project: {
+            platform: 'none',
+            name,
+            machineName: name.toLowerCase().replaceAll(' ', '-'),
+          },
+        }),
+      );
+    }
+
+    const fallbackEnvironment = isolatedEnvironment();
+    const linkTracePath = join(tempRoot, 'unsupported-hard-link-calls.log');
+    fallbackEnvironment.EMULSIFY_E2E_LINK_ERROR = 'EPERM';
+    fallbackEnvironment.EMULSIFY_E2E_LINK_TRACE = linkTracePath;
+    const execArgv = ['--require', unsupportedHardLinksHookPath];
+    const args = ['component', 'eject-templates', 'react'];
+    const linkedResult = runCli(linkedProjectRoot, args);
+    const fallbackResult = runCli(
+      fallbackProjectRoot,
+      args,
+      fallbackEnvironment,
+      execArgv,
+    );
+    assert.equal(
+      linkedResult.status,
+      0,
+      commandFailure('linked template publish', linkedResult),
+    );
+    assert.equal(
+      fallbackResult.status,
+      0,
+      commandFailure('fallback template publish', fallbackResult),
+    );
+
+    const linkedTemplatesRoot = join(linkedProjectRoot, '.cli', 'templates');
+    const fallbackTemplatesRoot = join(
+      fallbackProjectRoot,
+      '.cli',
+      'templates',
+    );
+    assert.deepEqual(
+      snapshotFiles(fallbackTemplatesRoot),
+      snapshotFiles(linkedTemplatesRoot),
+    );
+    assert.match(readFileSync(linkTracePath, 'utf8'), /^EPERM$/mu);
+
+    const relativeOverridePath = join('react', 'component.jsx');
+    const sentinel = 'custom contents before --force\n';
+    writeFileSync(join(linkedTemplatesRoot, relativeOverridePath), sentinel);
+    writeFileSync(join(fallbackTemplatesRoot, relativeOverridePath), sentinel);
+    fallbackEnvironment.EMULSIFY_E2E_LINK_ERROR = 'ENOTSUP';
+
+    const linkedForceResult = runCli(linkedProjectRoot, [...args, '--force']);
+    const fallbackForceResult = runCli(
+      fallbackProjectRoot,
+      [...args, '--force'],
+      fallbackEnvironment,
+      execArgv,
+    );
+    assert.equal(
+      linkedForceResult.status,
+      0,
+      commandFailure('linked template replacement', linkedForceResult),
+    );
+    assert.equal(
+      fallbackForceResult.status,
+      0,
+      commandFailure('fallback template replacement', fallbackForceResult),
+    );
+    assert.deepEqual(
+      snapshotFiles(fallbackTemplatesRoot),
+      snapshotFiles(linkedTemplatesRoot),
+    );
+    assert.notEqual(
+      readFileSync(join(fallbackTemplatesRoot, relativeOverridePath), 'utf8'),
+      sentinel,
+    );
+    assert.match(readFileSync(linkTracePath, 'utf8'), /^ENOTSUP$/mu);
   });
 
   test('uses a customized ejected template during component creation', () => {
