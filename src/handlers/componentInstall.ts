@@ -108,6 +108,7 @@ function logComponentInstallDryRun(
  * @throws {CliError} if a component name is missing and all components were not requested.
  * @throws {CliError} if the current project does not have a usable system and variant configuration.
  * @throws {CliError} if the requested component cannot be found.
+ * @throws {CliError} if any requested component or dependency fails to install.
  */
 export default async function componentInstall(
   name: string,
@@ -227,6 +228,7 @@ export default async function componentInstall(
 
   const installedDeps: string[] = [];
   const failedDeps: string[] = [];
+  const failureMessages: string[] = [];
 
   for (const [cname, isDependency, promise] of components) {
     try {
@@ -241,10 +243,9 @@ export default async function componentInstall(
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (e instanceof Error && components.find(([c]) => c === cname)?.[1]) {
+      failureMessages.push(`Unable to install ${cname}: ${msg}`);
+      if (isDependency) {
         failedDeps.push(cname);
-      } else {
-        log('warn', `Unable to install ${cname}: ${msg}`);
       }
     }
   }
@@ -260,5 +261,9 @@ export default async function componentInstall(
       'warn',
       `The following dependencies could not be installed:\n${failList}`,
     );
+  }
+
+  if (failureMessages.length > 0) {
+    throw new CliError(failureMessages.join('\n'));
   }
 }

@@ -439,12 +439,14 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).not.toHaveBeenCalled();
   });
 
-  it('logs dependency installation failures after the root component succeeds', async () => {
+  it('reports dependency installation failures and rejects', async () => {
     copyItemFromCacheMock
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('missing dependency'));
 
-    await componentInstall('button', { force: true });
+    await expect(componentInstall('button', { force: true })).rejects.toThrow(
+      'Unable to install icon: missing dependency',
+    );
 
     expect(logMock).toHaveBeenCalledWith(
       'warn',
@@ -452,39 +454,52 @@ describe('componentInstall', () => {
     );
   });
 
-  it('logs non-Error dependency installation failures immediately', async () => {
+  it('reports non-Error dependency installation failures and rejects', async () => {
     copyItemFromCacheMock
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce('missing dependency');
 
-    await componentInstall('button', { force: true });
-
-    expect(logMock).toHaveBeenCalledWith(
-      'warn',
+    await expect(componentInstall('button', { force: true })).rejects.toThrow(
       'Unable to install icon: missing dependency',
     );
+
+    expect(logMock).toHaveBeenCalledWith(
+      'warn',
+      'The following dependencies could not be installed:\n  → icon',
+    );
   });
 
-  it('logs non-Error root component installation failures', async () => {
+  it('rejects for non-Error root component installation failures', async () => {
     copyItemFromCacheMock.mockRejectedValueOnce('copy failed');
 
-    await componentInstall('button', { force: true });
-
-    expect(logMock).toHaveBeenCalledWith(
-      'warn',
+    await expect(componentInstall('button', { force: true })).rejects.toThrow(
       'Unable to install button: copy failed',
     );
   });
 
-  it('logs root component installation failures', async () => {
+  it('rejects for root component installation failures', async () => {
     copyItemFromCacheMock.mockRejectedValueOnce(new Error('copy failed'));
 
-    await componentInstall('button', { force: true });
-
-    expect(logMock).toHaveBeenCalledWith(
-      'warn',
+    await expect(componentInstall('button', { force: true })).rejects.toThrow(
       'Unable to install button: copy failed',
     );
+  });
+
+  it('settles every --all install before rejecting a partial failure', async () => {
+    copyItemFromCacheMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('copy failed'))
+      .mockResolvedValueOnce(undefined);
+
+    await expect(componentInstall('', { all: true })).rejects.toThrow(
+      'Unable to install icon: copy failed',
+    );
+
+    expect(logMock).toHaveBeenCalledWith(
+      'success',
+      'Success! The card component has been added to your project.',
+    );
+    expect(copyItemFromCacheMock).toHaveBeenCalledTimes(3);
   });
 
   it('uses the project config path to check existing destinations', async () => {
