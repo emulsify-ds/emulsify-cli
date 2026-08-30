@@ -12,6 +12,7 @@ describe('deriveComponentNames', () => {
       filename: 'featured-item',
       className: 'featured-item',
       camelName: 'featuredItem',
+      pascalName: 'FeaturedItem',
       snakeName: 'featured_item',
       humanName: 'Featured Item',
     });
@@ -24,6 +25,7 @@ describe('deriveComponentNames', () => {
       filename: 'featured-item',
       className: 'featured-item',
       camelName: 'featuredItem',
+      pascalName: 'FeaturedItem',
       snakeName: 'featured_item',
       humanName: 'Featured Item',
     });
@@ -36,8 +38,22 @@ describe('deriveComponentNames', () => {
       filename: 'featured-item',
       className: 'featured-item',
       camelName: 'featuredItem',
+      pascalName: 'FeaturedItem',
       snakeName: 'featured_item',
       humanName: 'Featured Item',
+    });
+  });
+
+  it('prefixes a numeric-leading PascalCase identifier', () => {
+    expect.assertions(1);
+
+    expect(deriveComponentNames('123-card')).toEqual({
+      filename: '123-card',
+      className: '123-card',
+      camelName: '123Card',
+      pascalName: 'Component123Card',
+      snakeName: '123_card',
+      humanName: '123 Card',
     });
   });
 

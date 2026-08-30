@@ -9,6 +9,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -19,6 +20,12 @@ import { after, before, describe, test } from 'node:test';
 
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 const cliPath = join(repositoryRoot, 'dist', 'index.js');
+const unsupportedHardLinksHookPath = join(
+  repositoryRoot,
+  'test',
+  'e2e',
+  'unsupported-hard-links.cjs',
+);
 const packageInfo = JSON.parse(
   readFileSync(join(repositoryRoot, 'package.json'), 'utf8'),
 );
@@ -33,6 +40,7 @@ let tempRoot;
 let isolatedHome;
 let projectsRoot;
 let projectRoot;
+let nonInteractiveInstallProjectRoot;
 let starterRepository;
 let systemRepository;
 let systemHookSentinel;
@@ -94,11 +102,43 @@ function createGitRepository(directory, files) {
   ]);
 }
 
-function runCli(cwd, args) {
-  const result = spawnSync(process.execPath, [cliPath, ...args], {
+function snapshotFiles(directory, excludedRelativePaths = new Set()) {
+  const files = {};
+
+  function visit(currentDirectory, relativeDirectory = '') {
+    const entries = readdirSync(currentDirectory, {
+      withFileTypes: true,
+    }).sort((first, second) => first.name.localeCompare(second.name));
+
+    for (const entry of entries) {
+      const relativePath = relativeDirectory
+        ? join(relativeDirectory, entry.name)
+        : entry.name;
+      if (excludedRelativePaths.has(relativePath)) {
+        continue;
+      }
+
+      const absolutePath = join(currentDirectory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath, relativePath);
+      } else {
+        files[relativePath] = readFileSync(absolutePath).toString('base64');
+      }
+    }
+  }
+
+  if (existsSync(directory)) {
+    visit(directory);
+  }
+
+  return files;
+}
+
+function runCli(cwd, args, environment = isolatedEnvironment(), execArgv = []) {
+  const result = spawnSync(process.execPath, [...execArgv, cliPath, ...args], {
     cwd,
     encoding: 'utf8',
-    env: isolatedEnvironment(),
+    env: environment,
     shell: false,
     timeout: 15_000,
     windowsHide: true,
@@ -172,6 +212,25 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     });
     starterRepository = pathToFileURL(starterPath).href;
 
+    nonInteractiveInstallProjectRoot = join(
+      projectsRoot,
+      'non-interactive-install-project',
+    );
+    mkdirSync(nonInteractiveInstallProjectRoot, { recursive: true });
+    writeFileSync(
+      join(nonInteractiveInstallProjectRoot, 'project.emulsify.json'),
+      json({
+        project: {
+          platform: 'none',
+          name: 'Non-interactive Install Project',
+          machineName: 'non-interactive-install-project',
+        },
+        starter: {
+          repository: starterRepository,
+        },
+      }),
+    );
+
     const structureImplementations = [
       {
         name: 'components',
@@ -244,6 +303,65 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(result.stdout, expectedRootHelp);
   });
 
+  test('does not emit ANSI escapes when root help is piped', () => {
+    const environment = isolatedEnvironment();
+    delete environment.NO_COLOR;
+    const result = runCli(tempRoot, [], environment);
+
+    assert.equal(result.status, 0, commandFailure('piped root help', result));
+    assert.equal(result.stderr, '');
+    assert.doesNotMatch(result.stdout, /\u001b\[/u);
+  });
+
+  test('uses canonical type values and marks format as deprecated in detailed component create help', () => {
+    const result = runCli(tempRoot, ['component', 'create', '--help']);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component create --help', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.match(
+      result.stdout,
+      /--type <twig\|twig-sdc\|react\|web-component>/u,
+    );
+    assert.match(result.stdout, /--format <default\|sdc>/u);
+    assert.match(result.stdout, /Deprecated alias/u);
+    assert.match(result.stdout, /--force/u);
+    assert.match(result.stdout, /-y, --yes/u);
+    assert.match(result.stdout, /Compatibility alias for --force/u);
+    assert.match(result.stdout, /--tag-name <tag-name>/u);
+  });
+
+  test('advertises all-types template ejection in detailed help', () => {
+    const result = runCli(tempRoot, ['component', 'eject-templates', '--help']);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component eject-templates --help', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.match(result.stdout, /-a, --all/u);
+  });
+
+  test('advertises system scaffold dry runs in detailed help', () => {
+    const result = runCli(tempRoot, ['system', 'create', '--help']);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('system create --help', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.match(result.stdout, /--dry-run/u);
+    assert.match(
+      result.stdout,
+      /Preview the system scaffold without\s+creating files or initializing Git/u,
+    );
+  });
+
   test('prints the package version', () => {
     const result = runCli(tempRoot, ['--version']);
 
@@ -253,6 +371,426 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(
       result.stdout.includes(`Version: ${packageInfo.version}`),
       true,
+    );
+  });
+
+  test('fails fast when component create has no name outside a TTY', () => {
+    const result = runCli(tempRoot, ['component', 'create']);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(
+      result.stderr,
+      /Please specify a name for the new component\./,
+    );
+  });
+
+  test('fails fast when component create has no type outside a TTY', () => {
+    const result = runCli(tempRoot, [
+      'component',
+      'create',
+      'card',
+      '--directory',
+      'components',
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(
+      result.stderr,
+      /Pass --type <twig\|twig-sdc\|react\|web-component>/u,
+    );
+  });
+
+  test('fails fast when component create has no directory outside a TTY', () => {
+    const result = runCli(tempRoot, [
+      'component',
+      'create',
+      'card',
+      '--type',
+      'twig',
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /Pass --directory <directory>/u);
+  });
+
+  test('fails fast when component install has no target outside a TTY', () => {
+    const result = runCli(tempRoot, ['component', 'install']);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(
+      result.stderr,
+      /Please specify a component to install, or pass --all to install all available components\./,
+    );
+  });
+
+  test('fails fast when system create has no values outside a TTY', () => {
+    const result = runCli(tempRoot, ['system', 'create']);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(
+      result.stderr,
+      /Pass the \[name\] positional argument or use --yes/,
+    );
+    assert.equal(existsSync(join(tempRoot, 'custom-system')), false);
+  });
+
+  test('previews a complete system scaffold without writing files or Git metadata', () => {
+    const systemName = 'dry-run-system';
+    const target = join(tempRoot, systemName);
+    const result = runCli(tempRoot, [
+      'system',
+      'create',
+      systemName,
+      '--directory',
+      tempRoot,
+      '--platform',
+      'none',
+      '--git',
+      '--dry-run',
+    ]);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('system create --dry-run', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.match(result.stdout, /Dry run: system create/u);
+    assert.match(result.stdout, /dry-run-system \(would be created\)/u);
+    assert.match(
+      result.stdout,
+      /Git: would initialize a repository on branch main/u,
+    );
+    assert.match(result.stdout, /system\.emulsify\.json/u);
+    assert.match(
+      result.stdout,
+      /components[/\\]example-card[/\\]example-card\.twig/u,
+    );
+    assert.match(
+      result.stdout,
+      /No directories or files were written, and Git was not initialized\./u,
+    );
+    assert.equal(existsSync(target), false);
+  });
+
+  test('fails fast without changing the project when system install has no source outside a TTY', () => {
+    const projectConfigPath = join(
+      nonInteractiveInstallProjectRoot,
+      'project.emulsify.json',
+    );
+    const configBefore = readFileSync(projectConfigPath, 'utf8');
+    const result = runCli(nonInteractiveInstallProjectRoot, [
+      'system',
+      'install',
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /positional argument/);
+    assert.match(result.stderr, /--repository/);
+    assert.match(result.stderr, /--checkout/);
+    assert.equal(readFileSync(projectConfigPath, 'utf8'), configBefore);
+  });
+
+  test('creates a standalone system and installs it from a local path', () => {
+    const systemName = 'round-trip-system';
+    const generatedSystemRoot = join(tempRoot, systemName);
+    const generatedProjectRoot = join(projectsRoot, 'round-trip-project');
+    const createResult = runCli(tempRoot, [
+      'system',
+      'create',
+      'Round Trip System',
+      '--directory',
+      tempRoot,
+      '--platform',
+      'drupal || wordpress',
+      '--git',
+    ]);
+
+    assert.equal(
+      createResult.status,
+      0,
+      commandFailure('system create', createResult),
+    );
+    assert.equal(createResult.stderr, '');
+    assert.match(createResult.stdout, /Created the round-trip-system system/);
+    assert.equal(existsSync(join(generatedSystemRoot, '.git')), true);
+    assert.equal(existsSync(join(generatedSystemRoot, 'README.md')), true);
+    assert.equal(existsSync(join(generatedSystemRoot, '.gitignore')), true);
+    assert.equal(existsSync(join(generatedSystemRoot, 'LICENSE')), true);
+
+    const systemConfig = JSON.parse(
+      readFileSync(join(generatedSystemRoot, 'system.emulsify.json'), 'utf8'),
+    );
+    assert.equal(systemConfig.name, systemName);
+    assert.equal(
+      systemConfig.homepage,
+      'https://TODO.invalid/round-trip-system',
+    );
+    assert.equal(
+      systemConfig.repository,
+      'https://TODO.invalid/round-trip-system.git',
+    );
+    assert.equal(systemConfig.variants[0].platform, 'drupal || wordpress');
+    assert.deepEqual(systemConfig.variants[0].components, [
+      {
+        name: 'example-card',
+        structure: 'components',
+        description: 'Example card included with the generated system',
+        required: true,
+      },
+    ]);
+
+    git(generatedSystemRoot, ['add', '.']);
+    git(generatedSystemRoot, [
+      '-c',
+      'user.email=e2e@example.test',
+      '-c',
+      'user.name=Emulsify E2E',
+      'commit',
+      '-m',
+      'test: commit generated system',
+    ]);
+
+    const initResult = runCli(tempRoot, [
+      'init',
+      'Round Trip Project',
+      projectsRoot,
+      '--machineName',
+      'round-trip-project',
+      '--starter',
+      starterRepository,
+      '--checkout',
+      'main',
+      '--platform',
+      'wordpress',
+      '--yes',
+    ]);
+    assert.equal(
+      initResult.status,
+      0,
+      commandFailure('round-trip init', initResult),
+    );
+
+    const installResult = runCli(generatedProjectRoot, [
+      'system',
+      'install',
+      '--repository',
+      generatedSystemRoot,
+      '--checkout',
+      'main',
+    ]);
+    assert.equal(
+      installResult.status,
+      0,
+      commandFailure('round-trip system install', installResult),
+    );
+    assert.match(
+      installResult.stdout,
+      /Successfully installed the round-trip-system system using the drupal \|\| wordpress variant/,
+    );
+
+    const installedComponentRoot = join(
+      generatedProjectRoot,
+      'components',
+      'example-card',
+    );
+    for (const extension of ['twig', 'scss', 'yml', 'stories.js']) {
+      assert.equal(
+        existsSync(join(installedComponentRoot, `example-card.${extension}`)),
+        true,
+        `generated example-card.${extension} should install`,
+      );
+    }
+  });
+
+  test('detaches a system without changing component files and permits the next system workflow', () => {
+    const detachProjectRoot = join(projectsRoot, 'detach-project');
+    const projectConfigPath = join(detachProjectRoot, 'project.emulsify.json');
+    const refinedComponentPath = join(
+      detachProjectRoot,
+      'components',
+      'card',
+      'fixture.txt',
+    );
+    const cacheRoot = join(isolatedHome, '.emulsify', 'cache');
+    const generatedSystemName = 'detached-project-system';
+    const generatedSystemRoot = join(tempRoot, generatedSystemName);
+
+    mkdirSync(detachProjectRoot, { recursive: true });
+    writeFileSync(
+      projectConfigPath,
+      json({
+        project: {
+          platform: 'wordpress',
+          name: 'Detach Project',
+          machineName: 'detach-project',
+        },
+        starter: {
+          repository: starterRepository,
+        },
+      }),
+    );
+
+    const installResult = runCli(detachProjectRoot, [
+      'system',
+      'install',
+      '--repository',
+      systemRepository,
+      '--checkout',
+      'main',
+      '--variant',
+      'wordpress',
+    ]);
+    assert.equal(
+      installResult.status,
+      0,
+      commandFailure('detach fixture system install', installResult),
+    );
+    assert.equal(readFileSync(refinedComponentPath, 'utf8'), 'card fixture\n');
+
+    const refinedComponent = Buffer.from(
+      'locally refined card\nwith project-specific changes\n',
+      'utf8',
+    );
+    writeFileSync(refinedComponentPath, refinedComponent);
+    mkdirSync(join(detachProjectRoot, 'notes'), { recursive: true });
+    writeFileSync(
+      join(detachProjectRoot, 'notes', 'unrelated.bin'),
+      Buffer.from([0, 1, 2, 127, 128, 254, 255]),
+    );
+
+    const installedConfigContents = readFileSync(projectConfigPath, 'utf8');
+    const installedConfig = JSON.parse(installedConfigContents);
+    const projectFilesBefore = snapshotFiles(
+      detachProjectRoot,
+      new Set(['project.emulsify.json']),
+    );
+    const cacheFilesBefore = snapshotFiles(cacheRoot);
+    assert.ok(
+      Object.keys(cacheFilesBefore).length > 0,
+      'system install should populate the isolated cache',
+    );
+
+    const rejectedResult = runCli(detachProjectRoot, ['system', 'detach']);
+    assert.notEqual(rejectedResult.status, 0);
+    assert.equal(rejectedResult.stdout, '');
+    assert.match(rejectedResult.stderr, /--yes/u);
+    assert.equal(
+      readFileSync(projectConfigPath, 'utf8'),
+      installedConfigContents,
+    );
+    assert.deepEqual(
+      snapshotFiles(detachProjectRoot, new Set(['project.emulsify.json'])),
+      projectFilesBefore,
+    );
+    assert.deepEqual(snapshotFiles(cacheRoot), cacheFilesBefore);
+
+    const detachResult = runCli(detachProjectRoot, [
+      'system',
+      'detach',
+      '--yes',
+    ]);
+    assert.equal(
+      detachResult.status,
+      0,
+      commandFailure('system detach', detachResult),
+    );
+    assert.equal(detachResult.stderr, '');
+    assert.match(detachResult.stdout, /Detached the fixture-system system/u);
+    assert.match(
+      detachResult.stdout,
+      /All component files were left in place/u,
+    );
+
+    const detachedConfig = JSON.parse(readFileSync(projectConfigPath, 'utf8'));
+    const {
+      system: _installedSystem,
+      variant: _installedVariant,
+      ...expectedDetachedConfig
+    } = installedConfig;
+    assert.deepEqual(detachedConfig, expectedDetachedConfig);
+    assert.equal(Object.hasOwn(detachedConfig, 'system'), false);
+    assert.equal(Object.hasOwn(detachedConfig, 'variant'), false);
+    assert.deepEqual(
+      snapshotFiles(detachProjectRoot, new Set(['project.emulsify.json'])),
+      projectFilesBefore,
+      'detach must not write or remove any project file except project.emulsify.json',
+    );
+    assert.deepEqual(
+      snapshotFiles(cacheRoot),
+      cacheFilesBefore,
+      'detach must leave the cached clone intact',
+    );
+    assert.deepEqual(readFileSync(refinedComponentPath), refinedComponent);
+
+    const createResult = runCli(detachProjectRoot, [
+      'system',
+      'create',
+      generatedSystemName,
+      '--directory',
+      tempRoot,
+      '--platform',
+      'wordpress',
+      '--no-git',
+    ]);
+    assert.equal(
+      createResult.status,
+      0,
+      commandFailure('system create from detached project', createResult),
+    );
+    const generatedSystemConfig = JSON.parse(
+      readFileSync(join(generatedSystemRoot, 'system.emulsify.json'), 'utf8'),
+    );
+    assert.deepEqual(
+      generatedSystemConfig.variants[0].components.map(({ name }) => name),
+      ['example-card'],
+      'system create should make a fresh scaffold rather than importing project components',
+    );
+    assert.equal(
+      existsSync(join(generatedSystemRoot, 'components', 'card')),
+      false,
+    );
+    assert.deepEqual(
+      snapshotFiles(detachProjectRoot, new Set(['project.emulsify.json'])),
+      projectFilesBefore,
+    );
+
+    const reinstallResult = runCli(detachProjectRoot, [
+      'system',
+      'install',
+      '--repository',
+      systemRepository,
+      '--checkout',
+      'main',
+      '--variant',
+      'none',
+    ]);
+    assert.equal(
+      reinstallResult.status,
+      0,
+      commandFailure('system reinstall after detach', reinstallResult),
+    );
+    const reinstalledConfig = JSON.parse(
+      readFileSync(projectConfigPath, 'utf8'),
+    );
+    assert.deepEqual(reinstalledConfig.system, {
+      repository: systemRepository,
+      checkout: 'main',
+    });
+    assert.equal(reinstalledConfig.variant.platform, 'none');
+    assert.deepEqual(readFileSync(refinedComponentPath), refinedComponent);
+    assert.equal(
+      readFileSync(
+        join(detachProjectRoot, 'components', 'button', 'fixture.txt'),
+        'utf8',
+      ),
+      'button fixture\n',
     );
   });
 
@@ -336,6 +874,295 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       'card fixture\n',
     );
     assert.equal(existsSync(join(isolatedHome, '.emulsify', 'cache')), true);
+  });
+
+  test('requires an explicit template type outside a TTY without writing files', () => {
+    const templatesRoot = join(projectRoot, '.cli', 'templates');
+    const before = snapshotFiles(templatesRoot);
+    const result = runCli(projectRoot, ['component', 'eject-templates']);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /\[type\] positional argument/u);
+    assert.match(result.stderr, /--all/u);
+    assert.deepEqual(snapshotFiles(templatesRoot), before);
+  });
+
+  test('ejects every component template type with --all', () => {
+    const templatesRoot = join(projectRoot, '.cli', 'templates');
+    const result = runCli(projectRoot, [
+      'component',
+      'eject-templates',
+      '--all',
+    ]);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component eject-templates --all', result),
+    );
+    assert.equal(result.stderr, '');
+    assert.deepEqual(
+      Object.keys(snapshotFiles(templatesRoot)).sort(),
+      [
+        join('react', 'component.jsx'),
+        join('react', 'component.scss'),
+        join('react', 'component.stories.jsx'),
+        join('twig', 'component.scss'),
+        join('twig', 'component.stories.js'),
+        join('twig', 'component.twig'),
+        join('twig', 'component.yml'),
+        join('twig-sdc', 'component.component.yml'),
+        join('twig-sdc', 'component.js'),
+        join('twig-sdc', 'component.scss'),
+        join('twig-sdc', 'component.stories.js'),
+        join('twig-sdc', 'component.twig'),
+        join('web-component', 'component.js'),
+        join('web-component', 'component.scss'),
+        join('web-component', 'component.stories.js'),
+      ].sort(),
+    );
+  });
+
+  test('matches hard-link results when publish and backup links are unsupported', () => {
+    const linkedProjectRoot = join(projectsRoot, 'linked-template-project');
+    const fallbackProjectRoot = join(projectsRoot, 'fallback-template-project');
+    for (const [root, name] of [
+      [linkedProjectRoot, 'Linked Template Project'],
+      [fallbackProjectRoot, 'Fallback Template Project'],
+    ]) {
+      mkdirSync(root, { recursive: true });
+      writeFileSync(
+        join(root, 'project.emulsify.json'),
+        json({
+          project: {
+            platform: 'none',
+            name,
+            machineName: name.toLowerCase().replaceAll(' ', '-'),
+          },
+        }),
+      );
+    }
+
+    const fallbackEnvironment = isolatedEnvironment();
+    const linkTracePath = join(tempRoot, 'unsupported-hard-link-calls.log');
+    fallbackEnvironment.EMULSIFY_E2E_LINK_ERROR = 'EPERM';
+    fallbackEnvironment.EMULSIFY_E2E_LINK_TRACE = linkTracePath;
+    const execArgv = ['--require', unsupportedHardLinksHookPath];
+    const args = ['component', 'eject-templates', 'react'];
+    const linkedResult = runCli(linkedProjectRoot, args);
+    const fallbackResult = runCli(
+      fallbackProjectRoot,
+      args,
+      fallbackEnvironment,
+      execArgv,
+    );
+    assert.equal(
+      linkedResult.status,
+      0,
+      commandFailure('linked template publish', linkedResult),
+    );
+    assert.equal(
+      fallbackResult.status,
+      0,
+      commandFailure('fallback template publish', fallbackResult),
+    );
+
+    const linkedTemplatesRoot = join(linkedProjectRoot, '.cli', 'templates');
+    const fallbackTemplatesRoot = join(
+      fallbackProjectRoot,
+      '.cli',
+      'templates',
+    );
+    assert.deepEqual(
+      snapshotFiles(fallbackTemplatesRoot),
+      snapshotFiles(linkedTemplatesRoot),
+    );
+    assert.match(readFileSync(linkTracePath, 'utf8'), /^EPERM$/mu);
+
+    const relativeOverridePath = join('react', 'component.jsx');
+    const sentinel = 'custom contents before --force\n';
+    writeFileSync(join(linkedTemplatesRoot, relativeOverridePath), sentinel);
+    writeFileSync(join(fallbackTemplatesRoot, relativeOverridePath), sentinel);
+    fallbackEnvironment.EMULSIFY_E2E_LINK_ERROR = 'ENOTSUP';
+
+    const linkedForceResult = runCli(linkedProjectRoot, [...args, '--force']);
+    const fallbackForceResult = runCli(
+      fallbackProjectRoot,
+      [...args, '--force'],
+      fallbackEnvironment,
+      execArgv,
+    );
+    assert.equal(
+      linkedForceResult.status,
+      0,
+      commandFailure('linked template replacement', linkedForceResult),
+    );
+    assert.equal(
+      fallbackForceResult.status,
+      0,
+      commandFailure('fallback template replacement', fallbackForceResult),
+    );
+    assert.deepEqual(
+      snapshotFiles(fallbackTemplatesRoot),
+      snapshotFiles(linkedTemplatesRoot),
+    );
+    assert.notEqual(
+      readFileSync(join(fallbackTemplatesRoot, relativeOverridePath), 'utf8'),
+      sentinel,
+    );
+    assert.match(readFileSync(linkTracePath, 'utf8'), /^ENOTSUP$/mu);
+  });
+
+  test('uses a customized ejected template during component creation', () => {
+    const ejectResult = runCli(projectRoot, [
+      'component',
+      'eject-templates',
+      'twig',
+      '--force',
+    ]);
+    assert.equal(
+      ejectResult.status,
+      0,
+      commandFailure('component eject-templates twig', ejectResult),
+    );
+    assert.equal(ejectResult.stderr, '');
+
+    const templatePath = join(
+      projectRoot,
+      '.cli',
+      'templates',
+      'twig',
+      'component.twig',
+    );
+    const template = readFileSync(templatePath, 'utf8');
+    writeFileSync(
+      templatePath,
+      `${template}\n{# Ejected override for __EMULSIFY_humanName__ #}\n{% set type = 'promo' %}<span>{{ type }}</span>\n`,
+    );
+
+    const createResult = runCli(projectRoot, [
+      'component',
+      'create',
+      'ejected-card',
+      '--type',
+      'twig',
+      '--directory',
+      'components',
+    ]);
+    assert.equal(
+      createResult.status,
+      0,
+      commandFailure('component create with ejected template', createResult),
+    );
+    assert.equal(createResult.stderr, '');
+    const generatedTemplate = readFileSync(
+      join(projectRoot, 'components', 'ejected-card', 'ejected-card.twig'),
+      'utf8',
+    );
+    assert.match(generatedTemplate, /Ejected override for Ejected Card/u);
+    assert.ok(generatedTemplate.includes('<span>{{ type }}</span>'));
+  });
+
+  test('scaffolds the exact artifact set for every component type', () => {
+    const componentCases = [
+      {
+        name: 'twig-example',
+        type: 'twig',
+        files: [
+          'twig-example.scss',
+          'twig-example.stories.js',
+          'twig-example.twig',
+          'twig-example.yml',
+        ],
+      },
+      {
+        name: 'twig-sdc-example',
+        type: 'twig-sdc',
+        files: [
+          'twig-sdc-example.component.yml',
+          'twig-sdc-example.js',
+          'twig-sdc-example.scss',
+          'twig-sdc-example.stories.js',
+          'twig-sdc-example.twig',
+        ],
+      },
+      {
+        name: 'react-example',
+        type: 'react',
+        files: [
+          'react-example.jsx',
+          'react-example.scss',
+          'react-example.stories.jsx',
+        ],
+      },
+      {
+        name: 'web-component-example',
+        type: 'web-component',
+        files: [
+          'web-component-example.js',
+          'web-component-example.scss',
+          'web-component-example.stories.js',
+        ],
+      },
+    ];
+
+    for (const componentCase of componentCases) {
+      const result = runCli(projectRoot, [
+        'component',
+        'create',
+        componentCase.name,
+        '--type',
+        componentCase.type,
+        '--directory',
+        'components',
+      ]);
+
+      assert.equal(
+        result.status,
+        0,
+        commandFailure(`component create --type ${componentCase.type}`, result),
+      );
+      assert.deepEqual(
+        readdirSync(join(projectRoot, 'components', componentCase.name)).sort(),
+        componentCase.files,
+        `${componentCase.type} should create only its documented artifacts`,
+      );
+    }
+  });
+
+  test('uses an explicit custom element tag name non-interactively', () => {
+    const result = runCli(projectRoot, [
+      'component',
+      'create',
+      'tag-override-example',
+      '--type',
+      'web-component',
+      '--tag-name',
+      'custom-tag-override',
+      '--directory',
+      'components',
+    ]);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component create --tag-name', result),
+    );
+    assert.match(result.stderr, /@emulsify\/core was not detected/u);
+    const componentSource = readFileSync(
+      join(
+        projectRoot,
+        'components',
+        'tag-override-example',
+        'tag-override-example.js',
+      ),
+      'utf8',
+    );
+    assert.match(
+      componentSource,
+      /customElements\.define\('custom-tag-override'/u,
+    );
   });
 
   test('executes the project system-install hook', () => {

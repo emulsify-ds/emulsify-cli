@@ -4,6 +4,7 @@ import {
   normalizePlatformExpression,
   parsePlatformExpression,
   platformExpressionMatchesProject,
+  rankPlatformVariants,
   selectCompatiblePlatformVariant,
   selectExactPlatformVariant,
   tryParsePlatformExpression,
@@ -99,6 +100,128 @@ describe('platformCompatibility', () => {
 
     it('returns an empty list when variants are missing', () => {
       expect(getVariantPlatformExpressions(undefined)).toEqual([]);
+    });
+  });
+
+  describe('rankPlatformVariants', () => {
+    it('orders exact, shared, and generic matches before incompatible variants', () => {
+      const variants = [
+        genericVariant,
+        wordpressVariant,
+        sharedVariant,
+        drupalVariant,
+        unknownVariant,
+      ];
+
+      expect(rankPlatformVariants(variants, 'drupal')).toEqual([
+        {
+          variant: drupalVariant,
+          rank: 0,
+          index: 3,
+        },
+        {
+          variant: sharedVariant,
+          rank: 1,
+          index: 2,
+        },
+        {
+          variant: genericVariant,
+          rank: 2,
+          index: 0,
+        },
+        {
+          variant: wordpressVariant,
+          index: 1,
+        },
+        {
+          variant: unknownVariant,
+          index: 4,
+        },
+      ]);
+    });
+
+    it('prefers an exact generic variant for none projects and ranks all other variants equally', () => {
+      const variants = [drupalVariant, genericVariant, wordpressVariant];
+
+      expect(rankPlatformVariants(variants, 'none')).toEqual([
+        {
+          variant: genericVariant,
+          rank: 0,
+          index: 1,
+        },
+        {
+          variant: drupalVariant,
+          rank: 3,
+          index: 0,
+        },
+        {
+          variant: wordpressVariant,
+          rank: 3,
+          index: 2,
+        },
+      ]);
+    });
+
+    it('preserves source order when compatible variants have the same rank', () => {
+      const firstSharedVariant = {
+        platform: 'drupal || wordpress',
+        name: 'first',
+      };
+      const secondSharedVariant = {
+        platform: 'wordpress || drupal',
+        name: 'second',
+      };
+
+      expect(
+        rankPlatformVariants(
+          [secondSharedVariant, firstSharedVariant],
+          'wordpress',
+        ),
+      ).toEqual([
+        {
+          variant: secondSharedVariant,
+          rank: 1,
+          index: 0,
+        },
+        {
+          variant: firstSharedVariant,
+          rank: 1,
+          index: 1,
+        },
+      ]);
+    });
+
+    it('does not mutate the source array or variants', () => {
+      const exactVariant = Object.freeze({
+        platform: 'drupal',
+        name: 'exact',
+      });
+      const generic = Object.freeze({
+        platform: 'none',
+        name: 'generic',
+      });
+      const variants = Object.freeze([generic, exactVariant]);
+
+      const ranked = rankPlatformVariants(variants, 'drupal');
+
+      expect(variants).toEqual([generic, exactVariant]);
+      expect(ranked).not.toBe(variants);
+      expect(ranked.map(({ variant }) => variant)).toEqual([
+        exactVariant,
+        generic,
+      ]);
+      expect(ranked[0].variant).toBe(exactVariant);
+      expect(ranked[1].variant).toBe(generic);
+    });
+
+    it('retains unranked variants and handles a missing variant list', () => {
+      expect(rankPlatformVariants([wordpressVariant], 'drupal')).toEqual([
+        {
+          variant: wordpressVariant,
+          index: 0,
+        },
+      ]);
+      expect(rankPlatformVariants(undefined, 'drupal')).toEqual([]);
     });
   });
 

@@ -15,11 +15,15 @@ export default async function getAvailableSystems(): Promise<
   return [
     {
       name: 'compound',
+      label: 'Compound',
+      description: 'Accessible, tested components. Drupal, WordPress, plain.',
       repository: 'https://github.com/emulsify-ds/compound.git',
       platforms: ['none', 'drupal', 'wordpress'],
     },
     {
       name: 'emulsify-ui-kit',
+      label: 'Emulsify UI Kit',
+      description: 'Broader design-system starter kit.',
       repository: 'https://github.com/emulsify-ds/emulsify-ui-kit.git',
       platforms: ['none', 'drupal', 'wordpress'],
     },

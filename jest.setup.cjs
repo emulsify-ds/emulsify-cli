@@ -26,6 +26,7 @@ jest.mock('simple-git', () => {
 });
 
 jest.mock('fs', () => ({
+  constants: jest.requireActual('fs').constants,
   existsSync: jest.fn(),
   writeFileSync: jest.fn(),
   promises: {
@@ -35,6 +36,8 @@ jest.mock('fs', () => ({
     rm: jest.fn(),
     mkdir: jest.fn(),
     mkdtemp: jest.fn(),
+    link: jest.fn(),
+    open: jest.fn(),
     rename: jest.fn(),
     stat: jest.fn(),
     copyFile: jest.fn(),

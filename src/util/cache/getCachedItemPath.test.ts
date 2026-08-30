@@ -36,6 +36,29 @@ describe('getCachedItemPath', () => {
     findFileMock.mockReturnValue(projectPath);
   });
 
+  it('preserves the cache-key identity contract', () => {
+    findFileMock.mockReturnValueOnce('project');
+
+    expect(
+      getCachedItemPath({
+        bucket: 'systems',
+        itemPath: ['compound', 'system.emulsify.json'],
+        repository: 'git@example.test:compound.git',
+        checkout: 'stable',
+      }),
+    ).toBe(
+      join(
+        cacheDirectory,
+        'systems',
+        // Keep this digest literal: recomputing it with the implementation's
+        // formula would not detect a cache-key change that orphans user caches.
+        'd5539f54e7ab378a6da292d1fd1ecfb2',
+        'compound',
+        'system.emulsify.json',
+      ),
+    );
+  });
+
   it('produces the path to a cached item from its complete identity', () => {
     expect(getCachedItemPath(baseOptions)).toBe(
       join(

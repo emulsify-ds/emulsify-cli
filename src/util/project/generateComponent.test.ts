@@ -14,8 +14,9 @@ jest.mock('fs-extra', () => ({
 jest.mock('@inquirer/prompts');
 jest.mock('../../lib/log.js');
 jest.mock('../fs/findFileInCurrentPath.js');
+jest.mock('../fs/loadJsonFile.js');
 
-import { select, confirm } from '@inquirer/prompts';
+import { confirm, input, select } from '@inquirer/prompts';
 import { promises as fs } from 'fs';
 import { join, normalize, resolve, sep } from 'path';
 import { pathExists, remove } from 'fs-extra';
@@ -25,8 +26,12 @@ import {
   EMULSIFY_PROJECT_TEMPLATES_FOLDER,
 } from '../../lib/constants.js';
 import generateComponent from './generateComponent.js';
-import { EmulsifyVariant } from '@emulsify-cli/config';
+import type {
+  EmulsifyProjectConfiguration,
+  EmulsifyVariant,
+} from '@emulsify-cli/config';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import loadJsonFile from '../fs/loadJsonFile.js';
 
 const projectRoot = resolve(
   '/home/uname/Projects/cornflake/web/themes/custom/themename',
@@ -61,11 +66,26 @@ const variant = {
   ],
 } as EmulsifyVariant;
 
+const projectConfig: EmulsifyProjectConfiguration = {
+  project: {
+    platform: 'drupal',
+    name: 'Cornflake',
+    machineName: 'cornflake',
+  },
+  starter: {
+    repository: 'https://github.com/emulsify-ds/emulsify-starter.git',
+  },
+};
+
 const pathExistsMock = (pathExists as jest.Mock).mockResolvedValue(true);
 const removeMock = remove as jest.Mock;
 const readFileMock = fs.readFile as jest.Mock;
 const writeFileMock = fs.writeFile as jest.Mock;
 const mkdirMock = fs.mkdir as jest.Mock;
+const loadJsonFileMock = loadJsonFile as jest.Mock;
+const inputMock = input as jest.Mock;
+const selectMock = select as jest.Mock;
+const confirmMock = confirm as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
 
 function setStdinIsTTY(value: boolean | undefined) {
@@ -114,6 +134,10 @@ describe('generateComponent', () => {
     setStdinIsTTY(true);
     pathExistsMock.mockImplementation((path) => !isTemplatePath(path));
     readFileMock.mockResolvedValue('');
+    loadJsonFileMock.mockResolvedValue({
+      dependencies: { '@emulsify/core': '^4.4.0' },
+    });
+    inputMock.mockResolvedValue('cornflake-button');
   });
 
   afterAll(() => {
@@ -123,7 +147,9 @@ describe('generateComponent', () => {
   it('throws an error if the user is not within an Emulsify project', async () => {
     expect.assertions(1);
     findFileMock.mockReturnValueOnce(undefined);
-    await expect(generateComponent(variant, 'button')).rejects.toThrow(
+    await expect(
+      generateComponent(variant, projectConfig, 'button', { type: 'twig' }),
+    ).rejects.toThrow(
       'Unable to find an Emulsify project to create the component into.',
     );
   });
@@ -132,7 +158,10 @@ describe('generateComponent', () => {
     expect.assertions(4);
 
     await expect(
-      generateComponent(variant, '   ', { directory: 'base' }),
+      generateComponent(variant, projectConfig, '   ', {
+        directory: 'base',
+        type: 'twig',
+      }),
     ).rejects.toThrow(
       'Component name must include at least one letter or number.',
     );
@@ -146,7 +175,10 @@ describe('generateComponent', () => {
     expect.assertions(4);
 
     await expect(
-      generateComponent(variant, 'featured item', { directory: 'base' }),
+      generateComponent(variant, projectConfig, 'featured item', {
+        directory: 'base',
+        type: 'twig',
+      }),
     ).rejects.toThrow(
       'Component name may only include letters, numbers, and single hyphens between words.',
     );
@@ -156,46 +188,187 @@ describe('generateComponent', () => {
     expect(pathExists).not.toHaveBeenCalled();
   });
 
-  it('should prompt for the format and then the directory if not provided', async () => {
-    expect.assertions(2);
-    (select as jest.Mock)
-      .mockResolvedValueOnce('default') // format
-      .mockResolvedValueOnce('base'); // directory
+  it('prompts for all four component types in a Drupal project with Core, then prompts for the directory', async () => {
+    expect.assertions(4);
+    selectMock.mockResolvedValueOnce('twig').mockResolvedValueOnce('base');
 
-    await generateComponent(variant, 'button');
-    expect(select).toHaveBeenCalledWith(
+    await generateComponent(variant, projectConfig, 'button');
+
+    expect(selectMock).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
-        message: expect.stringContaining('Choose the component format:'),
+        message: expect.stringContaining('Choose the component type:'),
+        choices: expect.arrayContaining([
+          expect.objectContaining({ value: 'twig' }),
+          expect.objectContaining({ value: 'twig-sdc' }),
+          expect.objectContaining({ value: 'react' }),
+          expect.objectContaining({ value: 'web-component' }),
+        ]),
       }),
     );
-    expect(select).toHaveBeenCalledWith(
+    expect(selectMock.mock.calls[0][0].choices).toHaveLength(4);
+    expect(selectMock).toHaveBeenNthCalledWith(
+      2,
       expect.objectContaining({
         message: expect.stringContaining(
           'Choose a directory for the new component:',
         ),
       }),
     );
+    expect(inputMock).not.toHaveBeenCalled();
   });
 
-  it('uses a provided format and directory without prompting', async () => {
+  it('offers Twig and Twig SDC in a Drupal project without Core and explains the omission', async () => {
+    expect.assertions(3);
+    loadJsonFileMock.mockResolvedValueOnce(undefined);
+    selectMock.mockResolvedValueOnce('twig');
+
+    await generateComponent(variant, projectConfig, 'button', {
+      directory: 'base',
+    });
+
+    expect(
+      selectMock.mock.calls[0][0].choices.map(
+        ({ value }: { value: string }) => value,
+      ),
+    ).toEqual(['twig', 'twig-sdc']);
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining(
+        'React and Web Component are not shown because @emulsify/core is not declared',
+      ),
+    );
+    expect(inputMock).not.toHaveBeenCalled();
+  });
+
+  it('offers Twig, React, and Web Component in a non-Drupal project with Core and explains the omission', async () => {
+    expect.assertions(2);
+    const wordpressProjectConfig: EmulsifyProjectConfiguration = {
+      ...projectConfig,
+      project: { ...projectConfig.project, platform: 'wordpress' },
+    };
+    selectMock.mockResolvedValueOnce('twig');
+
+    await generateComponent(variant, wordpressProjectConfig, 'button', {
+      directory: 'base',
+    });
+
+    expect(
+      selectMock.mock.calls[0][0].choices.map(
+        ({ value }: { value: string }) => value,
+      ),
+    ).toEqual(['twig', 'react', 'web-component']);
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      'Twig SDC is available only for Drupal projects, so it is not shown.',
+    );
+  });
+
+  it('skips a one-item type prompt and explains every omitted type', async () => {
+    expect.assertions(5);
+    const neutralProjectConfig: EmulsifyProjectConfiguration = {
+      ...projectConfig,
+      project: { ...projectConfig.project, platform: 'none' },
+    };
+    loadJsonFileMock.mockResolvedValueOnce(undefined);
+    pathExistsMock.mockResolvedValue(false);
+
+    await generateComponent(variant, neutralProjectConfig, 'button', {
+      directory: 'base',
+    });
+
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      'Twig SDC is available only for Drupal projects, so it is not shown.',
+    );
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining(
+        'React and Web Component are not shown because @emulsify/core is not declared',
+      ),
+    );
+    expect(log).toHaveBeenCalledWith(
+      'info',
+      'Using Twig, the only detected compatible component type.',
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('button', 'button.twig'),
+      expect.any(String),
+    );
+  });
+
+  it('uses a provided canonical type and directory without prompting', async () => {
     expect.assertions(3);
     setStdinIsTTY(false);
     pathExistsMock.mockResolvedValue(false);
 
-    await generateComponent(variant, 'button', {
+    await generateComponent(variant, projectConfig, 'button', {
       directory: 'base',
-      format: 'sdc',
+      type: 'twig-sdc',
     });
 
-    expect(select).not.toHaveBeenCalled();
-    expect(confirm).not.toHaveBeenCalled();
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(confirmMock).not.toHaveBeenCalled();
     expect(writeFileMock).toHaveBeenCalledWith(
       componentPath('button', 'button.component.yml'),
       expect.stringContaining('name: Button'),
     );
   });
 
-  it('previews a default component without writing files in dry-run mode', async () => {
+  it.each([
+    ['default', 'twig', 'button.yml'],
+    ['sdc', 'twig-sdc', 'button.component.yml'],
+  ])(
+    'maps legacy --format %s to %s and warns',
+    async (format, type, expectedFile) => {
+      expect.assertions(3);
+      setStdinIsTTY(false);
+      pathExistsMock.mockResolvedValue(false);
+
+      await generateComponent(variant, projectConfig, 'button', {
+        directory: 'base',
+        format,
+      });
+
+      expect(selectMock).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith(
+        'warn',
+        `The --format option is deprecated; use --type ${type} instead.`,
+      );
+      expect(writeFileMock).toHaveBeenCalledWith(
+        componentPath('button', expectedFile),
+        expect.any(String),
+      );
+    },
+  );
+
+  it('gives --type precedence when both type and deprecated format are provided', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+    pathExistsMock.mockResolvedValue(false);
+
+    await generateComponent(variant, projectConfig, 'button', {
+      directory: 'base',
+      type: 'react',
+      format: 'sdc',
+    });
+
+    expect(log).toHaveBeenCalledWith(
+      'warn',
+      'The --format option is deprecated and was ignored because --type react was also provided.',
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('button', 'button.jsx'),
+      expect.any(String),
+    );
+    expect(writeFileMock).not.toHaveBeenCalledWith(
+      componentPath('button', 'button.twig'),
+      expect.anything(),
+    );
+  });
+
+  it('previews a Twig component without writing files in dry-run mode', async () => {
     expect.assertions(6);
     setStdinIsTTY(false);
     pathExistsMock.mockImplementation((path) => {
@@ -203,9 +376,9 @@ describe('generateComponent', () => {
       return !isTemplatePath(value) && !value.endsWith(componentPath('card'));
     });
 
-    await generateComponent(variant, 'card', {
+    await generateComponent(variant, projectConfig, 'card', {
       directory: 'base',
-      format: 'default',
+      type: 'twig',
       dryRun: true,
     });
 
@@ -223,7 +396,7 @@ describe('generateComponent', () => {
     );
   });
 
-  it('previews an SDC component without writing files in dry-run mode', async () => {
+  it('previews a Twig SDC component without writing files in dry-run mode', async () => {
     expect.assertions(5);
     setStdinIsTTY(false);
     pathExistsMock.mockImplementation((path) => {
@@ -231,9 +404,9 @@ describe('generateComponent', () => {
       return !isTemplatePath(value) && !value.endsWith(componentPath('teaser'));
     });
 
-    await generateComponent(variant, 'teaser', {
+    await generateComponent(variant, projectConfig, 'teaser', {
       directory: 'base',
-      format: 'sdc',
+      type: 'twig-sdc',
       dryRun: true,
     });
 
@@ -242,7 +415,7 @@ describe('generateComponent', () => {
     expect(writeFileMock).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(
       'info',
-      expect.stringContaining('Format: sdc'),
+      expect.stringContaining('Type: twig-sdc'),
     );
     expect(log).toHaveBeenCalledWith(
       'info',
@@ -255,9 +428,9 @@ describe('generateComponent', () => {
     setStdinIsTTY(false);
     pathExistsMock.mockImplementation((path) => !isTemplatePath(path));
 
-    await generateComponent(variant, 'link', {
+    await generateComponent(variant, projectConfig, 'link', {
       directory: 'base',
-      format: 'default',
+      type: 'twig',
       dryRun: true,
     });
 
@@ -276,12 +449,30 @@ describe('generateComponent', () => {
     );
   });
 
-  it('throws a clear error when a provided format is invalid', async () => {
+  it('throws a clear error when a provided type is invalid', async () => {
     expect.assertions(4);
     setStdinIsTTY(false);
 
     await expect(
-      generateComponent(variant, 'button', {
+      generateComponent(variant, projectConfig, 'button', {
+        directory: 'base',
+        type: 'bad',
+      }),
+    ).rejects.toThrow(
+      'Invalid component type "bad". Supported types are: twig, twig-sdc, react, web-component.',
+    );
+
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(findFileInCurrentPath).not.toHaveBeenCalled();
+    expect(pathExists).not.toHaveBeenCalled();
+  });
+
+  it('throws a clear error when a provided legacy format is invalid', async () => {
+    expect.assertions(4);
+    setStdinIsTTY(false);
+
+    await expect(
+      generateComponent(variant, projectConfig, 'button', {
         directory: 'base',
         format: 'bad',
       }),
@@ -289,22 +480,24 @@ describe('generateComponent', () => {
       'Invalid component format "bad". Supported formats are: default, sdc.',
     );
 
-    expect(select).not.toHaveBeenCalled();
+    expect(selectMock).not.toHaveBeenCalled();
     expect(findFileInCurrentPath).not.toHaveBeenCalled();
     expect(pathExists).not.toHaveBeenCalled();
   });
 
-  it('throws when format is missing in non-interactive mode', async () => {
+  it('throws when type is missing in non-interactive mode', async () => {
     expect.assertions(2);
     setStdinIsTTY(false);
 
     await expect(
-      generateComponent(variant, 'button', { directory: 'base' }),
+      generateComponent(variant, projectConfig, 'button', {
+        directory: 'base',
+      }),
     ).rejects.toThrow(
-      'Component format is required in non-interactive mode. Pass --format default or --format sdc.',
+      'Component type is required in non-interactive mode. Pass --type <twig|twig-sdc|react|web-component>.',
     );
 
-    expect(select).not.toHaveBeenCalled();
+    expect(selectMock).not.toHaveBeenCalled();
   });
 
   it('throws when directory is missing in non-interactive mode', async () => {
@@ -312,19 +505,21 @@ describe('generateComponent', () => {
     setStdinIsTTY(false);
 
     await expect(
-      generateComponent(variant, 'button', { format: 'default' }),
+      generateComponent(variant, projectConfig, 'button', { type: 'twig' }),
     ).rejects.toThrow(
       'Component directory is required in non-interactive mode. Pass --directory <directory>.',
     );
 
-    expect(select).not.toHaveBeenCalled();
+    expect(selectMock).not.toHaveBeenCalled();
   });
 
   it('throws an error if the component structure is invalid', async () => {
     expect.assertions(1);
-    (select as jest.Mock).mockResolvedValueOnce('default'); // format
     await expect(
-      generateComponent(variant, 'button', { directory: 'cornpop' }),
+      generateComponent(variant, projectConfig, 'button', {
+        directory: 'cornpop',
+        type: 'twig',
+      }),
     ).rejects.toThrow(
       'The structure (cornpop) specified within the component button is invalid.',
     );
@@ -346,10 +541,11 @@ describe('generateComponent', () => {
             },
           ],
         } as EmulsifyVariant,
+        projectConfig,
         'link',
         {
           directory: 'base',
-          format: 'default',
+          type: 'twig',
           yes: true,
         },
       ),
@@ -363,11 +559,11 @@ describe('generateComponent', () => {
 
   it('should cancel component creation if user declines overwrite', async () => {
     expect.assertions(2);
-    (select as jest.Mock).mockResolvedValueOnce('default'); // format
-    (confirm as jest.Mock).mockResolvedValueOnce(false); // decline overwrite
+    confirmMock.mockResolvedValueOnce(false);
 
-    const result = await generateComponent(variant, 'link', {
+    const result = await generateComponent(variant, projectConfig, 'link', {
       directory: 'base',
+      type: 'twig',
     });
     expect(confirm).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -381,10 +577,28 @@ describe('generateComponent', () => {
     expect.assertions(3);
     setStdinIsTTY(false);
 
-    await generateComponent(variant, 'link', {
+    await generateComponent(variant, projectConfig, 'link', {
       directory: 'base',
-      format: 'default',
+      type: 'twig',
       yes: true,
+    });
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(removeMock).toHaveBeenCalledWith(componentPath('link'));
+    expect(log).toHaveBeenCalledWith(
+      'success',
+      expect.stringContaining('Success!'),
+    );
+  });
+
+  it('skips the overwrite confirm and replaces the component when force is set', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+
+    await generateComponent(variant, projectConfig, 'link', {
+      directory: 'base',
+      type: 'twig',
+      force: true,
     });
 
     expect(confirm).not.toHaveBeenCalled();
@@ -397,10 +611,12 @@ describe('generateComponent', () => {
 
   it('should continue creation if user confirms overwrite', async () => {
     expect.assertions(2);
-    (select as jest.Mock).mockResolvedValueOnce('default'); // format
-    (confirm as jest.Mock).mockResolvedValueOnce(true); // confirm overwrite
+    confirmMock.mockResolvedValueOnce(true);
 
-    await generateComponent(variant, 'link', { directory: 'base' });
+    await generateComponent(variant, projectConfig, 'link', {
+      directory: 'base',
+      type: 'twig',
+    });
     expect(confirm).toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(
       'success',
@@ -408,47 +624,227 @@ describe('generateComponent', () => {
     );
   });
 
-  it('should create an SDC component structure', async () => {
-    expect.assertions(1);
-    (select as jest.Mock)
-      .mockResolvedValueOnce('sdc') // format
-      .mockResolvedValueOnce('base'); // directory
-    // Mock parent path exists, but destination does NOT exist
-    pathExistsMock.mockImplementation(
-      (path) => !isTemplatePath(path) && !String(path).endsWith('mario'),
+  it.each([
+    [
+      'twig',
+      [
+        'featured-item.twig',
+        'featured-item.scss',
+        'featured-item.yml',
+        'featured-item.stories.js',
+      ],
+    ],
+    [
+      'twig-sdc',
+      [
+        'featured-item.twig',
+        'featured-item.scss',
+        'featured-item.component.yml',
+        'featured-item.js',
+        'featured-item.stories.js',
+      ],
+    ],
+    [
+      'react',
+      ['featured-item.jsx', 'featured-item.scss', 'featured-item.stories.jsx'],
+    ],
+    [
+      'web-component',
+      ['featured-item.js', 'featured-item.scss', 'featured-item.stories.js'],
+    ],
+  ] as const)('writes only the exact %s artifact set', async (type, files) => {
+    expect.assertions(2);
+    setStdinIsTTY(false);
+    pathExistsMock.mockResolvedValue(false);
+
+    await generateComponent(variant, projectConfig, 'featured-item', {
+      directory: 'base',
+      type,
+    });
+
+    expect(
+      writeFileMock.mock.calls.map(([path]) => String(path).split(sep).at(-1)),
+    ).toEqual(files);
+    if (type === 'react' || type === 'web-component') {
+      expect(files.some((file) => file.endsWith('.twig'))).toBe(false);
+    } else {
+      expect(files.some((file) => file.endsWith('.twig'))).toBe(true);
+    }
+  });
+
+  it.each(['react', 'web-component'] as const)(
+    'warns and proceeds with an explicit %s type when Core is not detected',
+    async (type) => {
+      expect.assertions(2);
+      setStdinIsTTY(false);
+      pathExistsMock.mockResolvedValue(false);
+      loadJsonFileMock.mockResolvedValueOnce(undefined);
+
+      await generateComponent(variant, projectConfig, 'featured-item', {
+        directory: 'base',
+        type,
+      });
+
+      expect(log).toHaveBeenCalledWith(
+        'warn',
+        expect.stringContaining(
+          `The generated ${type} component may require installing @emulsify/core`,
+        ),
+      );
+      expect(writeFileMock).toHaveBeenCalled();
+    },
+  );
+
+  it('prompts with the derived web component tag and accepts a validated override', async () => {
+    expect.assertions(5);
+    pathExistsMock.mockResolvedValue(false);
+    inputMock.mockImplementationOnce(
+      async ({ default: defaultValue, validate }) => {
+        expect(defaultValue).toBe('cornflake-button');
+        expect(validate('button')).toContain('contain a hyphen');
+        expect(validate('custom-button')).toBe(true);
+        return ' custom-button ';
+      },
     );
 
-    await generateComponent(variant, 'mario');
-    expect(log).toHaveBeenCalledWith(
-      'success',
-      expect.stringContaining('Success!'),
+    await generateComponent(variant, projectConfig, 'button', {
+      directory: 'base',
+      type: 'web-component',
+    });
+
+    expect(inputMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('Custom element tag name:'),
+        default: 'cornflake-button',
+        validate: expect.any(Function),
+      }),
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('button', 'button.js'),
+      expect.stringContaining(
+        "customElements.define('custom-button', ButtonElement);",
+      ),
     );
   });
 
-  it('should generate a standard (Default) component when selected', async () => {
-    (select as jest.Mock)
-      .mockResolvedValueOnce('default') // Format selection
-      .mockResolvedValueOnce('base'); // Directory selection
+  it('silently uses the filename as a valid hyphenated tag outside a TTY', async () => {
+    expect.assertions(2);
+    setStdinIsTTY(false);
     pathExistsMock.mockResolvedValue(false);
 
-    await generateComponent(variant, 'my-button');
+    await generateComponent(variant, projectConfig, 'featured-item', {
+      directory: 'base',
+      type: 'web-component',
+    });
 
-    expect(log).toHaveBeenCalledWith(
-      'success',
-      expect.stringContaining('Success!'),
+    expect(inputMock).not.toHaveBeenCalled();
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('featured-item', 'featured-item.js'),
+      expect.stringContaining(
+        "customElements.define('featured-item', FeaturedItemElement);",
+      ),
     );
+  });
+
+  it('uses an explicit valid tag outside a TTY when the derived tag would be invalid', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+    pathExistsMock.mockResolvedValue(false);
+    const invalidMachineNameConfig: EmulsifyProjectConfiguration = {
+      ...projectConfig,
+      project: { ...projectConfig.project, machineName: '123theme' },
+    };
+
+    await generateComponent(variant, invalidMachineNameConfig, 'button', {
+      directory: 'base',
+      type: 'web-component',
+      tagName: ' valid-button ',
+    });
+
+    expect(inputMock).not.toHaveBeenCalled();
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('button', 'button.js'),
+      expect.stringContaining(
+        "customElements.define('valid-button', ButtonElement);",
+      ),
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('button', 'button.stories.js'),
+      expect.stringContaining("render: renderWebComponent('valid-button')"),
+    );
+  });
+
+  it('rejects an invalid explicit custom element tag without prompting or writing', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+    pathExistsMock.mockResolvedValue(false);
+
+    await expect(
+      generateComponent(variant, projectConfig, 'button', {
+        directory: 'base',
+        type: 'web-component',
+        tagName: 'button',
+      }),
+    ).rejects.toThrow(
+      'Invalid custom element tag name "button". Names must start with an ASCII lowercase letter',
+    );
+
+    expect(inputMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['twig', 'twig-sdc', 'react'] as const)(
+    'rejects --tag-name for the %s component type',
+    async (type) => {
+      expect.assertions(2);
+      setStdinIsTTY(false);
+      pathExistsMock.mockResolvedValue(false);
+
+      await expect(
+        generateComponent(variant, projectConfig, 'button', {
+          directory: 'base',
+          type,
+          tagName: 'custom-button',
+        }),
+      ).rejects.toThrow(
+        'The --tag-name option can only be used with --type web-component.',
+      );
+
+      expect(writeFileMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects an invalid derived tag outside a TTY without writing files', async () => {
+    expect.assertions(3);
+    setStdinIsTTY(false);
+    const invalidMachineNameConfig: EmulsifyProjectConfiguration = {
+      ...projectConfig,
+      project: { ...projectConfig.project, machineName: '123theme' },
+    };
+
+    await expect(
+      generateComponent(variant, invalidMachineNameConfig, 'button', {
+        directory: 'base',
+        type: 'web-component',
+      }),
+    ).rejects.toThrow(
+      'Invalid custom element tag name "123theme-button". Names must start with an ASCII lowercase letter, contain a hyphen, use browser-supported custom-element name characters, and must not be a reserved name. Pass --tag-name <tag-name> to provide a valid custom element name.',
+    );
+
+    expect(inputMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
   });
 
   it('uses a rendered project template override when present', async () => {
     expect.assertions(4);
-    (select as jest.Mock).mockResolvedValueOnce('default');
     mockTemplateOverrides({
       'default/component.twig':
         '<article class="{{ className }}">{{ humanName }} {{ filename }} {{ directory }} {{ format }}</article>',
     });
 
-    await generateComponent(variant, 'featuredItem', {
+    await generateComponent(variant, projectConfig, 'featuredItem', {
       directory: 'base',
+      type: 'twig',
     });
 
     expect(readFileMock).toHaveBeenCalledWith(
@@ -469,15 +865,37 @@ describe('generateComponent', () => {
     );
   });
 
+  it('keeps ordinary Twig variables in a canonical override', async () => {
+    expect.assertions(2);
+    mockTemplateOverrides({
+      'twig/component.twig':
+        "{% set type = 'promo' %}<span>{{ type }}</span><h2>__EMULSIFY_humanName__</h2>",
+    });
+
+    await generateComponent(variant, projectConfig, 'featuredItem', {
+      directory: 'base',
+      type: 'twig',
+    });
+
+    expect(readFileMock).toHaveBeenCalledWith(
+      projectTemplatePath('twig', 'component.twig'),
+      'utf8',
+    );
+    expect(writeFileMock).toHaveBeenCalledWith(
+      componentPath('featured-item', 'featured-item.twig'),
+      "{% set type = 'promo' %}<span>{{ type }}</span><h2>Featured Item</h2>",
+    );
+  });
+
   it('allows partial project template overrides per artifact', async () => {
     expect.assertions(2);
-    (select as jest.Mock).mockResolvedValueOnce('default');
     mockTemplateOverrides({
       'default/component.scss': '.{{ className }} { color: red; }\n',
     });
 
-    await generateComponent(variant, 'featuredItem', {
+    await generateComponent(variant, projectConfig, 'featuredItem', {
       directory: 'base',
+      type: 'twig',
     });
 
     expect(writeFileMock).toHaveBeenCalledWith(
@@ -492,13 +910,13 @@ describe('generateComponent', () => {
 
   it('falls back to the built-in template and warns when an override is empty', async () => {
     expect.assertions(2);
-    (select as jest.Mock).mockResolvedValueOnce('default');
     mockTemplateOverrides({
       'default/component.yml': '\n ',
     });
 
-    await generateComponent(variant, 'featuredItem', {
+    await generateComponent(variant, projectConfig, 'featuredItem', {
       directory: 'base',
+      type: 'twig',
     });
 
     expect(writeFileMock).toHaveBeenCalledWith(
@@ -515,13 +933,13 @@ featured_item__content: 'This is the content area of the Featured Item component
 
   it('keeps unknown override tokens and logs a warning', async () => {
     expect.assertions(2);
-    (select as jest.Mock).mockResolvedValueOnce('default');
     mockTemplateOverrides({
       'default/component.twig': '{{ humanName }} {{ unknownToken }}',
     });
 
-    await generateComponent(variant, 'featuredItem', {
+    await generateComponent(variant, projectConfig, 'featuredItem', {
       directory: 'base',
+      type: 'twig',
     });
 
     expect(writeFileMock).toHaveBeenCalledWith(
@@ -534,13 +952,13 @@ featured_item__content: 'This is the content area of the Featured Item component
     );
   });
 
-  it('writes default component files with byte-for-byte template content', async () => {
+  it('writes Twig component files with byte-for-byte template content', async () => {
     expect.assertions(1);
-    (select as jest.Mock).mockResolvedValueOnce('default');
     pathExistsMock.mockResolvedValue(false);
 
-    await generateComponent(variant, 'featuredItem', {
+    await generateComponent(variant, projectConfig, 'featuredItem', {
       directory: 'base',
+      type: 'twig',
     });
 
     expect(writeFileMock.mock.calls).toEqual([
@@ -627,9 +1045,8 @@ export const featuredItem = () => featuredItemTwig(featuredItemData);
     ]);
   });
 
-  it('writes SDC component files with byte-for-byte template content', async () => {
+  it('writes Twig SDC component files with byte-for-byte template content', async () => {
     expect.assertions(2);
-    (select as jest.Mock).mockResolvedValueOnce('sdc');
     pathExistsMock.mockResolvedValue(false);
     const expectedSdcJs = `/**
  * @file
@@ -645,8 +1062,9 @@ Drupal.behaviors.featuredItem = {
 };
 `;
 
-    await generateComponent(variant, 'featuredItem', {
+    await generateComponent(variant, projectConfig, 'featuredItem', {
       directory: 'base',
+      type: 'twig-sdc',
     });
 
     expect(expectedSdcJs).not.toContain('\t');

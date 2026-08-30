@@ -22,6 +22,30 @@ declare module '@emulsify-cli/handlers' {
     checkout?: string | void;
     variant?: PlatformExpression | void;
     all?: boolean;
+    /** Accept the guided installation after rendering its final review. */
+    yes?: boolean;
+  };
+
+  export type CreateSystemHandlerOptions = {
+    /** Parent directory in which the standalone system repository is created. */
+    directory?: string | void;
+    /** Platform compatibility expression for the scaffold's first variant. */
+    platform?: PlatformExpression | string | void;
+    /** Whether to initialize the generated system as a Git repository. */
+    git?: boolean;
+    /** Homepage URI written to the generated system configuration. */
+    homepage?: string | void;
+    /** Repository URI written to the generated system configuration. */
+    repository?: string | void;
+    /** Accept defaults for all missing system scaffold values. */
+    yes?: boolean;
+    /** Preview the system scaffold without creating files or initializing Git. */
+    dryRun?: boolean;
+  };
+
+  export type DetachSystemHandlerOptions = {
+    /** Detach the configured system without prompting for confirmation. */
+    yes?: boolean;
   };
 
   export type ListComponentHandlerOptions = {
@@ -40,14 +64,29 @@ declare module '@emulsify-cli/handlers' {
   export type CreateComponentHandlerOptions = {
     /** Variant structure directory name where the new component should be created. */
     directory?: string;
-    /** Component format to generate. Supported values are "default" and "sdc". */
+    /** Component implementation type to generate. */
+    type?: string;
+    /** Explicit custom element tag name for a Web Component. */
+    tagName?: string;
+    /** Deprecated component format alias. "default" maps to "twig" and "sdc" maps to "twig-sdc". */
     format?: string;
-    /** Skip overwrite confirmation prompts and replace existing components. */
+    /** Replace an existing component without prompting. */
+    force?: boolean;
+    /** Compatibility alias for force. */
     yes?: boolean;
     /** Preview planned component operations without writing, copying, or removing files. */
     dryRun?: boolean;
     /** Check the configured system's remote ref before reusing its local cache entry. */
     refresh?: boolean;
+  };
+
+  export type EjectComponentTemplatesHandlerOptions = {
+    /** Eject templates for every supported component type. */
+    all?: boolean;
+    /** Replace existing selected component template overrides. */
+    force?: boolean;
+    /** Preview component template destinations without writing files. */
+    dryRun?: boolean;
   };
 
   export type ClearCacheHandlerOptions = {

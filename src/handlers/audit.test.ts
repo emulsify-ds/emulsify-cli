@@ -461,7 +461,7 @@ test('advertises audit in root help', () => {
   const result = runSourceCli(repositoryRoot, ['--help']);
 
   expect(result.status).toBe(0);
-  expect(result.stdout).toContain('emulsify audit [...args]');
+  expect(result.stdout).toContain('audit [args...]');
   expect(result.stderr).toBe('');
 });
 
