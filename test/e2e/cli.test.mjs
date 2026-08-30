@@ -154,13 +154,6 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
           },
         },
       }),
-      'system.emulsify.json': json({
-        name: 'fixture-project-system',
-        homepage: 'https://example.test/project-system',
-        repository: 'https://example.test/fixture-project-system.git',
-        structure: [],
-        variants: [],
-      }),
       '.cli/systemInstall.js': [
         "import { writeFileSync } from 'node:fs';",
         "writeFileSync(new URL('../system-install-hook-ran.txt', import.meta.url), 'ran\\n');",
@@ -288,7 +281,6 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       },
     );
     assert.equal(existsSync(join(projectRoot, 'package-lock.json')), true);
-    assert.equal(existsSync(join(projectRoot, 'system.emulsify.json')), true);
     assert.equal(
       existsSync(join(projectRoot, '.cli', 'systemInstall.js')),
       true,
@@ -333,30 +325,21 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(existsSync(join(isolatedHome, '.emulsify', 'cache')), true);
   });
 
-  // Known failure: ../../src/handlers/systemInstall.ts:418-427 appends the
-  // hook path to the system.emulsify.json file instead of its directory.
-  test('executes the project system-install hook', (t) => {
-    if (!existsSync(systemHookSentinel)) {
-      t.todo('Known failure: src/handlers/systemInstall.ts:418-427');
-      return;
-    }
-
+  test('executes the project system-install hook', () => {
+    assert.equal(
+      existsSync(systemHookSentinel),
+      true,
+      'system install must execute the project hook',
+    );
     assert.equal(readFileSync(systemHookSentinel, 'utf8'), 'ran\n');
   });
 
-  // Known failure: ../../src/handlers/componentInstall.ts:240-247 logs and
-  // swallows a requested component copy failure instead of failing the CLI.
-  test('returns a non-zero exit when a requested component cannot be copied', (t) => {
+  test('returns a non-zero exit when a requested component cannot be copied', () => {
     const result = runCli(projectRoot, ['component', 'install', 'missing']);
 
     assert.equal(result.stdout, '');
     assert.match(result.stderr, /Unable to install missing:/);
     assert.equal(existsSync(join(projectRoot, 'components', 'missing')), false);
-
-    if (result.status === 0) {
-      t.todo('Known failure: src/handlers/componentInstall.ts:240-247');
-      return;
-    }
 
     assert.notEqual(
       result.status,
