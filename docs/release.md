@@ -144,6 +144,12 @@ Publish runs share a concurrency group, so a newer `main` push supersedes an
 older run. The explicit SHA checks also prevent a stale rerun from publishing an
 older commit.
 
+The npm plugin reads `publishConfig.provenance` from `package.json`, so every
+published package includes a signed provenance attestation. The release job's
+`id-token: write` permission supplies the GitHub OIDC identity for that
+attestation, while `NPM_TOKEN` continues to authenticate the npm registry
+publish; npm Trusted Publishing is not required for this token-based flow.
+
 semantic-release dry-run mode still verifies repository and registry
 credentials, so it belongs only in the trusted post-merge release job. A
 maintainer can repeat that check from the current trusted `main` commit with:
@@ -163,5 +169,5 @@ the maintainers intend to publish.
 | ------------------------------------------- | --------------------------------------------------------------------- |
 | `@semantic-release/commit-analyzer`         | Determine the release type from the shared conventional-commit rules. |
 | `@semantic-release/release-notes-generator` | Generate release notes with the same parser options.                  |
-| `@semantic-release/npm`                     | Publish the package to npm.                                           |
+| `@semantic-release/npm`                     | Publish the package to npm with provenance.                           |
 | `@semantic-release/github`                  | Create GitHub release metadata.                                       |
