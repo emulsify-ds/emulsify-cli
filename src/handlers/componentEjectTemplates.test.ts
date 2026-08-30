@@ -4,7 +4,7 @@ jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
 
 import { checkbox } from '@inquirer/prompts';
 import { promises as fs } from 'fs';
-import { dirname, join, resolve } from 'path';
+import { basename, dirname, join, resolve } from 'path';
 import { pathExists } from 'fs-extra';
 
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants.js';
@@ -21,8 +21,11 @@ import componentEjectTemplates, {
 const checkboxMock = checkbox as jest.Mock;
 const findFileMock = findFileInCurrentPath as jest.Mock;
 const logMock = log as jest.Mock;
+const linkMock = fs.link as jest.Mock;
 const mkdirMock = fs.mkdir as jest.Mock;
 const pathExistsMock = pathExists as jest.Mock;
+const renameMock = fs.rename as jest.Mock;
+const rmMock = fs.rm as jest.Mock;
 const writeFileMock = fs.writeFile as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
 
@@ -41,9 +44,19 @@ function destination(type: ComponentType, logicalName: string): string {
   return join(templatesRoot, type, logicalName);
 }
 
+function transactionPathPrefix(
+  target: string,
+  kind: 'temporary' | 'backup',
+): string {
+  return join(dirname(target), `.${basename(target)}.emulsify-${kind}-`);
+}
+
 function expectNoWrites(): void {
   expect(mkdirMock).not.toHaveBeenCalled();
   expect(writeFileMock).not.toHaveBeenCalled();
+  expect(linkMock).not.toHaveBeenCalled();
+  expect(renameMock).not.toHaveBeenCalled();
+  expect(rmMock).not.toHaveBeenCalled();
 }
 
 describe('buildComponentTemplateEjectionPlan', () => {
@@ -81,6 +94,9 @@ describe('componentEjectTemplates', () => {
     findFileMock.mockReturnValue(projectConfigPath);
     pathExistsMock.mockResolvedValue(false);
     mkdirMock.mockResolvedValue(undefined);
+    linkMock.mockResolvedValue(undefined);
+    renameMock.mockResolvedValue(undefined);
+    rmMock.mockResolvedValue(undefined);
     writeFileMock.mockResolvedValue(undefined);
   });
 
@@ -102,11 +118,27 @@ describe('componentEjectTemplates', () => {
       expect(mkdirMock).toHaveBeenCalledWith(dirname(target), {
         recursive: true,
       });
-      expect(writeFileMock).toHaveBeenCalledWith(target, artifact.contents, {
-        encoding: 'utf-8',
-        flag: 'wx',
-      });
+      expect(writeFileMock).toHaveBeenCalledWith(
+        expect.stringContaining(transactionPathPrefix(target, 'temporary')),
+        artifact.contents,
+        {
+          encoding: 'utf-8',
+          flag: 'wx',
+          flush: true,
+        },
+      );
+      expect(linkMock).toHaveBeenCalledWith(
+        expect.stringContaining(transactionPathPrefix(target, 'temporary')),
+        target,
+      );
+      expect(rmMock).toHaveBeenCalledWith(
+        expect.stringContaining(transactionPathPrefix(target, 'temporary')),
+        { force: true },
+      );
     }
+    expect(Math.max(...writeFileMock.mock.invocationCallOrder)).toBeLessThan(
+      Math.min(...linkMock.mock.invocationCallOrder),
+    );
 
     expect(logMock).toHaveBeenNthCalledWith(
       1,
@@ -128,15 +160,26 @@ describe('componentEjectTemplates', () => {
     expect(mkdirMock).toHaveBeenCalledTimes(15);
     expect(writeFileMock).toHaveBeenCalledTimes(15);
     expect(writeFileMock).toHaveBeenCalledWith(
-      destination('twig', 'component.twig'),
+      expect.stringContaining(
+        transactionPathPrefix(
+          destination('twig', 'component.twig'),
+          'temporary',
+        ),
+      ),
       expect.any(String),
-      { encoding: 'utf-8', flag: 'wx' },
+      { encoding: 'utf-8', flag: 'wx', flush: true },
     );
     expect(writeFileMock).toHaveBeenCalledWith(
-      destination('web-component', 'component.stories.js'),
+      expect.stringContaining(
+        transactionPathPrefix(
+          destination('web-component', 'component.stories.js'),
+          'temporary',
+        ),
+      ),
       expect.any(String),
-      { encoding: 'utf-8', flag: 'wx' },
+      { encoding: 'utf-8', flag: 'wx', flush: true },
     );
+    expect(linkMock).toHaveBeenCalledTimes(15);
   });
 
   it('rejects combining an explicit type with --all before project lookup', async () => {
@@ -174,8 +217,8 @@ describe('componentEjectTemplates', () => {
       buildEjectableComponentTemplates('twig').length +
       buildEjectableComponentTemplates('web-component').length;
     expect(writeFileMock).toHaveBeenCalledTimes(expectedCount);
-    expect(writeFileMock.mock.calls[0][0]).toBe(
-      destination('twig', 'component.twig'),
+    expect(writeFileMock.mock.calls[0][0]).toContain(
+      transactionPathPrefix(destination('twig', 'component.twig'), 'temporary'),
     );
   });
 
@@ -284,16 +327,29 @@ describe('componentEjectTemplates', () => {
     const artifacts = buildEjectableComponentTemplates('react');
     expect(writeFileMock).toHaveBeenCalledTimes(artifacts.length);
     for (const artifact of artifacts) {
+      const target = destination('react', artifact.logicalName);
       expect(writeFileMock).toHaveBeenCalledWith(
-        destination('react', artifact.logicalName),
+        expect.stringContaining(transactionPathPrefix(target, 'temporary')),
         artifact.contents,
-        { encoding: 'utf-8', flag: 'w' },
+        { encoding: 'utf-8', flag: 'wx', flush: true },
+      );
+      expect(linkMock).toHaveBeenCalledWith(
+        target,
+        expect.stringContaining(transactionPathPrefix(target, 'backup')),
+      );
+      expect(renameMock).toHaveBeenCalledWith(
+        expect.stringContaining(transactionPathPrefix(target, 'temporary')),
+        target,
+      );
+      expect(rmMock).toHaveBeenCalledWith(
+        expect.stringContaining(transactionPathPrefix(target, 'backup')),
+        { force: true },
       );
     }
   });
 
   it('does not overwrite a template created after the conflict preflight', async () => {
-    writeFileMock.mockRejectedValueOnce(
+    linkMock.mockRejectedValueOnce(
       Object.assign(new Error('already exists'), { code: 'EEXIST' }),
     );
 
@@ -302,11 +358,109 @@ describe('componentEjectTemplates', () => {
       message: expect.stringMatching(/appeared.*not replaced.*--force/u),
     });
 
-    expect(writeFileMock).toHaveBeenCalledWith(
+    expect(linkMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        transactionPathPrefix(
+          destination('twig', 'component.twig'),
+          'temporary',
+        ),
+      ),
       destination('twig', 'component.twig'),
-      expect.any(String),
-      { encoding: 'utf-8', flag: 'wx' },
     );
+    expect(logMock).not.toHaveBeenCalled();
+  });
+
+  it('changes no destinations when staging fails after earlier templates were staged', async () => {
+    writeFileMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk full'));
+
+    await expect(componentEjectTemplates('react')).rejects.toMatchObject({
+      name: 'CliError',
+      message: expect.stringMatching(
+        /Unable to stage.*component\.scss.*disk full.*No destination files were changed\./u,
+      ),
+    });
+
+    expect(writeFileMock).toHaveBeenCalledTimes(2);
+    expect(linkMock).not.toHaveBeenCalled();
+    expect(renameMock).not.toHaveBeenCalled();
+    expect(rmMock).toHaveBeenCalledWith(writeFileMock.mock.calls[0][0], {
+      force: true,
+    });
+    expect(
+      rmMock.mock.calls.every(([target]) =>
+        String(target).includes('.emulsify-temporary-'),
+      ),
+    ).toBe(true);
+    expect(logMock).not.toHaveBeenCalled();
+  });
+
+  it('restores replaced files and removes new files after a mid-finalization failure', async () => {
+    const replacedTarget = destination('react', 'component.jsx');
+    const newTarget = destination('react', 'component.scss');
+    const failedTarget = destination('react', 'component.stories.jsx');
+    linkMock.mockImplementation(async (source: string) => {
+      if (source === replacedTarget) return undefined;
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    });
+    renameMock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('rename failed'))
+      .mockResolvedValue(undefined);
+
+    await expect(
+      componentEjectTemplates('react', { force: true }),
+    ).rejects.toMatchObject({
+      name: 'CliError',
+      message: expect.stringMatching(
+        /Unable to install[\s\S]*component\.stories\.jsx[\s\S]*rename failed[\s\S]*All destination changes were rolled back\./u,
+      ),
+    });
+
+    const replacedBackup = linkMock.mock.calls.find(
+      ([source]) => source === replacedTarget,
+    )?.[1];
+    expect(replacedBackup).toContain(
+      transactionPathPrefix(replacedTarget, 'backup'),
+    );
+    expect(renameMock).toHaveBeenCalledWith(replacedBackup, replacedTarget);
+    expect(rmMock).toHaveBeenCalledWith(newTarget, { force: true });
+    expect(renameMock).toHaveBeenCalledWith(
+      expect.stringContaining(transactionPathPrefix(failedTarget, 'temporary')),
+      failedTarget,
+    );
+    expect(logMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves and reports a backup when rollback cannot restore it', async () => {
+    const firstTarget = destination('react', 'component.jsx');
+    const failedTarget = destination('react', 'component.scss');
+    linkMock.mockResolvedValue(undefined);
+    renameMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('install failed'))
+      .mockRejectedValueOnce(new Error('restore failed'))
+      .mockResolvedValue(undefined);
+
+    const error = await componentEjectTemplates('react', {
+      force: true,
+    }).catch((reason: unknown) => reason);
+
+    const failedBackup = linkMock.mock.calls.find(
+      ([source]) => source === failedTarget,
+    )?.[1];
+    expect(error).toMatchObject({ name: 'CliError' });
+    expect((error as Error).message).toContain('Rollback was incomplete:');
+    expect((error as Error).message).toContain(
+      `Could not restore "${failedTarget}"; its previous contents remain at "${failedBackup}": restore failed`,
+    );
+    expect(renameMock).toHaveBeenCalledWith(
+      linkMock.mock.calls.find(([source]) => source === firstTarget)?.[1],
+      firstTarget,
+    );
+    expect(rmMock).not.toHaveBeenCalledWith(failedBackup, { force: true });
     expect(logMock).not.toHaveBeenCalled();
   });
 
@@ -352,9 +506,13 @@ describe('componentEjectTemplates', () => {
 
       await expect(componentEjectTemplates('react')).rejects.toMatchObject({
         name: 'CliError',
-        message: `Unable to write component template "${destination('react', 'component.jsx')}": ${text}`,
+        message: expect.stringContaining(
+          `Unable to stage component template "${destination('react', 'component.jsx')}": ${text}. No destination files were changed.`,
+        ),
       });
 
+      expect(linkMock).not.toHaveBeenCalled();
+      expect(renameMock).not.toHaveBeenCalled();
       expect(logMock).not.toHaveBeenCalled();
     },
   );

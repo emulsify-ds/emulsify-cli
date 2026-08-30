@@ -1,8 +1,9 @@
 import type { EjectComponentTemplatesHandlerOptions } from '@emulsify-cli/handlers';
 
 import { checkbox } from '@inquirer/prompts';
+import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
-import { dirname } from 'path';
+import { basename, dirname, join } from 'path';
 import { pathExists } from 'fs-extra';
 
 import CliError from '../lib/CliError.js';
@@ -62,6 +63,13 @@ export type ComponentTemplateEjectionPlanItem = {
 
 type InspectedPlanItem = ComponentTemplateEjectionPlanItem & {
   exists: boolean;
+};
+
+type TransactionPlanItem = InspectedPlanItem & {
+  temporaryPath: string;
+  backupPath: string;
+  hasBackup: boolean;
+  installed: boolean;
 };
 
 /** Resolve every ejection target within the project's template directory. */
@@ -176,6 +184,205 @@ function isAlreadyExistsError(error: unknown): boolean {
   );
 }
 
+function isMissingError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === 'ENOENT'
+  );
+}
+
+function getTransactionPath(
+  destination: string,
+  kind: 'temporary' | 'backup',
+): string {
+  return join(
+    dirname(destination),
+    `.${basename(destination)}.emulsify-${kind}-${randomUUID()}`,
+  );
+}
+
+function buildTransactionPlan(
+  plan: InspectedPlanItem[],
+): TransactionPlanItem[] {
+  return plan.map((item) => ({
+    ...item,
+    temporaryPath: getTransactionPath(item.destination, 'temporary'),
+    backupPath: getTransactionPath(item.destination, 'backup'),
+    hasBackup: false,
+    installed: false,
+  }));
+}
+
+async function removePaths(paths: readonly string[]): Promise<string[]> {
+  const failures: string[] = [];
+
+  for (const path of paths) {
+    try {
+      await fs.rm(path, { force: true });
+    } catch (error) {
+      failures.push(`  - ${path}: ${getErrorMessage(error)}`);
+    }
+  }
+
+  return failures;
+}
+
+function appendCleanupFailures(message: string, failures: string[]): string {
+  if (failures.length === 0) return message;
+
+  return [
+    message,
+    'Temporary transaction files could not be removed:',
+    ...failures,
+  ].join('\n');
+}
+
+async function stageTransaction(plan: TransactionPlanItem[]): Promise<void> {
+  for (const item of plan) {
+    try {
+      await fs.mkdir(dirname(item.destination), { recursive: true });
+      await fs.writeFile(item.temporaryPath, item.contents, {
+        encoding: 'utf-8',
+        flag: 'wx',
+        flush: true,
+      });
+    } catch (error) {
+      const cleanupFailures = await removePaths(
+        plan.map(({ temporaryPath }) => temporaryPath),
+      );
+      throw new CliError(
+        appendCleanupFailures(
+          `Unable to stage component template "${item.destination}": ${getErrorMessage(error)}. No destination files were changed.`,
+          cleanupFailures,
+        ),
+      );
+    }
+  }
+}
+
+async function installTransactionItem(
+  item: TransactionPlanItem,
+  force: boolean,
+): Promise<void> {
+  if (!force) {
+    // link() publishes the fully-written staged file atomically and refuses an
+    // existing destination, preserving the post-preflight EEXIST backstop.
+    await fs.link(item.temporaryPath, item.destination);
+    item.installed = true;
+    return;
+  }
+
+  try {
+    // A hard-linked backup retains the old contents without creating a window
+    // where the destination is absent before the atomic replacement rename.
+    await fs.link(item.destination, item.backupPath);
+    item.hasBackup = true;
+  } catch (error) {
+    if (!isMissingError(error)) throw error;
+  }
+
+  await fs.rename(item.temporaryPath, item.destination);
+  item.installed = true;
+}
+
+async function rollbackTransaction(
+  plan: TransactionPlanItem[],
+): Promise<string[]> {
+  const failures: string[] = [];
+
+  for (const item of [...plan].reverse()) {
+    if (item.hasBackup) {
+      try {
+        await fs.rename(item.backupPath, item.destination);
+        item.hasBackup = false;
+        item.installed = false;
+      } catch (error) {
+        failures.push(
+          `  - Could not restore "${item.destination}"; its previous contents remain at "${item.backupPath}": ${getErrorMessage(error)}`,
+        );
+      }
+    } else if (item.installed) {
+      try {
+        await fs.rm(item.destination, { force: true });
+        item.installed = false;
+      } catch (error) {
+        failures.push(
+          `  - Could not remove newly installed "${item.destination}": ${getErrorMessage(error)}`,
+        );
+      }
+    }
+  }
+
+  return failures;
+}
+
+function formatInstallError(
+  item: TransactionPlanItem,
+  error: unknown,
+  force: boolean,
+  rollbackFailures: string[],
+  cleanupFailures: string[],
+): string {
+  const failure =
+    !force && isAlreadyExistsError(error)
+      ? `Component template "${item.destination}" appeared after the overwrite check and was not replaced. Pass --force to replace existing templates.`
+      : `Unable to install component template "${item.destination}": ${getErrorMessage(error)}.`;
+  const rollback =
+    rollbackFailures.length === 0
+      ? 'All destination changes were rolled back.'
+      : ['Rollback was incomplete:', ...rollbackFailures].join('\n');
+
+  return appendCleanupFailures([failure, rollback].join('\n'), cleanupFailures);
+}
+
+async function executeTransaction(
+  plan: InspectedPlanItem[],
+  force: boolean,
+): Promise<void> {
+  const transactionPlan = buildTransactionPlan(plan);
+  await stageTransaction(transactionPlan);
+
+  for (const item of transactionPlan) {
+    try {
+      await installTransactionItem(item, force);
+    } catch (error) {
+      const rollbackFailures = await rollbackTransaction(transactionPlan);
+      // Preserve any backup whose restoration failed: it is the only remaining
+      // copy of the user's prior override and its path is reported above.
+      const cleanupFailures = await removePaths(
+        transactionPlan.flatMap(({ temporaryPath, backupPath, hasBackup }) =>
+          hasBackup ? [temporaryPath] : [temporaryPath, backupPath],
+        ),
+      );
+      throw new CliError(
+        formatInstallError(
+          item,
+          error,
+          force,
+          rollbackFailures,
+          cleanupFailures,
+        ),
+      );
+    }
+  }
+
+  const cleanupFailures = await removePaths(
+    transactionPlan.flatMap(({ temporaryPath, backupPath, hasBackup }) =>
+      hasBackup ? [temporaryPath, backupPath] : [temporaryPath],
+    ),
+  );
+  if (cleanupFailures.length > 0) {
+    throw new CliError(
+      [
+        'Component templates were installed, but transaction cleanup was incomplete:',
+        ...cleanupFailures,
+      ].join('\n'),
+    );
+  }
+}
+
 /** Handler for `emulsify component eject-templates [type]`. */
 export default async function componentEjectTemplates(
   type: string | void,
@@ -240,25 +447,7 @@ export default async function componentEjectTemplates(
     throw new CliError(formatConflictError(conflicts));
   }
 
-  for (const item of inspectedPlan) {
-    try {
-      await fs.mkdir(dirname(item.destination), { recursive: true });
-      await fs.writeFile(item.destination, item.contents, {
-        encoding: 'utf-8',
-        flag: force ? 'w' : 'wx',
-      });
-    } catch (error) {
-      if (!force && isAlreadyExistsError(error)) {
-        throw new CliError(
-          `Component template "${item.destination}" appeared after the overwrite check and was not replaced. Pass --force to replace existing templates.`,
-        );
-      }
-
-      throw new CliError(
-        `Unable to write component template "${item.destination}": ${getErrorMessage(error)}`,
-      );
-    }
-  }
+  await executeTransaction(inspectedPlan, force);
 
   const paths = inspectedPlan
     .map(({ destination }) => `  - ${destination}`)
