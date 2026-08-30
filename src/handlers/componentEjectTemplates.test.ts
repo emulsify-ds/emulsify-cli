@@ -225,14 +225,17 @@ describe('componentEjectTemplates', () => {
         target === twigConflict || target === storiesConflict,
     );
 
-    await expect(componentEjectTemplates('twig')).rejects.toMatchObject({
-      name: 'CliError',
-      message: expect.stringMatching(
-        new RegExp(
-          `${twigConflict.replaceAll('/', '\\/')}[\\s\\S]*${storiesConflict.replaceAll('/', '\\/')}[\\s\\S]*Pass --force`,
-        ),
-      ),
-    });
+    const error = await componentEjectTemplates('twig').catch(
+      (reason: unknown) => reason,
+    );
+    expect(error).toMatchObject({ name: 'CliError' });
+    const message = (error as Error).message;
+    expect(message).toContain(twigConflict);
+    expect(message).toContain(storiesConflict);
+    expect(message.indexOf(twigConflict)).toBeLessThan(
+      message.indexOf(storiesConflict),
+    );
+    expect(message).toContain('Pass --force');
 
     expect(pathExistsMock).toHaveBeenCalledTimes(4);
     expectNoWrites();

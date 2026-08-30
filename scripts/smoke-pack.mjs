@@ -163,7 +163,11 @@ function smokeTest(tempRoot) {
     `Emulsify CLI ${packageManifest.version}`,
     'emulsify --help',
   );
-  assertCommandOutput(helpResult, 'Usage:', 'emulsify --help');
+  assertCommandOutput(
+    helpResult,
+    'New here? Run these in order:',
+    'emulsify --help',
+  );
 
   const versionResult = runCommand(localBin, ['--version'], commandOptions);
   assertCommandOutput(
