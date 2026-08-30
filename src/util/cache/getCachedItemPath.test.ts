@@ -1,47 +1,110 @@
 jest.mock('../../lib/constants', () => ({
-  CACHE_DIR: 'home/uname/.emulsify/cache',
+  CACHE_DIR: 'cache',
   EMULSIFY_PROJECT_CONFIG_FILE: 'project.emulsify.json',
 }));
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
+import type { CachedItemPathOptions } from '@emulsify-cli/cache';
+import { createHash } from 'crypto';
+import { join, resolve, sep } from 'path';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import getCachedItemPath from './getCachedItemPath.js';
 
-const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/uname/projects/emulsify',
-);
+const cacheDirectory = 'cache';
+const projectPath = resolve('fixtures', 'emulsify');
+const baseRepository = 'https://github.com/emulsify-ds/compound.git';
+const baseCheckout = 'branch-name';
+const findFileMock = findFileInCurrentPath as jest.Mock;
+const baseOptions: CachedItemPathOptions = {
+  bucket: 'systems',
+  itemPath: ['compound', 'system.emulsify.json'],
+  repository: baseRepository,
+  checkout: baseCheckout,
+};
+
+function cacheKey(repository: string, checkout?: string): string {
+  return createHash('md5')
+    .update(
+      JSON.stringify({ projectPath, repository, checkout: checkout || '' }),
+    )
+    .digest('hex');
+}
 
 describe('getCachedItemPath', () => {
-  it('can produce the path to a cached file if given a cache bucket, cache item name, and filename', () => {
-    expect.assertions(2);
-    expect(
-      getCachedItemPath(
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findFileMock.mockReturnValue(projectPath);
+  });
+
+  it('produces the path to a cached item from its complete identity', () => {
+    expect(getCachedItemPath(baseOptions)).toBe(
+      join(
+        cacheDirectory,
         'systems',
-        ['compound', 'system.emulsify.json'],
-        'branch-name',
+        cacheKey(baseRepository, baseCheckout),
+        'compound',
+        'system.emulsify.json',
       ),
-    ).toBe(
-      'home/uname/.emulsify/cache/systems/2a39785f5c873d7a694ac505a8123bb9/compound/system.emulsify.json',
     );
     expect(
-      getCachedItemPath(
-        'variants',
-        ['compound', 'drupal', 'variant.emulsify.json'],
-        'branch-name',
-      ),
+      getCachedItemPath({
+        ...baseOptions,
+        bucket: 'variants',
+        itemPath: ['compound', 'drupal', 'variant.emulsify.json'],
+      }),
     ).toBe(
-      'home/uname/.emulsify/cache/variants/2a39785f5c873d7a694ac505a8123bb9/compound/drupal/variant.emulsify.json',
+      join(
+        cacheDirectory,
+        'variants',
+        cacheKey(baseRepository, baseCheckout),
+        'compound',
+        'drupal',
+        'variant.emulsify.json',
+      ),
+    );
+  });
+
+  it('uses the repository URL in the cache key', () => {
+    const repository = 'https://github.com/example/compound.git';
+    const firstRepository = getCachedItemPath(baseOptions);
+    const secondRepository = getCachedItemPath({
+      ...baseOptions,
+      repository,
+    });
+
+    expect(firstRepository).not.toBe(secondRepository);
+    expect(secondRepository).toContain(
+      `${sep}${cacheKey(repository, baseCheckout)}${sep}`,
+    );
+  });
+
+  it('uses the checkout in the cache key', () => {
+    const checkout = 'other-branch';
+    expect(getCachedItemPath({ ...baseOptions, checkout })).toContain(
+      `${sep}${cacheKey(baseRepository, checkout)}${sep}`,
+    );
+  });
+
+  it('normalizes whitespace and trailing slashes in repository URLs', () => {
+    expect(
+      getCachedItemPath({
+        ...baseOptions,
+        repository: '  https://github.com/emulsify-ds/compound.git/  ',
+      }),
+    ).toBe(getCachedItemPath(baseOptions));
+  });
+
+  it('treats an undefined checkout as an empty checkout', () => {
+    expect(getCachedItemPath({ ...baseOptions, checkout: undefined })).toBe(
+      getCachedItemPath({ ...baseOptions, checkout: '' }),
     );
   });
 
   it('throws an error if a project config file is not found', () => {
     findFileMock.mockReturnValueOnce(undefined);
-    expect(() =>
-      getCachedItemPath(
-        'systems',
-        ['compound', 'system.emulsify.json'],
-        'branch-name',
-      ),
-    ).toThrow('Unable to find project.emulsify.json');
+
+    expect(() => getCachedItemPath(baseOptions)).toThrow(
+      'Unable to find project.emulsify.json',
+    );
   });
 });

@@ -3,15 +3,22 @@ import {
   CACHE_DIR,
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_PROJECT_TEMPLATES_FOLDER,
+  EMULSIFY_CACHE_METADATA_FILE,
 } from './constants.js';
+import { join } from 'path';
 
-jest.mock('os', () => ({
-  homedir: () => '/home/username',
-}));
+jest.mock('os', () => {
+  const { join } = jest.requireActual<typeof import('path')>('path');
+  return {
+    homedir: () => join(process.cwd(), 'fixtures', 'home'),
+  };
+});
+
+const mockHome = join(process.cwd(), 'fixtures', 'home');
 
 const map = [
-  ['UTIL_DIR', UTIL_DIR, '/home/username/.emulsify'],
-  ['CACHE_DIR', CACHE_DIR, '/home/username/.emulsify/cache'],
+  ['UTIL_DIR', UTIL_DIR, join(mockHome, '.emulsify')],
+  ['CACHE_DIR', CACHE_DIR, join(mockHome, '.emulsify', 'cache')],
   [
     'EMULSIFY_PROJECT_CONFIG_FILE',
     EMULSIFY_PROJECT_CONFIG_FILE,
@@ -21,6 +28,11 @@ const map = [
     'EMULSIFY_PROJECT_TEMPLATES_FOLDER',
     EMULSIFY_PROJECT_TEMPLATES_FOLDER,
     '.cli/templates',
+  ],
+  [
+    'EMULSIFY_CACHE_METADATA_FILE',
+    EMULSIFY_CACHE_METADATA_FILE,
+    '.emulsify-cache.json',
   ],
 ];
 

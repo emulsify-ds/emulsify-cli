@@ -2,13 +2,20 @@ jest.mock('../cache/copyItemFromCache', () => jest.fn());
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
 import { pathExists } from 'fs-extra';
+import { join, resolve } from 'path';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
+import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 import copyItemFromCache from '../cache/copyItemFromCache.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import installComponentFromCache from './installComponentFromCache.js';
 
+const projectRoot = resolve(
+  '/home/username/Projects/drupal-project/web/themes/custom/themename',
+);
+const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
+const componentDestination = join(projectRoot, 'components', '00-base', 'link');
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',
+  projectConfigPath,
 );
 const pathExistsMock = (pathExists as jest.Mock).mockResolvedValue(false);
 const copyItemMock = copyItemFromCache as jest.Mock;
@@ -16,9 +23,7 @@ const copyItemMock = copyItemFromCache as jest.Mock;
 describe('installComponentFromCache', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    findFileMock.mockReturnValue(
-      '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',
-    );
+    findFileMock.mockReturnValue(projectConfigPath);
     pathExistsMock.mockResolvedValue(false);
   });
 
@@ -99,7 +104,7 @@ describe('installComponentFromCache', () => {
         true,
       ),
     ).rejects.toThrow(
-      'Component destination "../../outside/link" resolves to "/home/username/Projects/drupal-project/web/themes/outside/link", which is outside the expected root "/home/username/Projects/drupal-project/web/themes/custom/themename".',
+      `Component destination "../../outside/link" resolves to "${resolve(projectRoot, '../../outside/link')}", which is outside the expected root "${projectRoot}".`,
     );
 
     expect(pathExistsMock).not.toHaveBeenCalled();
@@ -122,7 +127,7 @@ describe('installComponentFromCache', () => {
     expect(copyItemMock).toHaveBeenCalledWith(
       'systems',
       ['compound', './components/00-base', 'link'],
-      '/home/username/Projects/drupal-project/web/themes/custom/themename/components/00-base/link',
+      componentDestination,
       false,
     );
   });

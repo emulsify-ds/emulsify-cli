@@ -2,13 +2,15 @@
  * Module that exports types pertaining to command handlers.
  */
 declare module '@emulsify-cli/handlers' {
+  import type { Platform, PlatformExpression } from '@emulsify-cli/config';
+
   export type InitHandlerOptions = {
     /** Git repository of the Emulsify starter to clone. */
     starter?: string | void;
     /** Commit, branch, or tag to checkout after cloning the starter repository. */
     checkout?: string | void;
     /** Platform name to use when platform auto-detection is unavailable or should be overridden. */
-    platform?: string | void;
+    platform?: Platform | void;
     /** Machine-friendly project folder/config name. */
     machineName?: string | void;
     /** Accept default values for missing init options without prompting. */
@@ -18,14 +20,21 @@ declare module '@emulsify-cli/handlers' {
   export type InstallSystemHandlerOptions = {
     repository?: string | void;
     checkout?: string | void;
-    variant?: string | void;
+    variant?: PlatformExpression | void;
     all?: boolean;
+  };
+
+  export type ListComponentHandlerOptions = {
+    /** Check the configured system's remote ref before reusing its local cache entry. */
+    refresh?: boolean;
   };
 
   export type InstallComponentHandlerOptions = {
     force?: boolean;
     all?: boolean;
     dryRun?: boolean;
+    /** Check the configured system's remote ref before reusing its local cache entry. */
+    refresh?: boolean;
   };
 
   export type CreateComponentHandlerOptions = {
@@ -36,6 +45,13 @@ declare module '@emulsify-cli/handlers' {
     /** Skip overwrite confirmation prompts and replace existing components. */
     yes?: boolean;
     /** Preview planned component operations without writing, copying, or removing files. */
+    dryRun?: boolean;
+    /** Check the configured system's remote ref before reusing its local cache entry. */
+    refresh?: boolean;
+  };
+
+  export type ClearCacheHandlerOptions = {
+    /** Report cache contents without removing them. */
     dryRun?: boolean;
   };
 }

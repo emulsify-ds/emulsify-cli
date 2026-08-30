@@ -6,9 +6,28 @@
  */
 
 /**
- * Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9
+ * Platform compatibility expression for a variant. Accepts a concrete platform or multiple concrete platforms joined by ' || '.
  */
-export type Platform = 'none' | 'drupal';
+export type PlatformExpression =
+  | Platform
+  | (
+      | 'none || drupal'
+      | 'none || wordpress'
+      | 'drupal || none'
+      | 'drupal || wordpress'
+      | 'wordpress || none'
+      | 'wordpress || drupal'
+      | 'none || drupal || wordpress'
+      | 'none || wordpress || drupal'
+      | 'drupal || none || wordpress'
+      | 'drupal || wordpress || none'
+      | 'wordpress || none || drupal'
+      | 'wordpress || drupal || none'
+    );
+/**
+ * Concrete platform Emulsify is being used within.
+ */
+export type Platform = 'none' | 'drupal' | 'wordpress';
 /**
  * Array containing an object for each structure specified in the system to which this variant belongs
  */
@@ -91,7 +110,7 @@ export type Files = {
 }[];
 
 export interface EmulsifyVariant {
-  platform: Platform;
+  platform: PlatformExpression;
   structureImplementations: StructureImplementations;
   components: Components;
   directories?: Directories;

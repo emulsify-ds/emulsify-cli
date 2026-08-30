@@ -15,11 +15,13 @@ The examples below reflect the command definitions in `src/index.ts` and the gen
 | Command                             | Alias                         | Description                                                      |
 | ----------------------------------- | ----------------------------- | ---------------------------------------------------------------- |
 | `emulsify init [name] [path]`       |                               | Initialize an Emulsify project from a starter.                   |
+| `emulsify audit [...args]`          |                               | Run the project-installed Emulsify Core audit.                   |
 | `emulsify system list`              | `emulsify system ls`          | List built-in systems available for installation.                |
 | `emulsify system install [name]`    |                               | Install or scaffold a system in the current Emulsify project.    |
 | `emulsify component list`           | `emulsify component ls`       | List components available from the installed system and variant. |
 | `emulsify component install [name]` | `emulsify component i [name]` | Install a component from the installed system and variant.       |
 | `emulsify component create [name]`  | `emulsify component c [name]` | Generate a new local component in the current project.           |
+| `emulsify cache clear`              |                               | Clear locally cached system repositories.                        |
 
 ## `init`
 
@@ -29,23 +31,76 @@ emulsify init [name] [path]
 
 Options:
 
-| Option                               | Description                                                                                                                                    |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-m, --machineName <machineName>`    | Machine-friendly project folder and config name. If omitted, the CLI derives it from the project name. Drupal machine names use underscores.   |
-| `-s, --starter <repository>`         | Starter Git repository to clone.                                                                                                               |
-| `-c, --checkout <commit/branch/tag>` | Starter commit, branch, or tag to check out after clone.                                                                                       |
-| `-p, --platform <platform>`          | Platform to use when auto-detection is unavailable or should be overridden. Built-in starters are currently available for `drupal` and `none`. |
-| `-y, --yes`                          | Accept default values for missing init options without prompting.                                                                              |
+| Option                               | Description                                                                                                                                  |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-m, --machineName <machineName>`    | Machine-friendly project folder and config name. If omitted, the CLI derives it from the project name. Drupal machine names use underscores. |
+| `-s, --starter <repository>`         | Starter Git repository to clone.                                                                                                             |
+| `-c, --checkout <commit/branch/tag>` | Starter commit, branch, or tag to check out after clone.                                                                                     |
+| `-p, --platform <platform>`          | Platform to use when auto-detection is unavailable or should be overridden. Built-in platforms are `drupal`, `wordpress`, and `none`.        |
+| `-y, --yes`                          | Accept default values for missing init options without prompting.                                                                            |
 
-When `--platform` is not provided and the platform cannot be detected, interactive terminals prompt with `drupal` and `none`.
+When `--platform` is not provided and the platform cannot be detected, interactive terminals prompt with `drupal`, `wordpress`, and `none`.
+
+WordPress auto-detection creates child themes inside the detected themes directory:
+
+- Standard WordPress: `wp-content/themes/<machine-name>`
+- Bedrock: `web/app/themes/<machine-name>`
+
+The built-in WordPress starter is `https://github.com/emulsify-ds/emulsify-wordpress-starter`.
 
 Examples:
 
 ```bash
 emulsify init "My Project" ./projects --platform none
 emulsify init "My Theme" ./web/themes/custom --platform drupal
+emulsify init "My Theme" ./wp-content/themes --platform wordpress
 emulsify init "My Theme" ./web/themes/custom --platform drupal --machineName my_custom_theme
 emulsify init "My Project" ./projects --starter https://github.com/emulsify-ds/emulsify-starter --checkout main --platform none
+```
+
+## `audit`
+
+```bash
+emulsify audit [...args]
+```
+
+This command is a convenience façade for the `emulsify-audit` executable
+declared by the selected project's installed `@emulsify/core` package. It
+resolves Core from `--root <dir>` when supplied, or from the current directory,
+then forwards every argument plus stdin, stdout, stderr, and the Core process
+exit status without decoration.
+
+```bash
+emulsify audit --help
+emulsify audit --json
+emulsify audit --root /path/to/project --json --fail-on warn
+```
+
+Core must be installed in the selected project. `emulsify-audit` remains the
+canonical Core-owned machine interface; Core owns its audit checks, findings,
+JSON schema, documentation, output, and exit behavior. See the
+[Emulsify Core audit documentation](https://github.com/emulsify-ds/emulsify-core/blob/develop/docs/audit.md)
+for the current contract and options.
+
+## `cache clear`
+
+```bash
+emulsify cache clear
+```
+
+Removes all locally cached repository entries under `~/.emulsify/cache`. The command reports the number of cache buckets and entries removed, and succeeds when the cache is already empty.
+
+Options:
+
+| Option      | Description                                       |
+| ----------- | ------------------------------------------------- |
+| `--dry-run` | Report cache contents without removing any files. |
+
+Examples:
+
+```bash
+emulsify cache clear --dry-run
+emulsify cache clear
 ```
 
 ## `system list`
@@ -79,6 +134,7 @@ Options:
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `-r, --repository <repository>`      | Install a system from a specific Git repository. Custom repository URLs must end in `.git`.                                                      |
 | `-c, --checkout <commit/branch/tag>` | Checkout to use. This is required when `--repository` is used.                                                                                   |
+| `--variant <platform-expression>`    | Install the variant whose platform expression exactly matches this value. Quote compound expressions at the shell.                               |
 | `-a, --all`                          | Install every component in the selected variant. Without this flag, only components marked `required: true` are installed during system install. |
 
 Examples:
@@ -89,18 +145,32 @@ emulsify system install compound
 emulsify system install emulsify-ui-kit
 emulsify system install compound --all
 emulsify system install --repository https://github.com/example/example-system.git --checkout v1.0.0
+emulsify system install --repository https://github.com/example/example-system.git --checkout v1.0.0 --variant wordpress
 ```
 
 Selecting `create a new system` writes `system.emulsify.json` in the current Emulsify project root. Complete the generated system name, repository, structures, variants, and components before using it to install or generate components.
+
+System variant compatibility is selected from each variant's `platform` expression. Examples:
+
+- `"platform": "wordpress"` matches WordPress projects.
+- `"platform": "drupal || wordpress"` matches Drupal and WordPress projects.
+- `"platform": "none"` is generic and can be installed by any concrete project platform.
+
+Project configuration uses only concrete `project.platform` values: `drupal`, `wordpress`, or `none`. Only system variants use `||` expressions. A project with `project.platform: "none"` can install any component library system; when multiple variants are equally compatible, the CLI prompts in an interactive terminal or errors in non-interactive mode.
+
+Pass `--variant` to choose an exact variant platform expression instead of automatic compatibility selection. Quote a shared expression at the shell, for example `--variant "drupal || wordpress"`.
 
 ## `component list`
 
 ```bash
 emulsify component list
 emulsify component ls
+emulsify component list --refresh
 ```
 
 Lists components available from the installed system and selected variant. Output uses the component structure followed by the component name, for example `atoms -> buttons`.
+
+Pass `--refresh` to check the system's remote ref before listing. Without it, the command validates and reuses the local cache without touching the network.
 
 ## `component install`
 
@@ -116,11 +186,13 @@ Options:
 | `-f, --force` | Replace an existing component destination without prompting.                                        |
 | `-a, --all`   | Install all available components instead of one named component.                                    |
 | `--dry-run`   | Preview dependencies, destinations, overwrite behavior, and copy operations without changing files. |
+| `--refresh`   | Check the system's remote ref before reusing its local cache entry.                                 |
 
 Examples:
 
 ```bash
 emulsify component install card
+emulsify component install card --refresh
 emulsify component install card --dry-run
 emulsify component i accordion --force
 emulsify component install --all
@@ -141,11 +213,13 @@ Options:
 | `-f, --format <format>`       | Component format to generate. Supported values are `default` and `sdc`.               |
 | `-y, --yes`                   | Replace an existing generated component without prompting.                            |
 | `--dry-run`                   | Preview destination and generated files without writing, removing, or creating files. |
+| `--refresh`                   | Check the system's remote ref before reusing its local cache entry.                   |
 
 Examples:
 
 ```bash
 emulsify component create promo-card --directory molecules --format default
+emulsify component create promo-card --directory molecules --format default --refresh
 emulsify component create promo-card --directory molecules --format default --dry-run
 emulsify component c teaser --directory molecules --format sdc --yes
 ```

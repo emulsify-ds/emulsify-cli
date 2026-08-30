@@ -12,10 +12,17 @@ import {
   EMULSIFY_SYSTEM_CONFIG_FILE,
 } from '../../lib/constants.js';
 import CliError from '../../lib/CliError.js';
+import log from '../../lib/log.js';
 import cloneIntoCache from '../../util/cache/cloneIntoCache.js';
 import getJsonFromCachedFile from '../../util/cache/getJsonFromCachedFile.js';
 import getGitRepoNameFromUrl from '../../util/getGitRepoNameFromUrl.js';
 import getEmulsifyConfig from '../../util/project/getEmulsifyConfig.js';
+import {
+  selectCompatiblePlatformVariant,
+  selectExactPlatformVariant,
+  tryParsePlatformExpression,
+} from '../../util/platform/platformCompatibility.js';
+import validateSystemConfig from '../../util/system/validateSystemConfig.js';
 
 type EmulsifyProjectConfigurationWithSystem = EmulsifyProjectConfiguration & {
   system: NonNullable<EmulsifyProjectConfiguration['system']>;
@@ -29,6 +36,10 @@ export type EmulsifySystemContext = {
   variantConf: EmulsifyVariant;
 };
 
+type WithEmulsifySystemOptions = {
+  refresh?: boolean;
+};
+
 /**
  * Error thrown when a handler requires an installed Emulsify system, but the
  * current project or cached system state does not satisfy that requirement.
@@ -38,6 +49,55 @@ export class EmulsifySystemError extends CliError {
     super(message);
     this.name = 'EmulsifySystemError';
   }
+}
+
+type PreparedCachedSystemConfig = {
+  systemConfig: unknown;
+  skippedPlatformExpressions: string[];
+};
+
+function prepareCachedSystemConfig(
+  systemConfig: unknown,
+): PreparedCachedSystemConfig {
+  if (systemConfig === null || typeof systemConfig !== 'object') {
+    return { systemConfig, skippedPlatformExpressions: [] };
+  }
+
+  const variants = (systemConfig as { variants?: unknown }).variants;
+  if (!Array.isArray(variants)) {
+    return { systemConfig, skippedPlatformExpressions: [] };
+  }
+
+  const skippedPlatformExpressions = new Set<string>();
+  const supportedVariants = variants.filter((variant: unknown) => {
+    if (variant === null || typeof variant !== 'object') {
+      return true;
+    }
+
+    const platform = (variant as { platform?: unknown }).platform;
+    if (typeof platform !== 'string') {
+      return true;
+    }
+
+    if (tryParsePlatformExpression(platform)) {
+      return true;
+    }
+
+    skippedPlatformExpressions.add(platform);
+    return false;
+  });
+
+  return {
+    systemConfig:
+      skippedPlatformExpressions.size === 0
+        ? systemConfig
+        : { ...systemConfig, variants: supportedVariants },
+    skippedPlatformExpressions: [...skippedPlatformExpressions],
+  };
+}
+
+function formatPlatformExpressions(expressions: readonly string[]): string {
+  return expressions.map((expression) => JSON.stringify(expression)).join(', ');
 }
 
 /**
@@ -52,7 +112,7 @@ export class EmulsifySystemError extends CliError {
  * @throws {Error} if the configured system repository URL is malformed before a repository name can be parsed.
  * @throws {EmulsifySystemError} if the configured system repository does not contain a parseable repository name.
  * @throws {EmulsifySystemError} if the configured system cannot be cloned or checked out from cache.
- * @throws {EmulsifySystemError} if the cached system configuration cannot be loaded.
+ * @throws {EmulsifySystemError} if the cached system configuration cannot be loaded or validated.
  * @throws {EmulsifySystemError} if the configured variant cannot be found within the cached system configuration.
  *
  * @example
@@ -60,6 +120,7 @@ export class EmulsifySystemError extends CliError {
  */
 export async function withEmulsifySystem(
   actionLabel: string,
+  { refresh = false }: WithEmulsifySystemOptions = {},
 ): Promise<EmulsifySystemContext> {
   const emulsifyConfig = await getEmulsifyConfig();
   if (!emulsifyConfig) {
@@ -84,33 +145,70 @@ export async function withEmulsifySystem(
   }
 
   try {
-    await cloneIntoCache('systems', [systemName])(systemReference);
+    await cloneIntoCache('systems', [systemName], { refresh })(systemReference);
   } catch {
     throw new EmulsifySystemError(
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
     );
   }
 
-  const systemConf: EmulsifySystem | void = await getJsonFromCachedFile(
-    'systems',
-    [systemName],
-    systemReference.checkout,
-    EMULSIFY_SYSTEM_CONFIG_FILE,
-  );
+  const loadedSystemConf: unknown = await getJsonFromCachedFile({
+    bucket: 'systems',
+    itemPath: [systemName],
+    repository: systemReference.repository,
+    checkout: systemReference.checkout,
+    fileName: EMULSIFY_SYSTEM_CONFIG_FILE,
+  });
 
-  if (!systemConf) {
+  if (!loadedSystemConf) {
     throw new EmulsifySystemError(
       `Unable to load configuration for the ${systemName} system. Please make sure the system is installed.`,
     );
   }
 
-  const variantName = variantReference.platform;
-  const variantConf = systemConf.variants?.find(
-    ({ platform }) => platform === variantName,
-  );
-  if (!variantConf) {
+  let validation = await validateSystemConfig(loadedSystemConf);
+  const { systemConfig, skippedPlatformExpressions } =
+    prepareCachedSystemConfig(loadedSystemConf);
+  if (skippedPlatformExpressions.length > 0) {
+    validation = await validateSystemConfig(systemConfig);
+  }
+
+  if (!validation.valid) {
     throw new EmulsifySystemError(
-      `Unable to find configuration for the variant ${variantName} within the system ${systemName}.`,
+      `The cached copy of the ${systemName} system is invalid. Run "emulsify cache clear" and retry this command to re-clone it. To reinstall the system instead, remove the existing system and variant entries from project.emulsify.json, then re-run "emulsify system install".`,
+    );
+  }
+
+  const systemConf = validation.systemConfig;
+  if (skippedPlatformExpressions.length > 0) {
+    log(
+      'warn',
+      `Skipped variants in the ${systemName} system with platform expressions this CLI does not understand: ${formatPlatformExpressions(skippedPlatformExpressions)}. The system may require a newer Emulsify CLI or contain a typo.`,
+    );
+  }
+
+  const variantName = variantReference.platform;
+  const exactVariantSelection = selectExactPlatformVariant(
+    systemConf.variants,
+    variantName,
+  );
+  const compatibleVariantSelection = selectCompatiblePlatformVariant(
+    systemConf.variants,
+    emulsifyConfig.project.platform,
+  );
+  const variantConf =
+    exactVariantSelection.status === 'selected'
+      ? exactVariantSelection.variant
+      : compatibleVariantSelection.status === 'selected'
+        ? compatibleVariantSelection.variant
+        : undefined;
+  if (!variantConf) {
+    const skippedPlatformMessage =
+      skippedPlatformExpressions.length > 0
+        ? ` The CLI did not understand these variant platform expressions: ${formatPlatformExpressions(skippedPlatformExpressions)}. The system may require a newer Emulsify CLI or contain a typo.`
+        : '';
+    throw new EmulsifySystemError(
+      `Unable to find configuration for the variant ${variantName} within the system ${systemName}.${skippedPlatformMessage}`,
     );
   }
 

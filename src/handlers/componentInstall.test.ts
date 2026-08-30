@@ -11,6 +11,7 @@ jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
 jest.mock('@inquirer/prompts');
 
 import { pathExists } from 'fs-extra';
+import { join, resolve } from 'path';
 import { confirm } from '@inquirer/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
@@ -36,7 +37,10 @@ const findFileInCurrentPathMock = findFileInCurrentPath as jest.Mock;
 const pathExistsMock = pathExists as jest.Mock;
 const confirmMock = confirm as jest.Mock;
 
-const projectConfigPath = '/project/project.emulsify.json';
+const projectRoot = resolve('/project');
+const projectConfigPath = join(projectRoot, 'project.emulsify.json');
+const componentPath = (name: string) =>
+  join(projectRoot, 'components', '00-base', name);
 
 const projectConfig = {
   project: {
@@ -182,21 +186,30 @@ describe('componentInstall', () => {
       'Unable to load configuration for the compound system. Please make sure the system is installed.',
     );
 
-    expect(getJsonFromCachedFileMock).toHaveBeenCalledWith(
-      'systems',
-      ['compound'],
-      'main',
-      EMULSIFY_SYSTEM_CONFIG_FILE,
-    );
+    expect(getJsonFromCachedFileMock).toHaveBeenCalledWith({
+      bucket: 'systems',
+      itemPath: ['compound'],
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: 'main',
+      fileName: EMULSIFY_SYSTEM_CONFIG_FILE,
+    });
   });
 
   it('throws when the configured variant is not found', async () => {
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
     getEmulsifyConfigMock.mockResolvedValueOnce({
       ...projectConfig,
       variant: {
         ...projectConfig.variant,
         platform: 'none',
       },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [wordpressVariant],
     });
 
     await expect(componentInstall('button', {})).rejects.toThrow(
@@ -239,14 +252,14 @@ describe('componentInstall', () => {
       1,
       'systems',
       ['compound', 'components/00-base', 'button'],
-      '/project/components/00-base/button',
+      componentPath('button'),
       true,
     );
     expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
       3,
       'systems',
       ['compound', 'components/00-base', 'card'],
-      '/project/components/00-base/card',
+      componentPath('card'),
       true,
     );
   });
@@ -258,14 +271,14 @@ describe('componentInstall', () => {
       1,
       'systems',
       ['compound', 'components/00-base', 'button'],
-      '/project/components/00-base/button',
+      componentPath('button'),
       true,
     );
     expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
       2,
       'systems',
       ['compound', 'components/00-base', 'icon'],
-      '/project/components/00-base/icon',
+      componentPath('icon'),
       true,
     );
     expect(logMock).toHaveBeenCalledWith(
@@ -276,6 +289,14 @@ describe('componentInstall', () => {
       'info',
       'The following dependencies were also installed:\n  → icon',
     );
+  });
+
+  it('requests a remote freshness check when refresh is enabled', async () => {
+    await componentInstall('button', { force: true, refresh: true });
+
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
+      refresh: true,
+    });
   });
 
   it('previews a single component install without copying in dry-run mode', async () => {
@@ -289,7 +310,7 @@ describe('componentInstall', () => {
     );
     expect(logMock).toHaveBeenCalledWith(
       'info',
-      expect.stringContaining('/project/components/00-base/card'),
+      expect.stringContaining(componentPath('card')),
     );
     expect(logMock).toHaveBeenCalledWith(
       'info',
@@ -312,7 +333,7 @@ describe('componentInstall', () => {
     );
     expect(logMock).toHaveBeenCalledWith(
       'info',
-      expect.stringContaining('/project/components/00-base/icon'),
+      expect.stringContaining(componentPath('icon')),
     );
   });
 
@@ -343,7 +364,7 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
       ['compound', 'components/00-base', 'card'],
-      '/project/components/00-base/card',
+      componentPath('card'),
       false,
     );
   });
@@ -362,7 +383,7 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
       ['compound', 'components/00-base', 'button'],
-      '/project/components/00-base/button',
+      componentPath('button'),
       true,
     );
   });
@@ -376,7 +397,7 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
       ['compound', 'components/00-base', 'card'],
-      '/project/components/00-base/card',
+      componentPath('card'),
       true,
     );
   });
@@ -400,7 +421,7 @@ describe('componentInstall', () => {
       2,
       'systems',
       ['compound', 'components/00-base', 'icon'],
-      '/project/components/00-base/icon',
+      componentPath('icon'),
       true,
     );
   });
@@ -418,12 +439,14 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).not.toHaveBeenCalled();
   });
 
-  it('logs dependency installation failures after the root component succeeds', async () => {
+  it('reports dependency installation failures and rejects', async () => {
     copyItemFromCacheMock
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('missing dependency'));
 
-    await componentInstall('button', { force: true });
+    await expect(componentInstall('button', { force: true })).rejects.toThrow(
+      'Unable to install icon: missing dependency',
+    );
 
     expect(logMock).toHaveBeenCalledWith(
       'warn',
@@ -431,39 +454,52 @@ describe('componentInstall', () => {
     );
   });
 
-  it('logs non-Error dependency installation failures immediately', async () => {
+  it('reports non-Error dependency installation failures and rejects', async () => {
     copyItemFromCacheMock
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce('missing dependency');
 
-    await componentInstall('button', { force: true });
-
-    expect(logMock).toHaveBeenCalledWith(
-      'warn',
+    await expect(componentInstall('button', { force: true })).rejects.toThrow(
       'Unable to install icon: missing dependency',
     );
+
+    expect(logMock).toHaveBeenCalledWith(
+      'warn',
+      'The following dependencies could not be installed:\n  → icon',
+    );
   });
 
-  it('logs non-Error root component installation failures', async () => {
+  it('rejects for non-Error root component installation failures', async () => {
     copyItemFromCacheMock.mockRejectedValueOnce('copy failed');
 
-    await componentInstall('button', { force: true });
-
-    expect(logMock).toHaveBeenCalledWith(
-      'warn',
+    await expect(componentInstall('button', { force: true })).rejects.toThrow(
       'Unable to install button: copy failed',
     );
   });
 
-  it('logs root component installation failures', async () => {
+  it('rejects for root component installation failures', async () => {
     copyItemFromCacheMock.mockRejectedValueOnce(new Error('copy failed'));
 
-    await componentInstall('button', { force: true });
-
-    expect(logMock).toHaveBeenCalledWith(
-      'warn',
+    await expect(componentInstall('button', { force: true })).rejects.toThrow(
       'Unable to install button: copy failed',
     );
+  });
+
+  it('settles every --all install before rejecting a partial failure', async () => {
+    copyItemFromCacheMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('copy failed'))
+      .mockResolvedValueOnce(undefined);
+
+    await expect(componentInstall('', { all: true })).rejects.toThrow(
+      'Unable to install icon: copy failed',
+    );
+
+    expect(logMock).toHaveBeenCalledWith(
+      'success',
+      'Success! The card component has been added to your project.',
+    );
+    expect(copyItemFromCacheMock).toHaveBeenCalledTimes(3);
   });
 
   it('uses the project config path to check existing destinations', async () => {
@@ -475,7 +511,7 @@ describe('componentInstall', () => {
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
       ['compound', 'components/00-base', 'button'],
-      '/project/components/00-base/button',
+      componentPath('button'),
       false,
     );
   });

@@ -1,0 +1,84 @@
+Emulsify CLI {{version}}
+
+Create Emulsify projects, choose component systems, install components, generate local components, and route audits to Emulsify Core.
+
+Usage:
+  emulsify
+  emulsify --help
+  emulsify <command> --help
+  emulsify init [name] [path] [options]
+  emulsify audit [...args]
+  emulsify system install [name] [options]
+  emulsify component <command> [options]
+  emulsify cache clear [options]
+
+Common workflow:
+  emulsify init
+  emulsify system install
+  emulsify component list
+  emulsify component install <name>
+  emulsify component create <name>
+
+Commands:
+  init [name] [path]
+    Create a project from a starter repository. Prompts for project name, target directory,
+    and platform when values are missing in an interactive terminal.
+    Options:
+      -m, --machineName <machineName>     Set the project folder/config machine name.
+      -s, --starter <repository>          Use a custom starter repository.
+      -c, --checkout <commit/branch/tag>  Checkout for the starter repository.
+      -p, --platform <none|drupal|wordpress>
+                                           Select the project platform when auto-detection is unavailable.
+                                           Built-in platforms: drupal, wordpress, none.
+      -y, --yes                           Accept defaults for missing init values without prompting.
+
+  audit [...args]
+    Run the project-installed Emulsify Core audit with unchanged arguments, output, and exit status.
+    Run "emulsify audit --help" for Core-owned audit options.
+
+  system list
+    List built-in component systems available for installation. Alias: system ls.
+
+  system install [name]
+    Install a built-in or repository-backed component system. With no name or repository in
+    an interactive terminal, prompts for compound, emulsify-ui-kit, create a new system,
+    or cancel.
+    Options:
+      -r, --repository <repository>       Install from a custom system repository ending in .git.
+      -c, --checkout <commit/branch/tag>  Checkout to use with --repository.
+          --variant <platform-expression> Select an exact variant platform expression.
+      -a, --all                           Install every component in the selected variant.
+
+  component list
+    List components available from the installed system and selected variant. Alias: component ls.
+    Options:
+          --refresh                       Check the system remote before reusing the local cache.
+
+  component install [name]
+    Install one component, dependencies, or all components from the installed system. Alias: component i.
+    Options:
+      -f, --force                         Replace an existing component destination.
+      -a, --all                           Install all available components.
+          --dry-run                       Preview installs without writing files.
+          --refresh                       Check the system remote before reusing the local cache.
+
+  component create [name]
+    Generate a new local component in this project. Alias: component c.
+    Options:
+      -d, --directory <directory>         Variant structure where the component should be created.
+      -f, --format <default|sdc>          Component format to generate.
+      -y, --yes                           Replace existing generated components without prompting.
+          --dry-run                       Preview generated files without writing them.
+          --refresh                       Check the system remote before reusing the local cache.
+
+  cache clear
+    Remove all locally cached Emulsify repositories.
+    Options:
+          --dry-run                       Report cache contents without removing files.
+
+  help [command]
+    Show help for a command.
+
+Global options:
+  -V, --version                           Show the installed CLI version.
+  -h, --help                              Show this help output.

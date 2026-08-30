@@ -3,9 +3,12 @@ jest.mock('../fs/loadJsonFile', () => jest.fn());
 
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import getNoPlatformInfo from './getNoPlatformInfo.js';
+import { join, resolve } from 'path';
+
+const projectRoot = resolve('fixtures', 'cornflake');
 
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/uname/Projects/cornflake/project.emulsify.json',
+  join(projectRoot, 'project.emulsify.json'),
 );
 
 describe('getNoPlatformInfo', () => {
@@ -14,9 +17,8 @@ describe('getNoPlatformInfo', () => {
     await expect(getNoPlatformInfo()).resolves.toEqual({
       name: 'none',
       platformMajorVersion: 1,
-      emulsifyParentDirectory:
-        '/home/uname/Projects/cornflake/web/themes/custom',
-      root: '/home/uname/Projects/cornflake',
+      emulsifyParentDirectory: join(projectRoot, 'web', 'themes', 'custom'),
+      root: projectRoot,
     });
   });
 

@@ -19,7 +19,9 @@ export default async function componentCreate(
   }
 
   // Load the configured system and variant before generating the local component.
-  const { variantConf } = await withEmulsifySystem('create components');
+  const { variantConf } = await withEmulsifySystem('create components', {
+    refresh: options.refresh,
+  });
 
   try {
     await generateComponent(variantConf, name, options);

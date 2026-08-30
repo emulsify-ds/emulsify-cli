@@ -2,21 +2,25 @@ jest.mock('../cache/copyItemFromCache', () => jest.fn());
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
+import { join, resolve } from 'path';
+import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 import copyItemFromCache from '../cache/copyItemFromCache.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import installGeneralAssetsFromCache from './installGeneralAssetsFromCache.js';
 
+const projectRoot = resolve(
+  '/home/username/Projects/drupal-project/web/themes/custom/themename',
+);
+const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',
+  projectConfigPath,
 );
 const copyItemMock = (copyItemFromCache as jest.Mock).mockResolvedValue(true);
 
 describe('installGeneralAssetsFromCache', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    findFileMock.mockReturnValue(
-      '/home/username/Projects/drupal-project/web/themes/custom/themename/project.emulsify.json',
-    );
+    findFileMock.mockReturnValue(projectConfigPath);
     copyItemMock.mockResolvedValue(true);
   });
 
@@ -64,7 +68,7 @@ describe('installGeneralAssetsFromCache', () => {
         ],
       } as EmulsifyVariant),
     ).rejects.toThrow(
-      'General asset destination "../../outside" resolves to "/home/username/Projects/drupal-project/web/themes/outside", which is outside the expected root "/home/username/Projects/drupal-project/web/themes/custom/themename".',
+      `General asset destination "../../outside" resolves to "${resolve(projectRoot, '../../outside')}", which is outside the expected root "${projectRoot}".`,
     );
 
     expect(copyItemMock).not.toHaveBeenCalled();
@@ -77,14 +81,14 @@ describe('installGeneralAssetsFromCache', () => {
       1,
       'systems',
       ['compound', './components/00-base/00-defaults'],
-      '/home/username/Projects/drupal-project/web/themes/custom/themename/components/00-base/00-defaults',
+      join(projectRoot, 'components', '00-base', '00-defaults'),
       true,
     );
     expect(copyItemMock).toHaveBeenNthCalledWith(
       2,
       'systems',
       ['compound', './components/style.scss'],
-      '/home/username/Projects/drupal-project/web/themes/custom/themename/components/style.scss',
+      join(projectRoot, 'components', 'style.scss'),
       true,
     );
   });

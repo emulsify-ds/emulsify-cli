@@ -1,8 +1,4 @@
-import type {
-  CacheBucket,
-  CacheItemPath,
-  CacheCheckout,
-} from '@emulsify-cli/cache';
+import type { CachedItemPathOptions } from '@emulsify-cli/cache';
 
 import { join } from 'path';
 import { createHash } from 'crypto';
@@ -11,38 +7,38 @@ import {
   EMULSIFY_PROJECT_CONFIG_FILE,
 } from '../../lib/constants.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import normalizeRepositoryUrl from './normalizeRepositoryUrl.js';
 
 /**
- * Accepts a cache bucket, item path, and item name, and returns the full
- * path to the specified item.
+ * Accepts an explicit cache identity and returns the full path to the item.
  *
- * @param bucket name of the bucket containing the cached item.
- * @param itemPath array containing segments of the path to the cached item within the specified bucket.
- * @param checkout commit, branch, or tag of the system this project is utilizing.
+ * @param options cache bucket, item path, repository, and checkout.
  * @returns string containing the full path to the specified cached item.
  */
-export default function getCachedItemPath(
-  bucket: CacheBucket,
-  itemPath: CacheItemPath,
-  checkout: CacheCheckout,
-): string {
+export default function getCachedItemPath({
+  bucket,
+  itemPath,
+  repository,
+  checkout,
+}: CachedItemPathOptions): string {
   const projectPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
 
   if (!projectPath) {
     throw new Error(`Unable to find ${EMULSIFY_PROJECT_CONFIG_FILE}`);
   }
 
-  // Preventing oddity when checkout isn't set.
-  if (!checkout || typeof checkout === 'undefined') {
-    checkout = '';
-  }
+  const normalizedRepository = normalizeRepositoryUrl(repository);
+  const normalizedCheckout = checkout || '';
+  const identity = JSON.stringify({
+    projectPath,
+    repository: normalizedRepository,
+    checkout: normalizedCheckout,
+  });
 
   return join(
     CACHE_DIR,
     bucket,
-    createHash('md5')
-      .update(`MBR${String(projectPath)}${String(checkout)}`)
-      .digest('hex'),
+    createHash('md5').update(identity).digest('hex'),
     ...itemPath,
   );
 }

@@ -17,14 +17,33 @@ jest.mock('../fs/findFileInCurrentPath.js');
 
 import { select, confirm } from '@inquirer/prompts';
 import { promises as fs } from 'fs';
+import { join, normalize, resolve, sep } from 'path';
 import { pathExists, remove } from 'fs-extra';
 import log from '../../lib/log.js';
+import {
+  EMULSIFY_PROJECT_CONFIG_FILE,
+  EMULSIFY_PROJECT_TEMPLATES_FOLDER,
+} from '../../lib/constants.js';
 import generateComponent from './generateComponent.js';
 import { EmulsifyVariant } from '@emulsify-cli/config';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 
+const projectRoot = resolve(
+  '/home/uname/Projects/cornflake/web/themes/custom/themename',
+);
+const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
+const componentStructurePath = join(projectRoot, 'components', '00-base');
+const componentPath = (name: string, fileName?: string) =>
+  fileName
+    ? join(componentStructurePath, name, fileName)
+    : join(componentStructurePath, name);
+const projectTemplatePath = (format: string, fileName: string) =>
+  join(projectRoot, EMULSIFY_PROJECT_TEMPLATES_FOLDER, format, fileName);
+const templatePathFragment = `${sep}${normalize(
+  EMULSIFY_PROJECT_TEMPLATES_FOLDER,
+)}${sep}`;
 const findFileMock = (findFileInCurrentPath as jest.Mock).mockReturnValue(
-  '/home/uname/Projects/cornflake/web/themes/custom/themename/project.emulsify.json',
+  projectConfigPath,
 );
 
 const variant = {
@@ -57,7 +76,7 @@ function setStdinIsTTY(value: boolean | undefined) {
 }
 
 function isTemplatePath(path: unknown): boolean {
-  return String(path).includes('/.cli/templates/');
+  return String(path).includes(templatePathFragment);
 }
 
 function mockTemplateOverrides(
@@ -69,11 +88,11 @@ function mockTemplateOverrides(
 
     if (isTemplatePath(value)) {
       return Object.keys(overrides).some((templatePath) =>
-        value.endsWith(templatePath),
+        value.endsWith(normalize(templatePath)),
       );
     }
 
-    if (value.includes('/components/00-base/')) {
+    if (value.startsWith(`${componentStructurePath}${sep}`)) {
       return componentExists;
     }
 
@@ -82,7 +101,7 @@ function mockTemplateOverrides(
   readFileMock.mockImplementation(async (path) => {
     const value = String(path);
     const templatePath = Object.keys(overrides).find((key) =>
-      value.endsWith(key),
+      value.endsWith(normalize(key)),
     );
 
     return templatePath ? overrides[templatePath] : '';
@@ -171,7 +190,7 @@ describe('generateComponent', () => {
     expect(select).not.toHaveBeenCalled();
     expect(confirm).not.toHaveBeenCalled();
     expect(writeFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/button/button.component.yml',
+      componentPath('button', 'button.component.yml'),
       expect.stringContaining('name: Button'),
     );
   });
@@ -181,9 +200,7 @@ describe('generateComponent', () => {
     setStdinIsTTY(false);
     pathExistsMock.mockImplementation((path) => {
       const value = String(path);
-      return (
-        !isTemplatePath(value) && !value.endsWith('/components/00-base/card')
-      );
+      return !isTemplatePath(value) && !value.endsWith(componentPath('card'));
     });
 
     await generateComponent(variant, 'card', {
@@ -202,9 +219,7 @@ describe('generateComponent', () => {
     );
     expect(log).toHaveBeenCalledWith(
       'info',
-      expect.stringContaining(
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/card/card.stories.js',
-      ),
+      expect.stringContaining(componentPath('card', 'card.stories.js')),
     );
   });
 
@@ -213,9 +228,7 @@ describe('generateComponent', () => {
     setStdinIsTTY(false);
     pathExistsMock.mockImplementation((path) => {
       const value = String(path);
-      return (
-        !isTemplatePath(value) && !value.endsWith('/components/00-base/teaser')
-      );
+      return !isTemplatePath(value) && !value.endsWith(componentPath('teaser'));
     });
 
     await generateComponent(variant, 'teaser', {
@@ -233,9 +246,7 @@ describe('generateComponent', () => {
     );
     expect(log).toHaveBeenCalledWith(
       'info',
-      expect.stringContaining(
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/teaser/teaser.component.yml',
-      ),
+      expect.stringContaining(componentPath('teaser', 'teaser.component.yml')),
     );
   });
 
@@ -343,7 +354,7 @@ describe('generateComponent', () => {
         },
       ),
     ).rejects.toThrow(
-      'Component structure directory "../../outside" resolves to "/home/uname/Projects/cornflake/web/themes/outside", which is outside the expected root "/home/uname/Projects/cornflake/web/themes/custom/themename".',
+      `Component structure directory "../../outside" resolves to "${resolve(projectRoot, '../../outside')}", which is outside the expected root "${projectRoot}".`,
     );
 
     expect(removeMock).not.toHaveBeenCalled();
@@ -377,9 +388,7 @@ describe('generateComponent', () => {
     });
 
     expect(confirm).not.toHaveBeenCalled();
-    expect(removeMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/link',
-    );
+    expect(removeMock).toHaveBeenCalledWith(componentPath('link'));
     expect(log).toHaveBeenCalledWith(
       'success',
       expect.stringContaining('Success!'),
@@ -443,15 +452,15 @@ describe('generateComponent', () => {
     });
 
     expect(readFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/web/themes/custom/themename/.cli/templates/default/component.twig',
+      projectTemplatePath('default', 'component.twig'),
       'utf8',
     );
     expect(writeFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.twig',
+      componentPath('featured-item', 'featured-item.twig'),
       '<article class="featured-item">Featured Item featured-item base default</article>',
     );
     expect(writeFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.scss',
+      componentPath('featured-item', 'featured-item.scss'),
       expect.stringContaining('Base Styles for featured-item (STANDARD)'),
     );
     expect(log).toHaveBeenCalledWith(
@@ -472,11 +481,11 @@ describe('generateComponent', () => {
     });
 
     expect(writeFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.twig',
+      componentPath('featured-item', 'featured-item.twig'),
       expect.stringContaining('featured-item.twig'),
     );
     expect(writeFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.scss',
+      componentPath('featured-item', 'featured-item.scss'),
       '.featured-item { color: red; }\n',
     );
   });
@@ -493,14 +502,14 @@ describe('generateComponent', () => {
     });
 
     expect(writeFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.yml',
+      componentPath('featured-item', 'featured-item.yml'),
       `featured_item__heading: 'Featured Item Component'
 featured_item__content: 'This is the content area of the Featured Item component, created using the standard Emulsify format. Replace with your markup and data.'
 `,
     );
     expect(log).toHaveBeenCalledWith(
       'warn',
-      'Component template override "/home/uname/Projects/cornflake/web/themes/custom/themename/.cli/templates/default/component.yml" is empty; using the built-in template instead.',
+      `Component template override "${projectTemplatePath('default', 'component.yml')}" is empty; using the built-in template instead.`,
     );
   });
 
@@ -516,7 +525,7 @@ featured_item__content: 'This is the content area of the Featured Item component
     });
 
     expect(writeFileMock).toHaveBeenCalledWith(
-      '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.twig',
+      componentPath('featured-item', 'featured-item.twig'),
       'Featured Item {{ unknownToken }}',
     );
     expect(log).toHaveBeenCalledWith(
@@ -536,7 +545,7 @@ featured_item__content: 'This is the content area of the Featured Item component
 
     expect(writeFileMock.mock.calls).toEqual([
       [
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.twig',
+        componentPath('featured-item', 'featured-item.twig'),
         `{#
 /**
  * @file
@@ -567,7 +576,7 @@ featured_item__content: 'This is the content area of the Featured Item component
 `,
       ],
       [
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.scss',
+        componentPath('featured-item', 'featured-item.scss'),
         `/*
  * Base Styles for featured-item (STANDARD)
  *
@@ -597,13 +606,13 @@ featured_item__content: 'This is the content area of the Featured Item component
 `,
       ],
       [
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.yml',
+        componentPath('featured-item', 'featured-item.yml'),
         `featured_item__heading: 'Featured Item Component'
 featured_item__content: 'This is the content area of the Featured Item component, created using the standard Emulsify format. Replace with your markup and data.'
 `,
       ],
       [
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.stories.js',
+        componentPath('featured-item', 'featured-item.stories.js'),
         `import featuredItemTwig from './featured-item.twig';
 import featuredItemData from './featured-item.yml';
 
@@ -643,7 +652,7 @@ Drupal.behaviors.featuredItem = {
     expect(expectedSdcJs).not.toContain('\t');
     expect(writeFileMock.mock.calls).toEqual([
       [
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.twig',
+        componentPath('featured-item', 'featured-item.twig'),
         `{#
 /**
  * @file
@@ -674,7 +683,7 @@ Drupal.behaviors.featuredItem = {
 `,
       ],
       [
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.scss',
+        componentPath('featured-item', 'featured-item.scss'),
         `/*
  * Base Styles for featured-item (SDC)
  *
@@ -704,7 +713,7 @@ Drupal.behaviors.featuredItem = {
 `,
       ],
       [
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.component.yml',
+        componentPath('featured-item', 'featured-item.component.yml'),
         `$schema: https://git.drupalcode.org/project/drupal/-/raw/11.x/core/modules/sdc/src/metadata.schema.json
 name: Featured Item
 group: Custom
@@ -722,12 +731,9 @@ props:
       data: 'This is the content area of the Featured Item component, created using the Single Directory Component (SDC) format for Drupal. Replace with your markup and data.'
 `,
       ],
+      [componentPath('featured-item', 'featured-item.js'), expectedSdcJs],
       [
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.js',
-        expectedSdcJs,
-      ],
-      [
-        '/home/uname/Projects/cornflake/web/themes/custom/themename/components/00-base/featured-item/featured-item.stories.js',
+        componentPath('featured-item', 'featured-item.stories.js'),
         `import featuredItemTwig from './featured-item.twig';
 import { props } from './featured-item.component.yml';
 import './featured-item';

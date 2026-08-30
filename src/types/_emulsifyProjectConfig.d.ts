@@ -27,7 +27,7 @@ export interface EmulsifyProjectConfiguration {
     /**
      * Name of the platform Emulsify is being used within.
      */
-    platform: string;
+    platform: 'none' | 'drupal' | 'wordpress';
     /**
      * Name of the project, such as 'Carmen Sandiego'.
      */
@@ -64,9 +64,24 @@ export interface EmulsifyProjectConfiguration {
    */
   variant?: {
     /**
-     * Name of the variant, usually indicating the platform for which the variant is intended, such as WordPress, or Drupal9
+     * Platform compatibility expression for a variant. Accepts a concrete platform or multiple concrete platforms joined by ' || '.
      */
-    platform: 'none' | 'drupal';
+    platform:
+      | ('none' | 'drupal' | 'wordpress')
+      | (
+          | 'none || drupal'
+          | 'none || wordpress'
+          | 'drupal || none'
+          | 'drupal || wordpress'
+          | 'wordpress || none'
+          | 'wordpress || drupal'
+          | 'none || drupal || wordpress'
+          | 'none || wordpress || drupal'
+          | 'drupal || none || wordpress'
+          | 'drupal || wordpress || none'
+          | 'wordpress || none || drupal'
+          | 'wordpress || drupal || none'
+        );
     structureImplementations: StructureImplementations;
     /**
      * Git repository containing the system this project is utilizing

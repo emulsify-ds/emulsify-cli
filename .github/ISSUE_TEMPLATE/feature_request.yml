@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose an improvement to an Emulsify CLI workflow
+labels:
+  - '🪄  Enhancement'
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for suggesting an improvement. Describe the user workflow before proposing implementation details.
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow or problem
+      description: What are you trying to accomplish, and what makes it difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-behavior
+    attributes:
+      label: Proposed CLI behavior
+      description: Describe the command, option, output, or configuration behavior you want.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or current workaround
+      description: How do you handle this workflow now, and what alternatives have you considered?
+  - type: checkboxes
+    id: platforms
+    attributes:
+      label: Affected platforms
+      description: Select every platform this request affects.
+      options:
+        - label: Drupal
+        - label: WordPress
+        - label: No-platform projects (`none`)
+        - label: Platform-independent CLI behavior
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add examples, command sketches, or configuration excerpts that clarify the request.

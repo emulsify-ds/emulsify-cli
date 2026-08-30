@@ -6,8 +6,6 @@ import type {
   Platform,
 } from '@emulsify-cli/config';
 
-import { Ajv } from 'ajv';
-import addFormats from 'ajv-formats';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { select } from '@inquirer/prompts';
@@ -32,21 +30,18 @@ import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import executeScript from '../util/fs/executeScript.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
+import validateSystemConfig from '../util/system/validateSystemConfig.js';
+import {
+  getVariantPlatformExpressions,
+  isPlatform,
+  selectCompatiblePlatformVariant,
+  selectExactPlatformVariant,
+} from '../util/platform/platformCompatibility.js';
 
 const CREATE_NEW_SYSTEM_CHOICE = 'create a new system';
 const CANCEL_SYSTEM_INSTALL_CHOICE = 'cancel';
 const SYSTEM_INSTALL_ERROR =
-  'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.';
-
-async function loadSchemas() {
-  const [{ default: systemSchema }, { default: variantSchema }] =
-    await Promise.all([
-      import('../schemas/system.json', { with: { type: 'json' } }),
-      import('../schemas/variant.json', { with: { type: 'json' } }),
-    ]);
-
-  return { systemSchema, variantSchema };
-}
+  'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.';
 
 /**
  * Helper function that uses InstallSystemHandlerOptions input to determine what
@@ -56,12 +51,24 @@ async function loadSchemas() {
  *
  * @returns GitCloneOptions or void, if no valid system could be found using the input.
  *
- * @throws {CliError} if an explicit repository URL is invalid.
+ * @throws {CliError} if custom repository options are incomplete or invalid.
  */
 export async function getSystemRepoInfo(
   name: string | void,
   { repository, checkout }: InstallSystemHandlerOptions,
 ): Promise<(GitCloneOptions & { name: string }) | void> {
+  if (repository && !checkout) {
+    throw new CliError(
+      'The --repository option requires --checkout when installing a custom system.',
+    );
+  }
+
+  if (checkout && !repository) {
+    throw new CliError(
+      'The --checkout option requires --repository when installing a custom system.',
+    );
+  }
+
   // If a repository and checkout were specified, use that to return system information.
   if (repository && checkout) {
     try {
@@ -115,8 +122,95 @@ async function promptForSystemInstallChoice(): Promise<string | void> {
   return selectedSystem;
 }
 
+function getVariantSelectionErrorMessage(
+  systemConf: EmulsifySystem,
+  projectPlatform: Platform,
+  requestedVariant: string | void,
+): string {
+  const availableVariants =
+    getVariantPlatformExpressions(systemConf.variants).join(', ') || 'none';
+  const requestedVariantMessage = requestedVariant
+    ? ` matching "${requestedVariant}"`
+    : '';
+
+  return `Unable to find a compatible variant${requestedVariantMessage} for project platform "${projectPlatform}" within the system (${systemConf.name}). Available variant platform expressions: ${availableVariants}.`;
+}
+
+async function promptForVariantChoice<T extends { platform: string }>(
+  variants: T[],
+  projectPlatform: Platform,
+  systemName: string,
+): Promise<T> {
+  const selectedPlatform = await select({
+    message: `Choose a ${systemName} variant for project platform "${projectPlatform}":`,
+    choices: variants.map(({ platform }) => platform),
+  });
+  return variants.find(({ platform }) => platform === selectedPlatform) as T;
+}
+
+async function resolveSystemVariant(
+  systemConf: EmulsifySystem,
+  projectPlatform: Platform,
+  requestedVariant: string | void,
+) {
+  if (requestedVariant) {
+    const selection = selectExactPlatformVariant(
+      systemConf.variants,
+      requestedVariant,
+    );
+    if (selection.status === 'selected') {
+      return selection.variant;
+    }
+
+    if (selection.status === 'ambiguous' && process.stdin.isTTY === true) {
+      return await promptForVariantChoice(
+        selection.variants,
+        projectPlatform,
+        systemConf.name,
+      );
+    }
+
+    throw new CliError(
+      getVariantSelectionErrorMessage(
+        systemConf,
+        projectPlatform,
+        requestedVariant,
+      ),
+    );
+  }
+
+  const selection = selectCompatiblePlatformVariant(
+    systemConf.variants,
+    projectPlatform,
+  );
+  if (selection.status === 'selected') {
+    return selection.variant;
+  }
+
+  if (selection.status === 'ambiguous') {
+    if (process.stdin.isTTY === true) {
+      return await promptForVariantChoice(
+        selection.variants,
+        projectPlatform,
+        systemConf.name,
+      );
+    }
+
+    const compatibleVariants = selection.variants
+      .map(({ platform }) => platform)
+      .join(', ');
+    throw new CliError(
+      `Multiple compatible variants were found for project platform "${projectPlatform}" within the system (${systemConf.name}): ${compatibleVariants}. Run this command in an interactive terminal or specify a variant.`,
+    );
+  }
+
+  throw new CliError(
+    getVariantSelectionErrorMessage(systemConf, projectPlatform, undefined),
+  );
+}
+
 function getCustomSystemPlatform(platform: string): Platform {
-  return platform === 'drupal' || platform === 'none' ? platform : 'none';
+  return isPlatform(platform) ? platform : 'none';
 }
 
 function buildCustomSystemDefinition(platform: Platform): EmulsifySystem {
@@ -210,7 +304,12 @@ export default async function systemInstall(
   // Attempt to load system information, and exit with a log message
   // if a valid system was not found.
   let selectedName = name;
-  if (!selectedName && !options.repository && process.stdin.isTTY === true) {
+  if (
+    !selectedName &&
+    !options.repository &&
+    !options.checkout &&
+    process.stdin.isTTY === true
+  ) {
     selectedName = await promptForSystemInstallChoice();
     if (!selectedName) {
       return;
@@ -233,18 +332,19 @@ export default async function systemInstall(
   }
 
   // Clone the system into the cache.
-  await cloneIntoCache('systems', [repo.name])({
+  await cloneIntoCache('systems', [repo.name], { refresh: true })({
     repository: repo.repository,
     checkout: repo.checkout,
   });
 
   // Load the system configuration file.
-  const systemConf: EmulsifySystem | void = await getJsonFromCachedFile(
-    'systems',
-    [repo.name],
-    repo.checkout,
-    EMULSIFY_SYSTEM_CONFIG_FILE,
-  );
+  const systemConf: EmulsifySystem | void = await getJsonFromCachedFile({
+    bucket: 'systems',
+    itemPath: [repo.name],
+    repository: repo.repository,
+    checkout: repo.checkout,
+    fileName: EMULSIFY_SYSTEM_CONFIG_FILE,
+  });
 
   // If there is no configuration file within the system, error.
   if (!systemConf) {
@@ -255,16 +355,9 @@ export default async function systemInstall(
 
   // Validate the system configuration file.
   try {
-    const { systemSchema, variantSchema } = await loadSchemas();
-    const ajv = new Ajv();
-    // This is unfortunate...
-    // @ts-ignore The ajv-formats typing is bad :(
-    addFormats(ajv, ['uri']);
-    ajv.addSchema(variantSchema, 'variant.json');
-    const validate = ajv.compile(systemSchema);
-
-    if (!validate(systemConf)) {
-      throw validate.errors;
+    const validation = await validateSystemConfig(systemConf);
+    if (!validation.valid) {
+      throw validation.errors;
     }
   } catch (e) {
     // We're logging to the console here instead of our normal logging mechanism
@@ -275,24 +368,19 @@ export default async function systemInstall(
     );
   }
 
-  // Extract the variant name, and error if no variant is determinable.
-  const variantName: string | void =
-    options.variant || projectConfig.project.platform;
-  if (!variantName) {
+  const projectPlatform = projectConfig.project.platform;
+  if (!isPlatform(projectPlatform)) {
     throw new CliError(
       'Unable to determine a variant for the specified system. Please either pass in a valid variant using the --variant flag.',
     );
   }
 
   // @TODO: clone variants into their own cache bucket if a reference is provided.
-  const variantConf = systemConf.variants?.find(
-    ({ platform }) => platform === variantName,
+  const variantConf = await resolveSystemVariant(
+    systemConf,
+    projectPlatform,
+    options.variant,
   );
-  if (!variantConf) {
-    throw new CliError(
-      `Unable to find a variant (${variantName}) within the system (${systemConf.name}). Please check your Emulsify project config and make sure the project.platform value is correct, or select a system with a variant that is compatible with the platform you are using.`,
-    );
-  }
 
   // Update emulsify project config.
   try {
@@ -300,7 +388,12 @@ export default async function systemInstall(
     // it can be stored in the project config.
     let checkout = repo.checkout;
     if (!checkout) {
-      checkout = await getCachedItemCheckout('systems', [repo.name]);
+      checkout = await getCachedItemCheckout({
+        bucket: 'systems',
+        itemPath: [repo.name],
+        repository: repo.repository,
+        checkout: repo.checkout,
+      });
     }
 
     await setEmulsifyConfig({
@@ -339,10 +432,12 @@ export default async function systemInstall(
     await installGeneralAssetsFromCache(systemConf, variantConf);
 
     // Execute system install hook.
-    const path = findFileInCurrentPath(EMULSIFY_SYSTEM_CONFIG_FILE);
-    const hookPath = path
+    const projectConfigPath = findFileInCurrentPath(
+      EMULSIFY_PROJECT_CONFIG_FILE,
+    );
+    const hookPath = projectConfigPath
       ? join(
-          path,
+          dirname(projectConfigPath),
           EMULSIFY_PROJECT_HOOK_FOLDER,
           EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
         )

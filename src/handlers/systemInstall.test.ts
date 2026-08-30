@@ -18,10 +18,16 @@ jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 jest.mock('@inquirer/prompts');
 
 import fs from 'fs';
-import type { EmulsifySystem } from '@emulsify-cli/config';
+import { join, resolve } from 'path';
+import type { EmulsifySystem, Platform } from '@emulsify-cli/config';
 import { select } from '@inquirer/prompts';
 import log from '../lib/log.js';
-import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
+import {
+  EMULSIFY_PROJECT_CONFIG_FILE,
+  EMULSIFY_PROJECT_HOOK_FOLDER,
+  EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
+  EMULSIFY_SYSTEM_CONFIG_FILE,
+} from '../lib/constants.js';
 import getAvailableSystems from '../util/system/getAvailableSystems.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
 import getCachedItemCheckout from '../util/cache/getCachedItemCheckout.js';
@@ -54,6 +60,14 @@ const writeToJsonFileMock = writeToJsonFile as jest.Mock;
 const existsSyncMock = fs.existsSync as jest.Mock;
 const selectMock = select as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
+const projectRoot = resolve('/project');
+const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
+const systemConfigPath = join(projectRoot, EMULSIFY_SYSTEM_CONFIG_FILE);
+const systemInstallHookPath = join(
+  projectRoot,
+  EMULSIFY_PROJECT_HOOK_FOLDER,
+  EMULSIFY_PROJECT_HOOK_SYSTEM_INSTALL,
+);
 
 function setStdinIsTTY(value: boolean | undefined) {
   Object.defineProperty(process.stdin, 'isTTY', {
@@ -118,7 +132,7 @@ const availableSystems = [
   },
 ];
 
-function customSystemDefinition(platform: 'drupal' | 'none'): EmulsifySystem {
+function customSystemDefinition(platform: Platform): EmulsifySystem {
   return {
     name: 'custom-system',
     homepage: 'https://example.com/custom-system',
@@ -172,6 +186,30 @@ describe('getSystemRepoInfo', () => {
     ).rejects.toThrow('The repository URL must end in .git.');
   });
 
+  it('rejects a repository without a checkout instead of falling back to a named system', async () => {
+    await expect(
+      getSystemRepoInfo('compound', {
+        repository: 'https://github.com/example/custom-system.git',
+      }),
+    ).rejects.toThrow(
+      'The --repository option requires --checkout when installing a custom system.',
+    );
+
+    expect(getAvailableSystemsMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a checkout without a repository instead of falling back to a named system', async () => {
+    await expect(
+      getSystemRepoInfo('compound', {
+        checkout: 'v1.0.0',
+      }),
+    ).rejects.toThrow(
+      'The --checkout option requires --repository when installing a custom system.',
+    );
+
+    expect(getAvailableSystemsMock).not.toHaveBeenCalled();
+  });
+
   it('returns nothing when an explicit repository has no parseable name', async () => {
     await expect(
       getSystemRepoInfo(undefined, {
@@ -212,8 +250,8 @@ describe('systemInstall', () => {
     setEmulsifyConfigMock.mockResolvedValue(undefined);
     getEmulsifyConfigMock.mockResolvedValue(projectConfig);
     writeToJsonFileMock.mockResolvedValue(undefined);
-    // A found system config plus an existing hook covers the optional hook branch.
-    findFileInCurrentPathMock.mockReturnValue('/project/system.emulsify.json');
+    // A found project config plus an existing hook covers the optional hook branch.
+    findFileInCurrentPathMock.mockReturnValue(projectConfigPath);
     existsSyncMock.mockReturnValue(true);
     executeScriptMock.mockResolvedValue(undefined);
   });
@@ -263,7 +301,9 @@ describe('systemInstall', () => {
 
     await systemInstall(undefined, {});
 
-    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound']);
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
+      refresh: true,
+    });
     expect(cloneSystemMock).toHaveBeenCalledWith({
       repository: 'https://github.com/emulsify-ds/compound.git',
       checkout: 'v1.0.0',
@@ -302,15 +342,13 @@ describe('systemInstall', () => {
   it('writes a custom system definition when create a new system is selected', async () => {
     setStdinIsTTY(true);
     selectMock.mockResolvedValueOnce('create a new system');
-    findFileInCurrentPathMock.mockReturnValueOnce(
-      '/project/project.emulsify.json',
-    );
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
     existsSyncMock.mockReturnValueOnce(false);
 
     await systemInstall(undefined, {});
 
     expect(writeToJsonFileMock).toHaveBeenCalledWith(
-      '/project/system.emulsify.json',
+      systemConfigPath,
       customSystemDefinition('drupal'),
     );
     expect(logMock).toHaveBeenCalledWith(
@@ -333,25 +371,42 @@ describe('systemInstall', () => {
         platform: 'none',
       },
     });
-    findFileInCurrentPathMock.mockReturnValueOnce(
-      '/project/project.emulsify.json',
-    );
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
     existsSyncMock.mockReturnValueOnce(false);
 
     await systemInstall(undefined, {});
 
     expect(writeToJsonFileMock).toHaveBeenCalledWith(
-      '/project/system.emulsify.json',
+      systemConfigPath,
       customSystemDefinition('none'),
+    );
+  });
+
+  it('uses the current wordpress platform in the custom system definition', async () => {
+    setStdinIsTTY(true);
+    selectMock.mockResolvedValueOnce('create a new system');
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'wordpress',
+      },
+    });
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
+    existsSyncMock.mockReturnValueOnce(false);
+
+    await systemInstall(undefined, {});
+
+    expect(writeToJsonFileMock).toHaveBeenCalledWith(
+      systemConfigPath,
+      customSystemDefinition('wordpress'),
     );
   });
 
   it('does not overwrite an existing custom system definition', async () => {
     setStdinIsTTY(true);
     selectMock.mockResolvedValueOnce('create a new system');
-    findFileInCurrentPathMock.mockReturnValueOnce(
-      '/project/project.emulsify.json',
-    );
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
     existsSyncMock.mockReturnValueOnce(true);
 
     await expect(systemInstall(undefined, {})).rejects.toThrow(
@@ -364,9 +419,7 @@ describe('systemInstall', () => {
   it('does not run remote install side effects when creating a custom system definition', async () => {
     setStdinIsTTY(true);
     selectMock.mockResolvedValueOnce('create a new system');
-    findFileInCurrentPathMock.mockReturnValueOnce(
-      '/project/project.emulsify.json',
-    );
+    findFileInCurrentPathMock.mockReturnValueOnce(projectConfigPath);
     existsSyncMock.mockReturnValueOnce(false);
 
     await systemInstall(undefined, {});
@@ -388,9 +441,40 @@ describe('systemInstall', () => {
     expect(selectMock).not.toHaveBeenCalled();
   });
 
+  it('rejects a repository without a checkout before installing a named system', async () => {
+    await expect(
+      systemInstall('compound', {
+        repository: 'https://github.com/example/custom-system.git',
+      }),
+    ).rejects.toThrow(
+      'The --repository option requires --checkout when installing a custom system.',
+    );
+
+    expect(getAvailableSystemsMock).not.toHaveBeenCalled();
+    expect(getRepositoryLatestTagMock).not.toHaveBeenCalled();
+    expect(cloneIntoCacheMock).not.toHaveBeenCalled();
+    expect(cloneSystemMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a checkout without a repository before prompting for a system', async () => {
+    setStdinIsTTY(true);
+
+    await expect(
+      systemInstall(undefined, {
+        checkout: 'v1.0.0',
+      }),
+    ).rejects.toThrow(
+      'The --checkout option requires --repository when installing a custom system.',
+    );
+
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(getAvailableSystemsMock).not.toHaveBeenCalled();
+    expect(cloneIntoCacheMock).not.toHaveBeenCalled();
+  });
+
   it('throws a helpful error in non-interactive mode when no system is provided', async () => {
     await expect(systemInstall(undefined, {})).rejects.toThrow(
-      'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
+      'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.',
     );
   });
 
@@ -422,13 +506,44 @@ describe('systemInstall', () => {
     );
   });
 
-  it('throws validation errors from malformed system configuration', async () => {
+  it('preserves install validation output after shared extraction', async () => {
     const consoleErrorMock = jest
       .spyOn(console, 'error')
       .mockImplementation(jest.fn());
     getJsonFromCachedFileMock.mockResolvedValueOnce({
       ...system,
       homepage: 'not-a-uri',
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'The system install failed due to the validation errors reported above. Please fix the the errors in the "compound" configuration and try again.',
+    );
+
+    expect(consoleErrorMock).toHaveBeenCalledWith(
+      'System configuration errors:',
+      expect.arrayContaining([
+        expect.objectContaining({
+          instancePath: '/homepage',
+          keyword: 'format',
+        }),
+      ]),
+    );
+
+    consoleErrorMock.mockRestore();
+  });
+
+  it('throws validation errors from invalid system variant platform expressions', async () => {
+    const consoleErrorMock = jest
+      .spyOn(console, 'error')
+      .mockImplementation(jest.fn());
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [
+        {
+          ...variant,
+          platform: 'drupal && wordpress',
+        },
+      ],
     });
 
     await expect(systemInstall('compound', {})).rejects.toThrow(
@@ -444,7 +559,7 @@ describe('systemInstall', () => {
     await expect(
       systemInstall('compound', { variant: 'none' }),
     ).rejects.toThrow(
-      'Unable to find a variant (none) within the system (compound). Please check your Emulsify project config and make sure the project.platform value is correct, or select a system with a variant that is compatible with the platform you are using.',
+      'Unable to find a compatible variant matching "none" for project platform "drupal" within the system (compound). Available variant platform expressions: drupal.',
     );
   });
 
@@ -455,7 +570,7 @@ describe('systemInstall', () => {
     });
 
     await expect(systemInstall('compound', {})).rejects.toThrow(
-      'Unable to find a variant (drupal) within the system (compound). Please check your Emulsify project config and make sure the project.platform value is correct, or select a system with a variant that is compatible with the platform you are using.',
+      'Unable to find a compatible variant for project platform "drupal" within the system (compound). Available variant platform expressions: none.',
     );
   });
 
@@ -482,9 +597,7 @@ describe('systemInstall', () => {
       system,
       variant,
     );
-    expect(executeScriptMock).toHaveBeenCalledWith(
-      '/project/system.emulsify.json/.cli/systemInstall.js',
-    );
+    expect(executeScriptMock).toHaveBeenCalledWith(systemInstallHookPath);
     expect(logMock).toHaveBeenCalledWith(
       'success',
       'Successfully installed the compound system using the drupal variant.',
@@ -510,6 +623,319 @@ describe('systemInstall', () => {
     expect(logMock).toHaveBeenCalledWith(
       'success',
       'Successfully installed the compound system using the drupal variant.',
+    );
+  });
+
+  it('installs a wordpress system variant for a wordpress project', async () => {
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'wordpress',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [wordpressVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it('prefers an exact wordpress variant over shared or generic variants for a wordpress project', async () => {
+    const genericVariant = {
+      ...variant,
+      platform: 'none',
+    };
+    const sharedVariant = {
+      ...variant,
+      platform: 'drupal || wordpress',
+    };
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'wordpress',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [genericVariant, sharedVariant, wordpressVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it('installs a shared system variant for a drupal project', async () => {
+    const expressionVariant = {
+      ...variant,
+      platform: 'drupal || wordpress',
+    };
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [expressionVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith({
+      system: {
+        repository: 'https://github.com/emulsify-ds/compound.git',
+        checkout: 'v1.0.0',
+      },
+      variant: {
+        platform: 'drupal || wordpress',
+        structureImplementations: variant.structureImplementations,
+      },
+    });
+    expect(logMock).toHaveBeenCalledWith(
+      'success',
+      'Successfully installed the compound system using the drupal || wordpress variant.',
+    );
+  });
+
+  it('installs a shared system variant for a wordpress project', async () => {
+    const expressionVariant = {
+      ...variant,
+      platform: 'drupal || wordpress',
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'wordpress',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [expressionVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'drupal || wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it('prefers a shared expression over a generic none variant for a concrete project', async () => {
+    const genericVariant = {
+      ...variant,
+      platform: 'none',
+    };
+    const expressionVariant = {
+      ...variant,
+      platform: 'drupal || wordpress',
+    };
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [genericVariant, expressionVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'drupal || wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it.each(['drupal', 'wordpress'] as const)(
+    'allows a %s project platform to install a generic none variant',
+    async (platform) => {
+      const genericVariant = {
+        ...variant,
+        platform: 'none',
+      };
+      getEmulsifyConfigMock.mockResolvedValueOnce({
+        ...projectConfig,
+        project: {
+          ...projectConfig.project,
+          platform,
+        },
+      });
+      getJsonFromCachedFileMock.mockResolvedValueOnce({
+        ...system,
+        variants: [genericVariant],
+      });
+
+      await systemInstall('compound', {});
+
+      expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variant: {
+            platform: 'none',
+            structureImplementations: variant.structureImplementations,
+          },
+        }),
+      );
+    },
+  );
+
+  it.each(['drupal', 'wordpress'] as const)(
+    'allows a none project platform to install a %s-only system variant',
+    async (platform) => {
+      const platformVariant = {
+        ...variant,
+        platform,
+      };
+      getEmulsifyConfigMock.mockResolvedValueOnce({
+        ...projectConfig,
+        project: {
+          ...projectConfig.project,
+          platform: 'none',
+        },
+      });
+      getJsonFromCachedFileMock.mockResolvedValueOnce({
+        ...system,
+        variants: [platformVariant],
+      });
+
+      await systemInstall('compound', {});
+
+      expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variant: {
+            platform,
+            structureImplementations: variant.structureImplementations,
+          },
+        }),
+      );
+    },
+  );
+
+  it('throws a clear error when a none project platform matches multiple variants in a non-interactive terminal', async () => {
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'none',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [
+        {
+          ...variant,
+          platform: 'drupal',
+        },
+        {
+          ...variant,
+          platform: 'wordpress',
+        },
+      ],
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'Multiple compatible variants were found for project platform "none" within the system (compound): drupal, wordpress. Run this command in an interactive terminal or specify a variant.',
+    );
+  });
+
+  it('prompts when a none project platform matches multiple variants in an interactive terminal', async () => {
+    setStdinIsTTY(true);
+    selectMock.mockResolvedValueOnce('wordpress');
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'none',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [
+        {
+          ...variant,
+          platform: 'drupal',
+        },
+        {
+          ...variant,
+          platform: 'wordpress',
+        },
+      ],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(selectMock).toHaveBeenCalledWith({
+      message: 'Choose a compound variant for project platform "none":',
+      choices: ['drupal', 'wordpress'],
+    });
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'wordpress',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
+    );
+  });
+
+  it('allows a none project platform to prefer an exact none variant', async () => {
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
+    const genericVariant = {
+      ...variant,
+      platform: 'none',
+    };
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'none',
+      },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [wordpressVariant, genericVariant],
+    });
+
+    await systemInstall('compound', {});
+
+    expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: {
+          platform: 'none',
+          structureImplementations: variant.structureImplementations,
+        },
+      }),
     );
   });
 
@@ -567,7 +993,7 @@ describe('systemInstall', () => {
 
   it('throws when no matching system repository is found', async () => {
     await expect(systemInstall('missing', {})).rejects.toThrow(
-      'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
+      'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.',
     );
   });
 
@@ -578,7 +1004,7 @@ describe('systemInstall', () => {
         checkout: 'main',
       }),
     ).rejects.toThrow(
-      'Unable to download specified system. You must either specify a valid name of an out-of-the-box system using the --name flag, or specify a valid repository and branch/tag/commit using the --repository and --checkout flags.',
+      'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.',
     );
   });
 
@@ -619,9 +1045,11 @@ describe('systemInstall', () => {
     });
 
     expect(selectMock).not.toHaveBeenCalled();
-    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', [
-      'custom-system',
-    ]);
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith(
+      'systems',
+      ['custom-system'],
+      { refresh: true },
+    );
     expect(cloneSystemMock).toHaveBeenCalledWith({
       repository: 'https://github.com/example/custom-system.git',
       checkout: 'release',
@@ -633,9 +1061,12 @@ describe('systemInstall', () => {
 
     await systemInstall('compound', {});
 
-    expect(getCachedItemCheckoutMock).toHaveBeenCalledWith('systems', [
-      'compound',
-    ]);
+    expect(getCachedItemCheckoutMock).toHaveBeenCalledWith({
+      bucket: 'systems',
+      itemPath: ['compound'],
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: undefined,
+    });
     expect(setEmulsifyConfigMock).toHaveBeenCalledWith(
       expect.objectContaining({
         system: {
@@ -646,14 +1077,14 @@ describe('systemInstall', () => {
     );
   });
 
-  it('skips the install hook when no system config path is found', async () => {
+  it('skips the install hook when no project config path is found', async () => {
     findFileInCurrentPathMock.mockReturnValueOnce(undefined);
 
     await systemInstall('compound', {});
 
     expect(executeScriptMock).not.toHaveBeenCalled();
     expect(findFileInCurrentPathMock).toHaveBeenCalledWith(
-      EMULSIFY_SYSTEM_CONFIG_FILE,
+      EMULSIFY_PROJECT_CONFIG_FILE,
     );
   });
 

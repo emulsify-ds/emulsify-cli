@@ -47,7 +47,7 @@
             "type": "object",
             "properties": {
               "platform": {
-                "$ref": "variant.json#/definitions/platform"
+                "$ref": "variant.json#/definitions/platformExpression"
               },
               "structureImplementations": {
                 "$ref": "variant.json#/definitions/structureImplementations"

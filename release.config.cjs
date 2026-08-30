@@ -1,31 +1,24 @@
-// release.config.cjs
+const {
+  commitAnalyzerOptions,
+  parserOpts,
+} = require('./config/release-analysis.cjs');
+
 module.exports = {
   branches: ['main'],
-  repositoryUrl: 'git@github.com:emulsify-ds/emulsify-cli.git',
+  repositoryUrl: 'https://github.com/emulsify-ds/emulsify-cli.git',
   plugins: [
-    [
-      '@semantic-release/commit-analyzer',
-      {
-        preset: 'angular',
-        parserOpts: {
-          noteKeywords: ['BREAKING CHANGE', 'BREAKING CHANGES', 'BREAKING'],
-        },
-      },
-    ],
+    ['@semantic-release/commit-analyzer', commitAnalyzerOptions],
     [
       '@semantic-release/release-notes-generator',
       {
         preset: 'angular',
-        parserOpts: {
-          noteKeywords: ['BREAKING CHANGE', 'BREAKING CHANGES', 'BREAKING'],
-        },
+        parserOpts,
         writerOpts: {
           commitsSort: ['subject', 'scope'],
         },
       },
     ],
-    '@semantic-release/npm',
+    ['@semantic-release/npm', { npmPublish: true }],
     '@semantic-release/github',
   ],
 };
-

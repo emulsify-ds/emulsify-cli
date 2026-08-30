@@ -19,5 +19,11 @@ export default function getAvailableStarters(): EmulsifyStarter[] {
       repository: 'https://github.com/emulsify-ds/emulsify-drupal-starter',
       checkout: 'main',
     },
+    {
+      platform: 'wordpress',
+      platformMajorVersion: 6,
+      repository: 'https://github.com/emulsify-ds/emulsify-wordpress-starter',
+      checkout: 'main',
+    },
   ];
 }

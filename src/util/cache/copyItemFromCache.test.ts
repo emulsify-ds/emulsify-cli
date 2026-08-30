@@ -6,6 +6,7 @@ jest.mock('./getCachedItemPath', () =>
 );
 import { copy, remove } from 'fs-extra';
 import getEmulsifyConfig from '../project/getEmulsifyConfig.js';
+import getCachedItemPath from './getCachedItemPath.js';
 import copyItemFromCache from './copyItemFromCache.js';
 
 // Mock the getEmulsifyConfig function
@@ -14,6 +15,7 @@ jest.mock('../project/getEmulsifyConfig', () => jest.fn());
 describe('copyItemFromCache', () => {
   const mockConfig = {
     system: {
+      repository: 'https://github.com/emulsify-ds/compound.git',
       checkout: 'checkoutBranch',
     },
   };
@@ -33,6 +35,12 @@ describe('copyItemFromCache', () => {
       '/home/uname/.emulsify/cache/systems/12345/compound/components/00-base/colors',
       '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors',
     );
+    expect(getCachedItemPath).toHaveBeenCalledWith({
+      bucket: 'systems',
+      itemPath: ['compound', 'components', '00-base', 'colors'],
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: 'checkoutBranch',
+    });
   });
 
   it('can remove a destination before copying items from the cache if "force" is true', async () => {
@@ -48,7 +56,11 @@ describe('copyItemFromCache', () => {
   });
 
   it('should handle missing emulsifyConfig system checkout', async () => {
-    (getEmulsifyConfig as jest.Mock).mockResolvedValue({ system: {} });
+    (getEmulsifyConfig as jest.Mock).mockResolvedValue({
+      system: {
+        repository: 'https://github.com/emulsify-ds/compound.git',
+      },
+    });
 
     await copyItemFromCache(
       'systems',
@@ -59,6 +71,12 @@ describe('copyItemFromCache', () => {
     expect(copy).toHaveBeenCalledWith(
       '/home/uname/.emulsify/cache/systems/12345/compound/components/00-base/colors',
       '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors',
+    );
+    expect(getCachedItemPath).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repository: 'https://github.com/emulsify-ds/compound.git',
+        checkout: '',
+      }),
     );
   });
 
@@ -74,6 +92,9 @@ describe('copyItemFromCache', () => {
     expect(copy).toHaveBeenCalledWith(
       '/home/uname/.emulsify/cache/systems/12345/compound/components/00-base/colors',
       '/home/uname/Projects/drupal/web/themes/custom/cornflake/components/00-base/colors',
+    );
+    expect(getCachedItemPath).toHaveBeenCalledWith(
+      expect.objectContaining({ repository: '', checkout: '' }),
     );
   });
 });

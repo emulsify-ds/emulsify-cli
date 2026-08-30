@@ -7,6 +7,8 @@ import systemInstall from './handlers/systemInstall.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
 import componentCreate from './handlers/componentCreate.js';
+import audit from './handlers/audit.js';
+import cacheClear from './handlers/cacheClear.js';
 import CliError from './lib/CliError.js';
 import log from './lib/log.js';
 import { createRequire } from 'module';
@@ -19,15 +21,17 @@ function getRootHelp(): string {
   return [
     `${packageInfo.productName} ${packageInfo.version}`,
     '',
-    'Create Emulsify projects, choose component systems, install components, and generate local components.',
+    'Create Emulsify projects, choose component systems, install components, generate local components, and route audits to Emulsify Core.',
     '',
     'Usage:',
     '  emulsify',
     '  emulsify --help',
     '  emulsify <command> --help',
     '  emulsify init [name] [path] [options]',
+    '  emulsify audit [...args]',
     '  emulsify system install [name] [options]',
     '  emulsify component <command> [options]',
+    '  emulsify cache clear [options]',
     '',
     'Common workflow:',
     '  emulsify init',
@@ -44,8 +48,14 @@ function getRootHelp(): string {
     '      -m, --machineName <machineName>     Set the project folder/config machine name.',
     '      -s, --starter <repository>          Use a custom starter repository.',
     '      -c, --checkout <commit/branch/tag>  Checkout for the starter repository.',
-    '      -p, --platform <drupal|none>        Select the project platform when auto-detection is unavailable.',
+    '      -p, --platform <none|drupal|wordpress>',
+    '                                           Select the project platform when auto-detection is unavailable.',
+    '                                           Built-in platforms: drupal, wordpress, none.',
     '      -y, --yes                           Accept defaults for missing init values without prompting.',
+    '',
+    '  audit [...args]',
+    '    Run the project-installed Emulsify Core audit with unchanged arguments, output, and exit status.',
+    '    Run "emulsify audit --help" for Core-owned audit options.',
     '',
     '  system list',
     '    List built-in component systems available for installation. Alias: system ls.',
@@ -57,10 +67,13 @@ function getRootHelp(): string {
     '    Options:',
     '      -r, --repository <repository>       Install from a custom system repository ending in .git.',
     '      -c, --checkout <commit/branch/tag>  Checkout to use with --repository.',
+    '          --variant <platform-expression> Select an exact variant platform expression.',
     '      -a, --all                           Install every component in the selected variant.',
     '',
     '  component list',
     '    List components available from the installed system and selected variant. Alias: component ls.',
+    '    Options:',
+    '          --refresh                       Check the system remote before reusing the local cache.',
     '',
     '  component install [name]',
     '    Install one component, dependencies, or all components from the installed system. Alias: component i.',
@@ -68,6 +81,7 @@ function getRootHelp(): string {
     '      -f, --force                         Replace an existing component destination.',
     '      -a, --all                           Install all available components.',
     '          --dry-run                       Preview installs without writing files.',
+    '          --refresh                       Check the system remote before reusing the local cache.',
     '',
     '  component create [name]',
     '    Generate a new local component in this project. Alias: component c.',
@@ -76,12 +90,17 @@ function getRootHelp(): string {
     '      -f, --format <default|sdc>          Component format to generate.',
     '      -y, --yes                           Replace existing generated components without prompting.',
     '          --dry-run                       Preview generated files without writing them.',
+    '          --refresh                       Check the system remote before reusing the local cache.',
+    '',
+    '  cache clear',
+    '    Remove all locally cached Emulsify repositories.',
+    '    Options:',
+    '          --dry-run                       Report cache contents without removing files.',
     '',
     '  help [command]',
     '    Show help for a command.',
     '',
     'Global options:',
-    '  -c, --checkout <commit/branch/tag>      Shared checkout option for commands that clone repositories.',
     '  -V, --version                           Show the installed CLI version.',
     '  -h, --help                              Show this help output.',
     '',
@@ -89,13 +108,7 @@ function getRootHelp(): string {
 }
 
 // Main program commands.
-program
-  .name('emulsify')
-  .enablePositionalOptions()
-  .option(
-    '-c --checkout <commit/branch/tag>',
-    'Commit, branch or tag of the base repository that should be checked out',
-  );
+program.name('emulsify').enablePositionalOptions();
 
 program
   .command('init [name] [path]')
@@ -110,7 +123,7 @@ program
     'Starter commit, branch, or tag to check out after clone.',
   )
   .option(
-    '-p --platform <drupal|none>',
+    '-p --platform <none|drupal|wordpress>',
     'Project platform to use when auto-detection is unavailable or should be overridden.',
   )
   .option(
@@ -118,6 +131,14 @@ program
     'Accept default init values for any missing options without prompting.',
   )
   .action(withProgressBar(init));
+
+program
+  .command('audit [args...]')
+  .description('Run the project-installed Emulsify Core audit')
+  .allowUnknownOption()
+  .helpOption(false)
+  .passThroughOptions()
+  .action((args: string[]) => audit(args));
 
 // System sub-commands.
 const system = program
@@ -142,6 +163,10 @@ system
     'Commit, branch, or tag to check out. Required when --repository is used.',
   )
   .option(
+    '--variant <platform-expression>',
+    'Exact system variant platform expression to install.',
+  )
+  .option(
     '-a --all',
     'Install every component in the selected variant. Without this flag, only required components are installed.',
   )
@@ -156,6 +181,10 @@ component
   .description(
     'List components available from the installed system and variant',
   )
+  .option(
+    '--refresh',
+    'Check the configured system remote before reusing its local cache entry.',
+  )
   .alias('ls')
   .action(componentList);
 component
@@ -169,6 +198,10 @@ component
   .option(
     '--dry-run',
     'Preview component installs without copying or removing files.',
+  )
+  .option(
+    '--refresh',
+    'Check the configured system remote before reusing its local cache entry.',
   )
   .alias('i')
   .action(componentInstall);
@@ -190,9 +223,23 @@ component
     '--dry-run',
     'Preview generated component files without writing or removing files.',
   )
+  .option(
+    '--refresh',
+    'Check the configured system remote before reusing its local cache entry.',
+  )
   .alias('c')
   .description('Generate a new local component in the current project')
   .action(componentCreate);
+
+// Cache sub-commands.
+const cache = program
+  .command('cache')
+  .description('Inspect or clear locally cached repositories');
+cache
+  .command('clear')
+  .description('Remove all locally cached Emulsify repositories')
+  .option('--dry-run', 'Report cache contents without removing files.')
+  .action(cacheClear);
 
 /*
  * Generate a styled version message using boxen and colorette.

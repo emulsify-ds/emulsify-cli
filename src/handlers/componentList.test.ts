@@ -156,21 +156,30 @@ describe('componentList', () => {
       'Unable to load configuration for the compound system. Please make sure the system is installed.',
     );
 
-    expect(getJsonFromCachedFileMock).toHaveBeenCalledWith(
-      'systems',
-      ['compound'],
-      'main',
-      EMULSIFY_SYSTEM_CONFIG_FILE,
-    );
+    expect(getJsonFromCachedFileMock).toHaveBeenCalledWith({
+      bucket: 'systems',
+      itemPath: ['compound'],
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: 'main',
+      fileName: EMULSIFY_SYSTEM_CONFIG_FILE,
+    });
   });
 
   it('throws when the configured variant is not found', async () => {
+    const wordpressVariant = {
+      ...variant,
+      platform: 'wordpress',
+    };
     getEmulsifyConfigMock.mockResolvedValueOnce({
       ...projectConfig,
       variant: {
         ...projectConfig.variant,
         platform: 'none',
       },
+    });
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants: [wordpressVariant],
     });
 
     await expect(componentList()).rejects.toThrow(
@@ -183,5 +192,13 @@ describe('componentList', () => {
 
     expect(logMock).toHaveBeenCalledWith('info', 'base -> button');
     expect(logMock).toHaveBeenCalledWith('info', 'base -> card');
+  });
+
+  it('requests a remote freshness check when refresh is enabled', async () => {
+    await componentList({ refresh: true });
+
+    expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
+      refresh: true,
+    });
   });
 });

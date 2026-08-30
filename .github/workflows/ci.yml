@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    branches: [develop, main]
   push:
     branches: [develop, main]
 
@@ -9,18 +10,23 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Validate
-    runs-on: ubuntu-latest
+  unit:
+    name: Unit (${{ matrix.os }})
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '24.x'
+          node-version-file: '.nvmrc'
           cache: npm
       - name: Install
         run: npm ci
@@ -28,7 +34,38 @@ jobs:
         run: npm run build
       - name: Typecheck
         run: npm run type
-      - name: Test
-        run: npm test
-      - name: Pack
-        run: npm pack --dry-run
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Release tests
+        run: npm run test:release
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Verify package contents
+        run: npm run pack:dry-run
+      - name: Smoke test packed install
+        run: npm run smoke:pack
+      - name: Verify release calculation
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          RELEASE_FROM: ${{ github.event.pull_request.base.sha }}
+          RELEASE_TO: HEAD
+          RELEASE_SQUASH_MESSAGE: ${{ github.event.pull_request.title }}
+        run: npm run release:analyze
