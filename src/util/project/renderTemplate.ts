@@ -8,10 +8,13 @@ export type ComponentTemplateVars = {
   filename: string;
   className: string;
   camelName: string;
+  pascalName: string;
   snakeName: string;
   humanName: string;
   directory: string;
   format: string;
+  type: string;
+  tagName: string;
 };
 
 const tokenPattern = /{{\s*([A-Za-z][A-Za-z0-9]*)\s*}}/g;
@@ -20,7 +23,8 @@ const tokenPattern = /{{\s*([A-Za-z][A-Za-z0-9]*)\s*}}/g;
  * Renders double-brace tokens in a component template override.
  *
  * Supported tokens are `{{ filename }}`, `{{ className }}`, `{{ camelName }}`,
- * `{{ snakeName }}`, `{{ humanName }}`, `{{ directory }}`, and `{{ format }}`.
+ * `{{ pascalName }}`, `{{ snakeName }}`, `{{ humanName }}`, `{{ directory }}`,
+ * `{{ format }}`, `{{ type }}`, and `{{ tagName }}`.
  * Unknown tokens are left unchanged and logged as warnings.
  *
  * @param template raw template file content containing optional double-brace tokens.
@@ -33,10 +37,13 @@ const tokenPattern = /{{\s*([A-Za-z][A-Za-z0-9]*)\s*}}/g;
  *   filename: 'featured-item',
  *   className: 'featured-item',
  *   camelName: 'featuredItem',
+ *   pascalName: 'FeaturedItem',
  *   snakeName: 'featured_item',
  *   humanName: 'Featured Item',
  *   directory: 'base',
  *   format: 'default',
+ *   type: 'twig',
+ *   tagName: '',
  * });
  * // returns '<h2>Featured Item</h2>'
  */

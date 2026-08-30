@@ -24,7 +24,8 @@ COMPONENTS
       --dry-run                      Preview without writing files
   component create [name]         Generate a new local component
       -d, --directory <dir>          Variant structure to create it in
-      -f, --format <default|sdc>     Component format
+      -t, --type <type>              twig | twig-sdc | react | web-component
+      -f, --format <default|sdc>     Deprecated Twig type alias
       --dry-run                      Preview without writing files
 
 SYSTEMS

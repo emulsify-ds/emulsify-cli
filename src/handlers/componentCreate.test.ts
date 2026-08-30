@@ -2,44 +2,28 @@
  * @file Unit tests for the component create handler.
  */
 
-jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/project/getEmulsifyConfig', () => jest.fn());
 jest.mock('../util/cache/getJsonFromCachedFile', () => jest.fn());
 jest.mock('../util/cache/cloneIntoCache', () => jest.fn());
-jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
+jest.mock('../util/project/generateComponent', () => jest.fn());
 jest.mock('@inquirer/prompts');
 
-import fs from 'fs';
-import { join, normalize, resolve, sep } from 'path';
-import { pathExists, remove } from 'fs-extra';
-import { input, select, confirm } from '@inquirer/prompts';
+import { input } from '@inquirer/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
-import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
-import {
-  EMULSIFY_PROJECT_CONFIG_FILE,
-  EMULSIFY_PROJECT_TEMPLATES_FOLDER,
-  EMULSIFY_SYSTEM_CONFIG_FILE,
-} from '../lib/constants.js';
+import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
-import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
+import generateComponent from '../util/project/generateComponent.js';
 import componentCreate from './componentCreate.js';
 
-const logMock = log as jest.Mock;
 const getEmulsifyConfigMock = getEmulsifyConfig as jest.Mock;
 const getJsonFromCachedFileMock = getJsonFromCachedFile as jest.Mock;
 const cloneIntoCacheMock = cloneIntoCache as jest.Mock;
 const cloneSystemMock = jest.fn();
-const findFileInCurrentPathMock = findFileInCurrentPath as jest.Mock;
-const pathExistsMock = pathExists as jest.Mock;
-const removeMock = remove as jest.Mock;
+const generateComponentMock = generateComponent as jest.Mock;
 const inputMock = input as jest.Mock;
-const selectMock = select as jest.Mock;
-const confirmMock = confirm as jest.Mock;
-const mkdirMock = fs.promises.mkdir as jest.Mock;
-const writeFileMock = fs.promises.writeFile as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
 
 function setStdinIsTTY(value: boolean | undefined) {
@@ -48,20 +32,6 @@ function setStdinIsTTY(value: boolean | undefined) {
     configurable: true,
   });
 }
-
-function mockComponentExistsWithoutTemplateOverrides() {
-  const templatePathFragment = `${sep}${normalize(
-    EMULSIFY_PROJECT_TEMPLATES_FOLDER,
-  )}${sep}`;
-  pathExistsMock.mockImplementation(
-    (path) => !String(path).includes(templatePathFragment),
-  );
-}
-
-const projectRoot = resolve('/project');
-const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
-const componentBasePath = join(projectRoot, 'components', '00-base');
-const componentPath = (name: string) => join(componentBasePath, name);
 
 const projectConfig = {
   project: {
@@ -115,19 +85,12 @@ describe('componentCreate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setStdinIsTTY(true);
-    // The handler clones systems through a higher-order cache helper.
     cloneIntoCacheMock.mockReturnValue(cloneSystemMock);
     cloneSystemMock.mockResolvedValue(undefined);
     getEmulsifyConfigMock.mockResolvedValue(projectConfig);
     getJsonFromCachedFileMock.mockResolvedValue(system);
-    findFileInCurrentPathMock.mockReturnValue(projectConfigPath);
-    pathExistsMock.mockResolvedValue(false);
-    removeMock.mockResolvedValue(undefined);
+    generateComponentMock.mockResolvedValue(undefined);
     inputMock.mockResolvedValue('button');
-    selectMock.mockResolvedValue('default');
-    confirmMock.mockResolvedValue(false);
-    mkdirMock.mockResolvedValue(undefined);
-    writeFileMock.mockResolvedValue(undefined);
   });
 
   afterAll(() => {
@@ -137,7 +100,7 @@ describe('componentCreate', () => {
   it('throws when no Emulsify project is detected', async () => {
     getEmulsifyConfigMock.mockResolvedValueOnce(undefined);
 
-    await expect(componentCreate('button', {})).rejects.toThrow(
+    await expect(componentCreate('button', { type: 'twig' })).rejects.toThrow(
       'No Emulsify project detected. You must run this command within an existing Emulsify project. For more information about creating Emulsify projects, run "emulsify init --help"',
     );
   });
@@ -148,7 +111,7 @@ describe('componentCreate', () => {
       system: undefined,
     });
 
-    await expect(componentCreate('button', {})).rejects.toThrow(
+    await expect(componentCreate('button', { type: 'twig' })).rejects.toThrow(
       'You must select and install a system before you can create components. To see a list of out-of-the-box systems, run "emulsify system list". You can install a system by running "emulsify system install [name]"',
     );
   });
@@ -159,7 +122,7 @@ describe('componentCreate', () => {
       variant: undefined,
     });
 
-    await expect(componentCreate('button', {})).rejects.toThrow(
+    await expect(componentCreate('button', { type: 'twig' })).rejects.toThrow(
       'You must select and install a system before you can create components. To see a list of out-of-the-box systems, run "emulsify system list". You can install a system by running "emulsify system install [name]"',
     );
   });
@@ -173,7 +136,7 @@ describe('componentCreate', () => {
       },
     });
 
-    await expect(componentCreate('button', {})).rejects.toThrow(
+    await expect(componentCreate('button', { type: 'twig' })).rejects.toThrow(
       'The repository URL must end in .git.',
     );
   });
@@ -187,7 +150,7 @@ describe('componentCreate', () => {
       },
     });
 
-    await expect(componentCreate('button', {})).rejects.toThrow(
+    await expect(componentCreate('button', { type: 'twig' })).rejects.toThrow(
       'The system specified in your project configuration is not valid. Please make sure your project.emulsify.json file contains a system.repository value that is a valid git url',
     );
   });
@@ -195,7 +158,7 @@ describe('componentCreate', () => {
   it('throws when the system is not clone-able', async () => {
     cloneSystemMock.mockRejectedValueOnce(new Error('clone failed'));
 
-    await expect(componentCreate('button', {})).rejects.toThrow(
+    await expect(componentCreate('button', { type: 'twig' })).rejects.toThrow(
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
     );
   });
@@ -203,7 +166,7 @@ describe('componentCreate', () => {
   it('throws when the cached system configuration is invalid', async () => {
     getJsonFromCachedFileMock.mockResolvedValueOnce(undefined);
 
-    await expect(componentCreate('button', {})).rejects.toThrow(
+    await expect(componentCreate('button', { type: 'twig' })).rejects.toThrow(
       'Unable to load configuration for the compound system. Please make sure the system is installed.',
     );
 
@@ -233,7 +196,7 @@ describe('componentCreate', () => {
       variants: [wordpressVariant],
     });
 
-    await expect(componentCreate('button', {})).rejects.toThrow(
+    await expect(componentCreate('button', { type: 'twig' })).rejects.toThrow(
       'Unable to find configuration for the variant none within the system compound.',
     );
   });
@@ -241,16 +204,16 @@ describe('componentCreate', () => {
   it('throws a CliError before loading the system when no component name is provided non-interactively', async () => {
     setStdinIsTTY(false);
 
-    await expect(componentCreate('', { refresh: true })).rejects.toThrow(
-      CliError,
-    );
-    await expect(componentCreate('', { refresh: true })).rejects.toThrow(
-      'Please specify a name for the new component.',
-    );
+    await expect(
+      componentCreate('', { refresh: true, type: 'twig' }),
+    ).rejects.toThrow(CliError);
+    await expect(
+      componentCreate('', { refresh: true, type: 'twig' }),
+    ).rejects.toThrow('Please specify a name for the new component.');
 
     expect(inputMock).not.toHaveBeenCalled();
-    expect(logMock).not.toHaveBeenCalled();
     expect(getEmulsifyConfigMock).not.toHaveBeenCalled();
+    expect(generateComponentMock).not.toHaveBeenCalled();
   });
 
   it('prompts for a missing component name and validates it before continuing', async () => {
@@ -264,138 +227,117 @@ describe('componentCreate', () => {
       expect(validate('promo-card')).toBe(true);
       return 'promo-card';
     });
-    selectMock.mockResolvedValueOnce('default').mockResolvedValueOnce('base');
+    const options = { directory: 'base', type: 'twig' };
 
-    await componentCreate(undefined, {});
+    await componentCreate(undefined, options);
 
     expect(inputMock).toHaveBeenCalledWith({
       message: 'Component name:',
       validate: expect.any(Function),
     });
-    expect(writeFileMock).toHaveBeenCalledWith(
-      join(componentPath('promo-card'), 'promo-card.twig'),
-      expect.stringContaining('promo-card.twig'),
+    expect(generateComponentMock).toHaveBeenCalledWith(
+      variant,
+      expect.objectContaining(projectConfig),
+      'promo-card',
+      options,
     );
   });
 
-  it('prompts for format and directory when no directory is provided', async () => {
-    selectMock.mockResolvedValueOnce('default').mockResolvedValueOnce('base');
+  it('rejects a missing type before loading the system outside a TTY', async () => {
+    setStdinIsTTY(false);
 
-    await componentCreate('button', {});
-
-    expect(selectMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringContaining('Choose the component format:'),
-      }),
+    await expect(
+      componentCreate('button', { directory: 'base', refresh: true }),
+    ).rejects.toThrow(
+      'Component type is required in non-interactive mode. Pass --type <twig|twig-sdc|react|web-component>.',
     );
-    expect(selectMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringContaining(
-          'Choose a directory for the new component:',
-        ),
-      }),
+
+    expect(getEmulsifyConfigMock).not.toHaveBeenCalled();
+    expect(cloneIntoCacheMock).not.toHaveBeenCalled();
+    expect(generateComponentMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a missing directory before loading the system outside a TTY', async () => {
+    setStdinIsTTY(false);
+
+    await expect(
+      componentCreate('button', { type: 'react', refresh: true }),
+    ).rejects.toThrow(
+      'Component directory is required in non-interactive mode. Pass --directory <directory>.',
+    );
+
+    expect(getEmulsifyConfigMock).not.toHaveBeenCalled();
+    expect(cloneIntoCacheMock).not.toHaveBeenCalled();
+    expect(generateComponentMock).not.toHaveBeenCalled();
+  });
+
+  it('passes an interactive missing type through to component generation', async () => {
+    const options = { directory: 'base' };
+
+    await componentCreate('button', options);
+
+    expect(generateComponentMock).toHaveBeenCalledWith(
+      variant,
+      expect.objectContaining(projectConfig),
+      'button',
+      options,
     );
   });
 
-  it('cancels overwrite when the user declines the confirm prompt', async () => {
-    mockComponentExistsWithoutTemplateOverrides();
-    confirmMock.mockResolvedValue(false);
+  it('passes the deprecated format alias through to component generation outside a TTY', async () => {
+    setStdinIsTTY(false);
+    const options = { directory: 'base', format: 'sdc', yes: true };
 
-    await componentCreate('button', { directory: 'base' });
+    await componentCreate('button', options);
 
-    expect(confirmMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringContaining('already exists'),
-        default: false,
-      }),
-    );
-    expect(removeMock).not.toHaveBeenCalled();
-    expect(logMock).toHaveBeenCalledWith(
-      'info',
-      'Component creation canceled.',
+    expect(generateComponentMock).toHaveBeenCalledWith(
+      variant,
+      expect.objectContaining(projectConfig),
+      'button',
+      options,
     );
   });
 
-  it('overwrites an existing component when the user accepts the confirm prompt', async () => {
-    mockComponentExistsWithoutTemplateOverrides();
-    confirmMock.mockResolvedValue(true);
+  it('forwards project configuration and all generator options using the new signature', async () => {
+    const options = {
+      directory: 'base',
+      type: 'react',
+      yes: true,
+      dryRun: true,
+      refresh: true,
+    };
 
-    await componentCreate('button', { directory: 'base' });
-
-    expect(removeMock).toHaveBeenCalledWith(componentPath('button'));
-    expect(logMock).toHaveBeenCalledWith(
-      'success',
-      expect.stringContaining('Success!'),
-    );
-  });
-
-  it('creates a component successfully on the happy path', async () => {
-    pathExistsMock.mockResolvedValue(false);
-
-    await componentCreate('button', { directory: 'base' });
-
-    expect(mkdirMock).toHaveBeenCalledWith(componentBasePath, {
-      recursive: true,
-    });
-    expect(writeFileMock).toHaveBeenCalledWith(
-      join(componentPath('button'), 'button.twig'),
-      expect.stringContaining('button.twig'),
-    );
-    expect(logMock).toHaveBeenCalledWith(
-      'success',
-      expect.stringContaining('Success!'),
-    );
-  });
-
-  it('requests a remote freshness check when refresh is enabled', async () => {
-    await componentCreate('button', { directory: 'base', refresh: true });
+    await componentCreate('button', options);
 
     expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
       refresh: true,
     });
-  });
-
-  it('creates a component non-interactively when flags provide format, directory, and yes', async () => {
-    setStdinIsTTY(false);
-    mockComponentExistsWithoutTemplateOverrides();
-
-    await componentCreate('button', {
-      directory: 'base',
-      format: 'sdc',
-      yes: true,
-    });
-
-    expect(selectMock).not.toHaveBeenCalled();
-    expect(confirmMock).not.toHaveBeenCalled();
-    expect(removeMock).toHaveBeenCalledWith(componentPath('button'));
-    expect(writeFileMock).toHaveBeenCalledWith(
-      join(componentPath('button'), 'button.component.yml'),
-      expect.stringContaining('name: Button'),
-    );
-    expect(logMock).toHaveBeenCalledWith(
-      'success',
-      expect.stringContaining('Success!'),
+    expect(generateComponentMock).toHaveBeenCalledTimes(1);
+    expect(generateComponentMock).toHaveBeenCalledWith(
+      variant,
+      expect.objectContaining(projectConfig),
+      'button',
+      options,
     );
   });
 
   it('throws generateComponent failures as CliError messages', async () => {
-    findFileInCurrentPathMock.mockReturnValueOnce(undefined);
+    generateComponentMock.mockRejectedValueOnce(new Error('generation failed'));
 
     await expect(
-      componentCreate('button', {
-        directory: 'base',
-        format: 'default',
-      }),
+      componentCreate('button', { directory: 'base', type: 'twig' }),
     ).rejects.toThrow(
-      'Unable to create the button component: Unable to find an Emulsify project to create the component into.',
+      'Unable to create the button component: generation failed',
     );
   });
 
   it('preserves prompt cancellation for the top-level handler', async () => {
     const cancellation = new Error('User force closed the prompt');
     cancellation.name = 'ExitPromptError';
-    selectMock.mockRejectedValueOnce(cancellation);
+    generateComponentMock.mockRejectedValueOnce(cancellation);
 
-    await expect(componentCreate('button', {})).rejects.toBe(cancellation);
+    await expect(componentCreate('button', { directory: 'base' })).rejects.toBe(
+      cancellation,
+    );
   });
 });

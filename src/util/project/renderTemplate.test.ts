@@ -12,10 +12,13 @@ const vars: ComponentTemplateVars = {
   filename: 'featured-item',
   className: 'featured-item',
   camelName: 'featuredItem',
+  pascalName: 'FeaturedItem',
   snakeName: 'featured_item',
   humanName: 'Featured Item',
   directory: 'base',
   format: 'default',
+  type: 'web-component',
+  tagName: 'featured-item',
 };
 
 describe('renderTemplate', () => {
@@ -28,11 +31,11 @@ describe('renderTemplate', () => {
 
     expect(
       renderTemplate(
-        '{{ filename }}|{{ className }}|{{ camelName }}|{{ snakeName }}|{{ humanName }}|{{ directory }}|{{ format }}',
+        '{{ filename }}|{{ className }}|{{ camelName }}|{{ pascalName }}|{{ snakeName }}|{{ humanName }}|{{ directory }}|{{ format }}|{{ type }}|{{ tagName }}',
         vars,
       ),
     ).toBe(
-      'featured-item|featured-item|featuredItem|featured_item|Featured Item|base|default',
+      'featured-item|featured-item|featuredItem|FeaturedItem|featured_item|Featured Item|base|default|web-component|featured-item',
     );
   });
 

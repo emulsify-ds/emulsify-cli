@@ -307,7 +307,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.doesNotMatch(result.stdout, /\u001b\[/u);
   });
 
-  test('uses the supported format values in detailed component create help', () => {
+  test('uses canonical type values and marks format as deprecated in detailed component create help', () => {
     const result = runCli(tempRoot, ['component', 'create', '--help']);
 
     assert.equal(
@@ -316,7 +316,12 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       commandFailure('component create --help', result),
     );
     assert.equal(result.stderr, '');
+    assert.match(
+      result.stdout,
+      /--type <twig\|twig-sdc\|react\|web-component>/u,
+    );
     assert.match(result.stdout, /--format <default\|sdc>/u);
+    assert.match(result.stdout, /Deprecated alias/u);
   });
 
   test('prints the package version', () => {
@@ -340,6 +345,37 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       result.stderr,
       /Please specify a name for the new component\./,
     );
+  });
+
+  test('fails fast when component create has no type outside a TTY', () => {
+    const result = runCli(tempRoot, [
+      'component',
+      'create',
+      'card',
+      '--directory',
+      'components',
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(
+      result.stderr,
+      /Pass --type <twig\|twig-sdc\|react\|web-component>/u,
+    );
+  });
+
+  test('fails fast when component create has no directory outside a TTY', () => {
+    const result = runCli(tempRoot, [
+      'component',
+      'create',
+      'card',
+      '--type',
+      'twig',
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /Pass --directory <directory>/u);
   });
 
   test('fails fast when component install has no target outside a TTY', () => {
@@ -753,6 +789,73 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       'card fixture\n',
     );
     assert.equal(existsSync(join(isolatedHome, '.emulsify', 'cache')), true);
+  });
+
+  test('scaffolds the exact artifact set for every component type', () => {
+    const componentCases = [
+      {
+        name: 'twig-example',
+        type: 'twig',
+        files: [
+          'twig-example.scss',
+          'twig-example.stories.js',
+          'twig-example.twig',
+          'twig-example.yml',
+        ],
+      },
+      {
+        name: 'twig-sdc-example',
+        type: 'twig-sdc',
+        files: [
+          'twig-sdc-example.component.yml',
+          'twig-sdc-example.js',
+          'twig-sdc-example.scss',
+          'twig-sdc-example.stories.js',
+          'twig-sdc-example.twig',
+        ],
+      },
+      {
+        name: 'react-example',
+        type: 'react',
+        files: [
+          'react-example.jsx',
+          'react-example.scss',
+          'react-example.stories.jsx',
+        ],
+      },
+      {
+        name: 'web-component-example',
+        type: 'web-component',
+        files: [
+          'web-component-example.js',
+          'web-component-example.scss',
+          'web-component-example.stories.js',
+        ],
+      },
+    ];
+
+    for (const componentCase of componentCases) {
+      const result = runCli(projectRoot, [
+        'component',
+        'create',
+        componentCase.name,
+        '--type',
+        componentCase.type,
+        '--directory',
+        'components',
+      ]);
+
+      assert.equal(
+        result.status,
+        0,
+        commandFailure(`component create --type ${componentCase.type}`, result),
+      );
+      assert.deepEqual(
+        readdirSync(join(projectRoot, 'components', componentCase.name)).sort(),
+        componentCase.files,
+        `${componentCase.type} should create only its documented artifacts`,
+      );
+    }
   });
 
   test('executes the project system-install hook', () => {

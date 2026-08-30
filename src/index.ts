@@ -155,8 +155,12 @@ component
     'Variant structure name where the component should be created.',
   )
   .option(
+    '-t, --type <twig|twig-sdc|react|web-component>',
+    'Component implementation type to generate.',
+  )
+  .option(
     '-f, --format <default|sdc>',
-    'Component format to generate. Supported values: default, sdc.',
+    'Deprecated alias: default maps to twig and sdc maps to twig-sdc.',
   )
   .option(
     '-y, --yes',

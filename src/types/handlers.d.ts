@@ -62,7 +62,9 @@ declare module '@emulsify-cli/handlers' {
   export type CreateComponentHandlerOptions = {
     /** Variant structure directory name where the new component should be created. */
     directory?: string;
-    /** Component format to generate. Supported values are "default" and "sdc". */
+    /** Component implementation type to generate. */
+    type?: string;
+    /** Deprecated component format alias. "default" maps to "twig" and "sdc" maps to "twig-sdc". */
     format?: string;
     /** Skip overwrite confirmation prompts and replace existing components. */
     yes?: boolean;

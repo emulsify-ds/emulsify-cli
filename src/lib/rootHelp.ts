@@ -109,8 +109,13 @@ const sections: HelpSection[] = [
       },
       {
         kind: 'option',
+        label: '-t, --type <type>',
+        description: 'twig | twig-sdc | react | web-component',
+      },
+      {
+        kind: 'option',
         label: '-f, --format <default|sdc>',
-        description: 'Component format',
+        description: 'Deprecated Twig type alias',
       },
       {
         kind: 'option',

@@ -4,7 +4,15 @@ import generateComponent from '../util/project/generateComponent.js';
 import { withEmulsifySystem } from './hofs/withEmulsifySystem.js';
 import CliError from '../lib/CliError.js';
 import deriveComponentNames from '../util/deriveComponentNames.js';
-import { isExitPromptError, runPrompt } from '../util/prompt/index.js';
+import {
+  isExitPromptError,
+  requireInteractiveTerminal,
+  runPrompt,
+} from '../util/prompt/index.js';
+import {
+  MISSING_COMPONENT_DIRECTORY_ERROR,
+  MISSING_COMPONENT_TYPE_ERROR,
+} from '../util/project/componentTypes.js';
 
 const MISSING_COMPONENT_NAME_ERROR =
   'Please specify a name for the new component.';
@@ -40,13 +48,30 @@ export default async function componentCreate(
         nonInteractive: { error: MISSING_COMPONENT_NAME_ERROR },
       });
 
+  // Missing prompt values can be rejected before loading or refreshing the
+  // configured system, keeping CI failures fast and offline.
+  if (!options.type && !options.format) {
+    requireInteractiveTerminal(MISSING_COMPONENT_TYPE_ERROR);
+  }
+  if (!options.directory) {
+    requireInteractiveTerminal(MISSING_COMPONENT_DIRECTORY_ERROR);
+  }
+
   // Load the configured system and variant before generating the local component.
-  const { variantConf } = await withEmulsifySystem('create components', {
-    refresh: options.refresh,
-  });
+  const { emulsifyConfig, variantConf } = await withEmulsifySystem(
+    'create components',
+    {
+      refresh: options.refresh,
+    },
+  );
 
   try {
-    await generateComponent(variantConf, componentName, options);
+    await generateComponent(
+      variantConf,
+      emulsifyConfig,
+      componentName,
+      options,
+    );
   } catch (e) {
     if (isExitPromptError(e)) {
       throw e;

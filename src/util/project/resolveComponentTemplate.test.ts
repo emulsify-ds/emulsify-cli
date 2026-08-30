@@ -15,64 +15,126 @@ import type { ComponentTemplateVars } from './renderTemplate.js';
 const pathExistsMock = pathExists as jest.Mock;
 const readFileMock = fs.readFile as jest.Mock;
 const projectRoot = resolve('/project');
-const templatePath = join(
-  projectRoot,
-  EMULSIFY_PROJECT_TEMPLATES_FOLDER,
-  'default',
-  'component.twig',
-);
+const templatesRoot = join(projectRoot, EMULSIFY_PROJECT_TEMPLATES_FOLDER);
+const twigTemplatePath = join(templatesRoot, 'twig', 'component.twig');
+const legacyTwigTemplatePath = join(templatesRoot, 'default', 'component.twig');
+const twigSdcTemplatePath = join(templatesRoot, 'twig-sdc', 'component.twig');
+const legacyTwigSdcTemplatePath = join(templatesRoot, 'sdc', 'component.twig');
+const reactTemplatePath = join(templatesRoot, 'react', 'component.jsx');
 
 const vars: ComponentTemplateVars = {
   filename: 'featured-item',
   className: 'featured-item',
   camelName: 'featuredItem',
+  pascalName: 'FeaturedItem',
   snakeName: 'featured_item',
   humanName: 'Featured Item',
   directory: 'base',
   format: 'default',
+  type: 'twig',
+  tagName: '',
 };
 
 describe('resolveComponentTemplate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    pathExistsMock.mockReset();
+    readFileMock.mockReset();
   });
 
-  it('returns null when an override file is absent', async () => {
-    expect.assertions(2);
-    pathExistsMock.mockResolvedValueOnce(false);
+  it('checks the canonical Twig directory before its legacy alias', async () => {
+    expect.assertions(4);
+    pathExistsMock.mockResolvedValue(false);
 
     await expect(
-      resolveComponentTemplate(projectRoot, 'default', 'component.twig', vars),
+      resolveComponentTemplate(projectRoot, 'twig', 'component.twig', vars),
     ).resolves.toBeNull();
 
-    expect(readFileMock).not.toHaveBeenCalled();
+    expect(pathExistsMock).toHaveBeenCalledTimes(2);
+    expect(pathExistsMock).toHaveBeenNthCalledWith(1, twigTemplatePath);
+    expect(pathExistsMock).toHaveBeenNthCalledWith(2, legacyTwigTemplatePath);
   });
 
-  it('renders an override when a matching file exists', async () => {
-    expect.assertions(2);
+  it('uses the canonical override without consulting the legacy alias', async () => {
+    expect.assertions(4);
     pathExistsMock.mockResolvedValueOnce(true);
     readFileMock.mockResolvedValueOnce('<h2>{{ humanName }}</h2>');
 
     await expect(
-      resolveComponentTemplate(projectRoot, 'default', 'component.twig', vars),
+      resolveComponentTemplate(projectRoot, 'twig', 'component.twig', vars),
     ).resolves.toBe('<h2>Featured Item</h2>');
 
-    expect(readFileMock).toHaveBeenCalledWith(templatePath, 'utf8');
+    expect(pathExistsMock).toHaveBeenCalledTimes(1);
+    expect(pathExistsMock).toHaveBeenCalledWith(twigTemplatePath);
+    expect(readFileMock).toHaveBeenCalledWith(twigTemplatePath, 'utf8');
   });
 
-  it('falls back and warns when an override file is empty', async () => {
-    expect.assertions(3);
+  it('falls back from twig to the legacy default directory', async () => {
+    expect.assertions(4);
+    pathExistsMock.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    readFileMock.mockResolvedValueOnce('<h2>{{ humanName }}</h2>');
+
+    await expect(
+      resolveComponentTemplate(projectRoot, 'twig', 'component.twig', vars),
+    ).resolves.toBe('<h2>Featured Item</h2>');
+
+    expect(pathExistsMock).toHaveBeenCalledTimes(2);
+    expect(pathExistsMock).toHaveBeenNthCalledWith(1, twigTemplatePath);
+    expect(readFileMock).toHaveBeenCalledWith(legacyTwigTemplatePath, 'utf8');
+  });
+
+  it('falls back from twig-sdc to the legacy sdc directory', async () => {
+    expect.assertions(4);
+    pathExistsMock.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    readFileMock.mockResolvedValueOnce('{{ type }}: {{ pascalName }}');
+
+    await expect(
+      resolveComponentTemplate(projectRoot, 'twig-sdc', 'component.twig', {
+        ...vars,
+        format: 'sdc',
+        type: 'twig-sdc',
+      }),
+    ).resolves.toBe('twig-sdc: FeaturedItem');
+
+    expect(pathExistsMock).toHaveBeenCalledTimes(2);
+    expect(pathExistsMock).toHaveBeenNthCalledWith(1, twigSdcTemplatePath);
+    expect(readFileMock).toHaveBeenCalledWith(
+      legacyTwigSdcTemplatePath,
+      'utf8',
+    );
+  });
+
+  it('does not fall through to a legacy alias when the canonical override is empty', async () => {
+    expect.assertions(5);
     pathExistsMock.mockResolvedValueOnce(true);
     readFileMock.mockResolvedValueOnce('  \n');
 
     await expect(
-      resolveComponentTemplate(projectRoot, 'default', 'component.twig', vars),
+      resolveComponentTemplate(projectRoot, 'twig', 'component.twig', vars),
     ).resolves.toBeNull();
 
+    expect(pathExistsMock).toHaveBeenCalledTimes(1);
+    expect(readFileMock).toHaveBeenCalledWith(twigTemplatePath, 'utf8');
     expect(log).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledWith(
       'warn',
-      `Component template override "${templatePath}" is empty; using the built-in template instead.`,
+      `Component template override "${twigTemplatePath}" is empty; using the built-in template instead.`,
     );
+  });
+
+  it('checks only the canonical directory for a type without a legacy alias', async () => {
+    expect.assertions(4);
+    pathExistsMock.mockResolvedValueOnce(false);
+
+    await expect(
+      resolveComponentTemplate(projectRoot, 'react', 'component.jsx', {
+        ...vars,
+        type: 'react',
+      }),
+    ).resolves.toBeNull();
+
+    expect(pathExistsMock).toHaveBeenCalledTimes(1);
+    expect(pathExistsMock).toHaveBeenCalledWith(reactTemplatePath);
+    expect(readFileMock).not.toHaveBeenCalled();
   });
 });

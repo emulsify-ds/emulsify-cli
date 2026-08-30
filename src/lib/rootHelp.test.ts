@@ -56,7 +56,10 @@ describe('getRootHelp', () => {
       '  component create [name]\n    Generate a new local component',
     );
     expect(help).toContain(
-      '      -f, --format <default|sdc>\n        Component format',
+      '      -t, --type <type>\n        twig | twig-sdc | react | web-component',
+    );
+    expect(help).toContain(
+      '      -f, --format <default|sdc>\n        Deprecated Twig type alias',
     );
     expect(
       Math.max(...visibleLines(help).map((line) => line.length)),

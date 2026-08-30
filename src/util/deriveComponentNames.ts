@@ -8,6 +8,7 @@ export type DerivedComponentNames = {
   filename: string;
   className: string;
   camelName: string;
+  pascalName: string;
   snakeName: string;
   humanName: string;
 };
@@ -64,6 +65,13 @@ export default function deriveComponentNames(
     c.toUpperCase(),
   );
 
+  // PascalCase identifier for generated JavaScript classes and components.
+  // Prefix numeric-leading names so every generated identifier is valid.
+  const pascalCandidate = `${camelName.charAt(0).toUpperCase()}${camelName.slice(1)}`;
+  const pascalName = /^[A-Za-z_$]/.test(pascalCandidate)
+    ? pascalCandidate
+    : `Component${pascalCandidate}`;
+
   // snake_case for YAML prop keys (featured-item -> featured_item).
   const snakeName = filename.replace(/-/g, '_');
 
@@ -77,6 +85,7 @@ export default function deriveComponentNames(
     filename,
     className,
     camelName,
+    pascalName,
     snakeName,
     humanName,
   };
