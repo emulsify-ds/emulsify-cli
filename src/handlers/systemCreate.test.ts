@@ -16,6 +16,7 @@ import { simpleGit } from 'simple-git';
 
 import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
 import log from '../lib/log.js';
+import expectToContainInOrder from '../testUtils/expectToContainInOrder.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
 import buildSystemScaffold, {
   type BuildSystemScaffoldOptions,
@@ -445,23 +446,20 @@ describe('systemCreate', () => {
       );
       expectNoWrites();
       expect(logMock).toHaveBeenCalledTimes(1);
-      expect(logMock).toHaveBeenCalledWith(
-        'info',
-        expect.stringMatching(
-          new RegExp(
-            [
-              'Dry run: system create',
-              `Target: ${target} \\(${targetState}\\)`,
-              'Platform: drupal \\|\\| wordpress',
-              `Git: ${gitAction}`,
-              `Real run would: ${realRunAction}`,
-              `Generated files:[\\s\\S]*${EMULSIFY_SYSTEM_CONFIG_FILE}`,
-              '[\\s\\S]*README\\.md',
-              'No directories or files were written, and Git was not initialized\\.',
-            ].join('[\\s\\S]*'),
-          ),
-        ),
-      );
+      expect(logMock).toHaveBeenCalledWith('info', expect.any(String));
+
+      const message = logMock.mock.calls[0][1] as string;
+      expectToContainInOrder(message, [
+        'Dry run: system create',
+        `Target: ${target} (${targetState})`,
+        'Platform: drupal || wordpress',
+        `Git: ${gitAction}`,
+        `Real run would: ${realRunAction}`,
+        'Generated files:',
+        EMULSIFY_SYSTEM_CONFIG_FILE,
+        'README.md',
+        'No directories or files were written, and Git was not initialized.',
+      ]);
     },
   );
 

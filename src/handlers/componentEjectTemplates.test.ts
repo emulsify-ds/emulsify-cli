@@ -9,6 +9,7 @@ import { pathExists } from 'fs-extra';
 
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants.js';
 import log from '../lib/log.js';
+import expectToContainInOrder from '../testUtils/expectToContainInOrder.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import type { ComponentType } from '../util/project/componentTypes.js';
 import { buildEjectableComponentTemplates } from '../util/project/componentTemplates/index.js';
@@ -307,12 +308,11 @@ describe('componentEjectTemplates', () => {
     );
     expect(error).toMatchObject({ name: 'CliError' });
     const message = (error as Error).message;
-    expect(message).toContain(twigConflict);
-    expect(message).toContain(storiesConflict);
-    expect(message.indexOf(twigConflict)).toBeLessThan(
-      message.indexOf(storiesConflict),
-    );
-    expect(message).toContain('Pass --force');
+    expectToContainInOrder(message, [
+      twigConflict,
+      storiesConflict,
+      'Pass --force',
+    ]);
 
     expect(pathExistsMock).toHaveBeenCalledTimes(4);
     expectNoWrites();
