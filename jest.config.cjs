@@ -8,14 +8,15 @@ module.exports = {
     '!src/**/*.test.ts',
     '!src/index.ts',
     '!src/scripts/**',
+    '!src/testUtils/**',
   ],
-  // Keep honest floors with room for unrelated changes. Raise them only when
-  // durable tests cover behavior that is currently unexercised.
+  // Keep roughly one percentage point of headroom for unrelated changes. Raise
+  // a floor after durable tests lift production coverage enough to retain it.
   coverageThreshold: {
     global: {
       branches: 88,
       functions: 91,
-      lines: 95,
+      lines: 95.5,
       statements: 94,
     },
   },
