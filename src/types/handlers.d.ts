@@ -22,6 +22,8 @@ declare module '@emulsify-cli/handlers' {
     checkout?: string | void;
     variant?: PlatformExpression | void;
     all?: boolean;
+    /** Accept the guided installation after rendering its final review. */
+    yes?: boolean;
   };
 
   export type CreateSystemHandlerOptions = {

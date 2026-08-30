@@ -33,6 +33,7 @@ let tempRoot;
 let isolatedHome;
 let projectsRoot;
 let projectRoot;
+let nonInteractiveInstallProjectRoot;
 let starterRepository;
 let systemRepository;
 let systemHookSentinel;
@@ -172,6 +173,25 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     });
     starterRepository = pathToFileURL(starterPath).href;
 
+    nonInteractiveInstallProjectRoot = join(
+      projectsRoot,
+      'non-interactive-install-project',
+    );
+    mkdirSync(nonInteractiveInstallProjectRoot, { recursive: true });
+    writeFileSync(
+      join(nonInteractiveInstallProjectRoot, 'project.emulsify.json'),
+      json({
+        project: {
+          platform: 'none',
+          name: 'Non-interactive Install Project',
+          machineName: 'non-interactive-install-project',
+        },
+        starter: {
+          repository: starterRepository,
+        },
+      }),
+    );
+
     const structureImplementations = [
       {
         name: 'components',
@@ -288,6 +308,25 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       /Pass the \[name\] positional argument or use --yes/,
     );
     assert.equal(existsSync(join(tempRoot, 'custom-system')), false);
+  });
+
+  test('fails fast without changing the project when system install has no source outside a TTY', () => {
+    const projectConfigPath = join(
+      nonInteractiveInstallProjectRoot,
+      'project.emulsify.json',
+    );
+    const configBefore = readFileSync(projectConfigPath, 'utf8');
+    const result = runCli(nonInteractiveInstallProjectRoot, [
+      'system',
+      'install',
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /positional argument/);
+    assert.match(result.stderr, /--repository/);
+    assert.match(result.stderr, /--checkout/);
+    assert.equal(readFileSync(projectConfigPath, 'utf8'), configBefore);
   });
 
   test('creates a standalone system and installs it from a local path', () => {

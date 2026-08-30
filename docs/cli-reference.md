@@ -192,14 +192,65 @@ emulsify system create my-system --directory ./systems --platform drupal --git \
 emulsify system install [name]
 ```
 
-Run without `[name]` in an interactive terminal to choose from built-in systems or cancel:
+Run without a name or repository in an interactive terminal to start the guided
+installer. The built-in path covers four decisions: source, component set,
+installation scope, and final review.
+
+The source picker presents human-readable system names and descriptions:
 
 ```text
-? Choose a component system:
-❯ compound
-  emulsify-ui-kit
-  cancel
+Which system?
+❯ Compound              Accessible, tested components. Drupal, WordPress, plain.
+  Emulsify UI Kit       Broader design-system starter kit.
+  Bring your own        Install from a git repository you control.
+  ────────────
+  Cancel
 ```
+
+After the selected system is downloaded and validated, the component-set picker
+shows each variant in plain language with its raw platform expression in
+parentheses. Compatible choices are ordered first, and the best match for the
+current project is marked `Recommended` and selected by default. Each choice
+also shows its total component count and how many are essential.
+
+The scope picker offers:
+
+- `Essentials only` — install only components marked `required: true`.
+- `Everything` — install every component in the selected component set.
+
+Both choices include their component counts. The review then shows the selected
+system and checkout, repository source, component set, scope, component and
+asset counts, and their concrete destination paths. The CLI asks
+for confirmation before changing `project.emulsify.json`, copying components or
+assets, or running the project install hook. The selected repository may already
+have been downloaded into the CLI cache so its configuration can be reviewed.
+
+```text
+Install a component system                                Step 4 of 4
+
+  System         Compound  ·  v2.3.1
+  Source         github.com/emulsify-ds/compound
+  Component set  Drupal
+  Scope          Essentials only
+  Will install   5 components  →  components/
+                 2 asset folders  →  assets/, src/vendor/
+
+? Install now? (Y/n)
+```
+
+Pass `-y, --yes` to display this final review and accept it without opening the
+confirmation prompt. It does not choose a missing source, component set, or
+installation scope.
+
+Selecting `Bring your own` adds prompts for a repository URL or local path and a
+checkout (branch, tag, or commit); the displayed step total expands to include
+them. Selecting `Cancel`, or declining the final review, reports `System install
+cancelled.` and leaves the project configuration and destinations unchanged.
+
+Supplying a built-in name or both custom-repository flags bypasses the guided
+installer and preserves the direct command behavior. Variant compatibility is
+resolved automatically unless `--variant` is supplied, and only essential
+components are installed unless `--all` is supplied.
 
 Options:
 
@@ -209,11 +260,26 @@ Options:
 | `-c, --checkout <commit/branch/tag>` | Checkout to use. This is required when `--repository` is used.                                                                                   |
 | `--variant <platform-expression>`    | Install the variant whose platform expression exactly matches this value. Quote compound expressions at the shell.                               |
 | `-a, --all`                          | Install every component in the selected variant. Without this flag, only components marked `required: true` are installed during system install. |
+| `-y, --yes`                          | Accept the final guided-install review without prompting. It does not supply any earlier wizard choice.                                          |
+
+Prompts are never opened when standard input is not a TTY. A bare command fails
+immediately with this guidance:
+
+```text
+No component system source was provided. Pass a built-in system name as the positional argument, or pass both --repository <repository> and --checkout <branch, tag, or commit>.
+```
+
+For scripts and CI, pass a built-in name or pass both `--repository` and
+`--checkout`. Supplying only one custom-repository option also fails immediately
+and names the missing flag. `--yes` does not make a bare command
+non-interactive: the source, component set, and scope still require choices.
 
 Examples:
 
 ```bash
 emulsify system install
+# Interactive wizard with no final confirmation prompt:
+emulsify system install --yes
 emulsify system install compound
 emulsify system install emulsify-ui-kit
 emulsify system install compound --all

@@ -1,10 +1,15 @@
 import type { InstallSystemHandlerOptions } from '@emulsify-cli/handlers';
 import type { GitCloneOptions } from '@emulsify-cli/git';
-import type { EmulsifySystem, Platform } from '@emulsify-cli/config';
+import type {
+  EmulsifySystem,
+  EmulsifyVariant,
+  Platform,
+} from '@emulsify-cli/config';
+import type { EmulsifySystemReference } from '@emulsify-cli/internal';
 
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
-import { select } from '@inquirer/prompts';
+import { confirm, input, select, Separator } from '@inquirer/prompts';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_SYSTEM_CONFIG_FILE,
@@ -29,14 +34,111 @@ import validateSystemConfig from '../util/system/validateSystemConfig.js';
 import {
   getVariantPlatformExpressions,
   isPlatform,
+  parsePlatformExpression,
+  rankPlatformVariants,
   selectCompatiblePlatformVariant,
   selectExactPlatformVariant,
 } from '../util/platform/platformCompatibility.js';
 import { runPrompt } from '../util/prompt/index.js';
+import buildSystemInstallPlan, {
+  type SystemInstallPlan,
+} from '../util/system/buildSystemInstallPlan.js';
 
-const CANCEL_SYSTEM_INSTALL_CHOICE = 'cancel';
-const SYSTEM_INSTALL_ERROR =
-  'Unable to download specified system. Specify a valid built-in system name as the positional argument, or provide both --repository and --checkout (branch, tag, or commit) for a custom system.';
+const MISSING_SYSTEM_SOURCE_ERROR =
+  'No component system source was provided. Pass a built-in system name as the positional argument, or pass both --repository <repository> and --checkout <branch, tag, or commit>.';
+const INVALID_SYSTEM_SOURCE_ERROR =
+  'Unable to resolve the requested component system source. Pass a valid built-in system name as the positional argument, or pass both --repository <repository> and --checkout <branch, tag, or commit>.';
+const WIZARD_TITLE = 'Install a component system';
+
+type BuiltInSourceChoice = {
+  kind: 'built-in';
+  reference: EmulsifySystemReference;
+};
+
+type CustomSourceChoice = {
+  kind: 'custom';
+};
+
+type CancelSourceChoice = {
+  kind: 'cancel';
+};
+
+type SystemSourceChoice =
+  BuiltInSourceChoice | CustomSourceChoice | CancelSourceChoice;
+
+function formatWizardHeader(step: number, total?: number): string {
+  const progress = total ? `Step ${step} of ${total}` : `Step ${step}`;
+  return `${WIZARD_TITLE.padEnd(60)}${progress}`;
+}
+
+function showWizardStep(step: number, total?: number): void {
+  log('info', formatWizardHeader(step, total));
+}
+
+function formatChoice(label: string, description: string): string {
+  return `${label.padEnd(22)}${description}`;
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatSystemLabel(name: string): string {
+  return name
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatPlatformLabel(expression: string): string {
+  const platforms = parsePlatformExpression(expression).map((platform) => {
+    if (platform === 'none') {
+      return 'Platform-neutral';
+    }
+    if (platform === 'drupal') {
+      return 'Drupal';
+    }
+    return 'WordPress';
+  });
+
+  if (platforms.length <= 1) {
+    return platforms[0] || expression;
+  }
+
+  return `${platforms.slice(0, -1).join(', ')} and ${platforms.at(-1)}`;
+}
+
+function formatRepositorySource(repository: string): string {
+  try {
+    const url = new URL(repository);
+    if (url.protocol === 'file:') {
+      return decodeURIComponent(url.pathname).replace(/\.git\/?$/, '');
+    }
+    if (url.host) {
+      return `${url.host}${url.pathname}`.replace(/\.git\/?$/, '');
+    }
+  } catch {
+    // Local paths and SCP-style Git URLs are formatted below.
+  }
+
+  const scpStyle = repository.match(/^(?:[^@\s]+@)?([^:]+):(.+)$/);
+  if (scpStyle) {
+    return `${scpStyle[1]}/${scpStyle[2]}`.replace(/\.git\/?$/, '');
+  }
+
+  return repository.replace(/\.git\/?$/, '');
+}
+
+function validateRepositoryInput(repository: string): true | string {
+  try {
+    return getGitRepoNameFromUrl(repository.trim())
+      ? true
+      : 'Enter a Git repository with a recognizable name.';
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
 
 /**
  * Helper function that uses InstallSystemHandlerOptions input to determine what
@@ -98,27 +200,85 @@ export async function getSystemRepoInfo(
   }
 }
 
-async function promptForSystemInstallChoice(): Promise<string | void> {
-  const selectedSystem = await runPrompt({
+async function promptForSystemInstallChoice(): Promise<
+  BuiltInSourceChoice | CustomSourceChoice | void
+> {
+  const selectedSource = await runPrompt<SystemSourceChoice>({
     prompt: async () => {
       const availableSystems = await getAvailableSystems();
-      return select({
-        message: 'Choose a component system:',
+      showWizardStep(1);
+      return select<SystemSourceChoice>({
+        message: 'Which system?',
         choices: [
-          ...availableSystems.map(({ name }) => name),
-          CANCEL_SYSTEM_INSTALL_CHOICE,
+          ...availableSystems.map((reference) => ({
+            name: formatChoice(reference.label, reference.description),
+            value: { kind: 'built-in', reference } as BuiltInSourceChoice,
+            short: reference.label,
+          })),
+          {
+            name: formatChoice(
+              'Bring your own',
+              'Install from a git repository you control.',
+            ),
+            value: { kind: 'custom' } as CustomSourceChoice,
+            short: 'Bring your own',
+          },
+          new Separator('────────────'),
+          {
+            name: 'Cancel',
+            value: { kind: 'cancel' } as CancelSourceChoice,
+          },
         ],
       });
     },
-    nonInteractive: { error: SYSTEM_INSTALL_ERROR },
+    nonInteractive: { error: MISSING_SYSTEM_SOURCE_ERROR },
   });
 
-  if (selectedSystem === CANCEL_SYSTEM_INSTALL_CHOICE) {
+  if (selectedSource.kind === 'cancel') {
     log('info', 'System install cancelled.');
     return;
   }
 
-  return selectedSystem;
+  return selectedSource;
+}
+
+async function promptForCustomRepository(
+  step: number,
+  total: number,
+): Promise<string> {
+  return runPrompt({
+    prompt: () => {
+      showWizardStep(step, total);
+      return input({
+        message: 'Repository URL or local path:',
+        validate: validateRepositoryInput,
+      });
+    },
+    nonInteractive: {
+      error:
+        'A custom repository is required in non-interactive mode. Pass --repository <repository>.',
+    },
+  });
+}
+
+async function promptForCustomCheckout(
+  step: number,
+  total: number,
+): Promise<string> {
+  return runPrompt({
+    prompt: () => {
+      showWizardStep(step, total);
+      return input({
+        message: 'Checkout (branch, tag, or commit):',
+        validate: (value) =>
+          value.trim().length > 0 || 'Enter a branch, tag, or commit.',
+      });
+    },
+    nonInteractive: {
+      error:
+        'A custom checkout is required in non-interactive mode. Pass --checkout <branch, tag, or commit>.',
+    },
+  });
 }
 
 function getVariantSelectionErrorMessage(
@@ -126,30 +286,86 @@ function getVariantSelectionErrorMessage(
   projectPlatform: Platform,
   requestedVariant: string | void,
 ): string {
-  const availableVariants =
-    getVariantPlatformExpressions(systemConf.variants).join(', ') || 'none';
-  const requestedVariantMessage = requestedVariant
-    ? ` matching "${requestedVariant}"`
-    : '';
+  const availableVariants = getVariantPlatformExpressions(systemConf.variants);
+  const availableComponentSets = availableVariants.length
+    ? availableVariants
+        .map(
+          (expression) => `${formatPlatformLabel(expression)} (${expression})`,
+        )
+        .join(', ')
+    : 'none';
 
-  return `Unable to find a compatible variant${requestedVariantMessage} for project platform "${projectPlatform}" within the system (${systemConf.name}). Available variant platform expressions: ${availableVariants}.`;
+  if (requestedVariant) {
+    return `The ${formatSystemLabel(systemConf.name)} system has no component set matching --variant "${requestedVariant}". Available component sets: ${availableComponentSets}.`;
+  }
+
+  return `The ${formatSystemLabel(systemConf.name)} system has no component set that works with this ${formatPlatformLabel(projectPlatform)} project. Available component sets: ${availableComponentSets}. Pass --variant <platform-expression> to choose one explicitly.`;
 }
 
-async function promptForVariantChoice<T extends { platform: string }>(
-  variants: T[],
+function getVariantPromptErrorMessage(systemConf: EmulsifySystem): string {
+  const availableComponentSets = getVariantPlatformExpressions(
+    systemConf.variants,
+  )
+    .map((expression) => `${formatPlatformLabel(expression)} (${expression})`)
+    .join(', ');
+
+  return `A component set choice is required in non-interactive mode. Pass --variant <platform-expression>. Available component sets: ${availableComponentSets || 'none'}.`;
+}
+
+async function promptForVariantChoice(
+  variants: EmulsifyVariant[],
   projectPlatform: Platform,
   systemName: string,
   nonInteractiveError: string,
-): Promise<T> {
-  const selectedPlatform = await runPrompt({
-    prompt: () =>
-      select({
-        message: `Choose a ${systemName} variant for project platform "${projectPlatform}":`,
-        choices: variants.map(({ platform }) => platform),
-      }),
+  wizardStep?: { step: number; total: number },
+): Promise<EmulsifyVariant> {
+  const rankedVariants = rankPlatformVariants(variants, projectPlatform);
+  const recommendation = selectCompatiblePlatformVariant(
+    variants,
+    projectPlatform,
+  );
+  const recommendedVariants = new Set(
+    recommendation.status === 'selected'
+      ? [recommendation.variant]
+      : recommendation.status === 'ambiguous'
+        ? recommendation.variants
+        : [],
+  );
+  const defaultChoice = rankedVariants.find(({ variant }) =>
+    recommendedVariants.has(variant),
+  )?.index;
+
+  const selectedIndex = await runPrompt({
+    prompt: () => {
+      if (wizardStep) {
+        showWizardStep(wizardStep.step, wizardStep.total);
+      }
+      return select({
+        message: wizardStep
+          ? 'Which component set?'
+          : `Which ${formatSystemLabel(systemName)} component set should be used?`,
+        choices: rankedVariants.map(({ variant, index }) => {
+          const componentCount = variant.components.length;
+          const requiredCount = variant.components.filter(
+            ({ required }) => required === true,
+          ).length;
+          const counts = ` · ${pluralize(componentCount, 'component')}, ${pluralize(requiredCount, 'required component')}`;
+          const recommended = recommendedVariants.has(variant)
+            ? ' — Recommended'
+            : '';
+
+          return {
+            name: `${formatPlatformLabel(variant.platform)} (${variant.platform})${recommended}${counts}`,
+            value: index,
+            short: formatPlatformLabel(variant.platform),
+          };
+        }),
+        default: defaultChoice,
+      });
+    },
     nonInteractive: { error: nonInteractiveError },
   });
-  return variants.find(({ platform }) => platform === selectedPlatform) as T;
+  return variants[selectedIndex];
 }
 
 async function resolveSystemVariant(
@@ -167,15 +383,8 @@ async function resolveSystemVariant(
     }
 
     if (selection.status === 'ambiguous') {
-      return await promptForVariantChoice(
-        selection.variants,
-        projectPlatform,
-        systemConf.name,
-        getVariantSelectionErrorMessage(
-          systemConf,
-          projectPlatform,
-          requestedVariant,
-        ),
+      throw new CliError(
+        `The ${formatSystemLabel(systemConf.name)} system defines more than one component set for --variant "${requestedVariant}". Ask the system maintainer to give each component set a unique platform expression.`,
       );
     }
 
@@ -197,20 +406,137 @@ async function resolveSystemVariant(
   }
 
   if (selection.status === 'ambiguous') {
-    const compatibleVariants = selection.variants
-      .map(({ platform }) => platform)
+    const compatibleComponentSets = selection.variants
+      .map(({ platform }) => `${formatPlatformLabel(platform)} (${platform})`)
       .join(', ');
     return await promptForVariantChoice(
       selection.variants,
       projectPlatform,
       systemConf.name,
-      `Multiple compatible variants were found for project platform "${projectPlatform}" within the system (${systemConf.name}): ${compatibleVariants}. Run this command in an interactive terminal or specify a variant.`,
+      `More than one ${formatSystemLabel(systemConf.name)} component set works equally well with this ${formatPlatformLabel(projectPlatform)} project: ${compatibleComponentSets}. Run this command in an interactive terminal, or pass --variant <platform-expression>.`,
     );
   }
 
   throw new CliError(
     getVariantSelectionErrorMessage(systemConf, projectPlatform, undefined),
   );
+}
+
+async function promptForInstallScope(
+  variant: EmulsifyVariant,
+  step: number,
+  total: number,
+): Promise<boolean> {
+  const requiredComponentCount = variant.components.filter(
+    ({ required }) => required === true,
+  ).length;
+
+  return runPrompt({
+    prompt: () => {
+      showWizardStep(step, total);
+      return select({
+        message: 'How much do you want to install?',
+        choices: [
+          {
+            name: formatChoice(
+              'Essentials only',
+              pluralize(requiredComponentCount, 'required component'),
+            ),
+            value: false,
+            short: 'Essentials only',
+          },
+          {
+            name: formatChoice(
+              'Everything',
+              pluralize(variant.components.length, 'component'),
+            ),
+            value: true,
+            short: 'Everything',
+          },
+        ],
+        default: false,
+      });
+    },
+    nonInteractive: {
+      error:
+        'Install scope is required in non-interactive mode. Pass --all to install every component, or provide a system name to install required components only.',
+    },
+  });
+}
+
+function formatDestinationList(destinations: string[]): string {
+  return destinations.length > 0 ? destinations.join(', ') : 'none';
+}
+
+function formatDirectoryDestinations(destinations: string[]): string {
+  return formatDestinationList(
+    destinations.map((destination) =>
+      destination === '.' || destination.endsWith('/')
+        ? destination
+        : `${destination}/`,
+    ),
+  );
+}
+
+export function formatSystemInstallReview(
+  systemLabel: string,
+  repository: string,
+  checkout: string | void,
+  variant: EmulsifyVariant,
+  plan: SystemInstallPlan,
+  installAll: boolean,
+): string {
+  const continuationIndent = '                 ';
+  const installRows = [
+    `${pluralize(plan.components.length, 'component')}  →  ${formatDirectoryDestinations(plan.componentParentDestinations)}`,
+  ];
+
+  if (plan.directoryAssetCount > 0) {
+    installRows.push(
+      `${pluralize(plan.directoryAssetCount, 'asset folder')}  →  ${formatDestinationList(plan.directoryAssetDestinations)}`,
+    );
+  }
+
+  if (plan.fileAssetCount > 0) {
+    installRows.push(
+      `${pluralize(plan.fileAssetCount, 'asset file')}  →  ${formatDestinationList(plan.fileAssetDestinations)}`,
+    );
+  }
+
+  return [
+    `  System         ${systemLabel}${checkout ? `  ·  ${checkout}` : ''}`,
+    `  Source         ${formatRepositorySource(repository)}`,
+    `  Component set  ${formatPlatformLabel(variant.platform)}`,
+    `  Scope          ${installAll ? 'Everything' : 'Essentials only'}`,
+    `  Will install   ${installRows[0]}`,
+    ...installRows.slice(1).map((row) => `${continuationIndent}${row}`),
+  ].join('\n');
+}
+
+async function promptForInstallConfirmation(
+  review: string,
+  step: number,
+  total: number,
+  accept: boolean,
+): Promise<boolean> {
+  showWizardStep(step, total);
+  log('info', `\n${review}\n`);
+
+  return runPrompt({
+    prompt: () =>
+      confirm({
+        message: 'Install now?',
+        default: true,
+      }),
+    nonInteractive: {
+      error:
+        'Installation confirmation is required in non-interactive mode. Pass --yes to accept the reviewed installation.',
+    },
+    accept: {
+      when: accept,
+      value: true,
+    },
+  });
 }
 
 /**
@@ -237,23 +563,58 @@ export default async function systemInstall(
 
   if (projectConfig.system) {
     throw new CliError(
-      'You have already selected a system within this Emulsify project.',
+      'This Emulsify project already has a component system configured. Run "emulsify component list" to see what is available. To choose a different system, remove the existing "system" and "variant" entries from project.emulsify.json, then run "emulsify system install" again.',
     );
   }
 
-  // Attempt to load system information, and exit with a log message
-  // if a valid system was not found.
-  let selectedName = name;
-  if (!selectedName && !options.repository && !options.checkout) {
-    selectedName = await promptForSystemInstallChoice();
-    if (!selectedName) {
+  const guidedInstall = !name && !options.repository && !options.checkout;
+  let wizardStep = 1;
+  let wizardTotalSteps = 0;
+  let systemLabel: string | undefined;
+  let repo: (GitCloneOptions & { name: string }) | void;
+
+  if (guidedInstall) {
+    const source = await promptForSystemInstallChoice();
+    if (!source) {
       return;
     }
+
+    if (source.kind === 'built-in') {
+      const { reference } = source;
+      systemLabel = reference.label;
+      repo = {
+        name: reference.name,
+        repository: reference.repository,
+        checkout: reference.checkout,
+      };
+      wizardTotalSteps = 2 + (options.variant ? 0 : 1) + (options.all ? 0 : 1);
+    } else {
+      wizardTotalSteps = 4 + (options.variant ? 0 : 1) + (options.all ? 0 : 1);
+      const repository = (
+        await promptForCustomRepository(++wizardStep, wizardTotalSteps)
+      ).trim();
+      const checkout = (
+        await promptForCustomCheckout(++wizardStep, wizardTotalSteps)
+      ).trim();
+      repo = await getSystemRepoInfo(undefined, {
+        ...options,
+        repository,
+        checkout,
+      });
+    }
+  } else {
+    repo = await getSystemRepoInfo(name, options);
   }
 
-  const repo = await getSystemRepoInfo(selectedName, options);
   if (!repo) {
-    throw new CliError(SYSTEM_INSTALL_ERROR);
+    throw new CliError(INVALID_SYSTEM_SOURCE_ERROR);
+  }
+
+  if (guidedInstall) {
+    log(
+      'info',
+      `Loading ${systemLabel || 'the component system'} from ${formatRepositorySource(repo.repository)}. This may take a moment…`,
+    );
   }
 
   // Attempt to get latest tag if no branch was supplied.
@@ -294,42 +655,120 @@ export default async function systemInstall(
     // in order to have more readable output from the AJV validation.
     console.error('System configuration errors:', e);
     throw new CliError(
-      `The system install failed due to the validation errors reported above. Please fix the the errors in the "${systemConf.name}" configuration and try again.`,
+      `The system install failed due to the validation errors reported above. Please fix the errors in the "${systemConf.name}" configuration and try again.`,
     );
+  }
+
+  if (systemConf.name !== repo.name) {
+    throw new CliError(
+      `The repository was cached as "${repo.name}", but system.emulsify.json declares the system name "${systemConf.name}". These names must match so files can be installed safely. Rename the repository or update the system name, then retry.`,
+    );
+  }
+
+  if (!repo.checkout) {
+    repo.checkout = await getCachedItemCheckout({
+      bucket: 'systems',
+      itemPath: [repo.name],
+      repository: repo.repository,
+      checkout: repo.checkout,
+    });
+  }
+  if (!repo.checkout) {
+    throw new CliError(
+      'Unable to determine which system checkout was loaded. Retry with --checkout <branch, tag, or commit>.',
+    );
+  }
+
+  systemLabel ||= formatSystemLabel(systemConf.name);
+  if (guidedInstall) {
+    log('info', `Loaded ${systemLabel}  ·  ${repo.checkout}.`);
   }
 
   const projectPlatform = projectConfig.project.platform;
   if (!isPlatform(projectPlatform)) {
     throw new CliError(
-      'Unable to determine a variant for the specified system. Please either pass in a valid variant using the --variant flag.',
+      'This project does not declare a supported platform. Set project.platform in project.emulsify.json to none, drupal, or wordpress before installing a component system.',
     );
   }
 
   // @TODO: clone variants into their own cache bucket if a reference is provided.
-  const variantConf = await resolveSystemVariant(
-    systemConf,
-    projectPlatform,
-    options.variant,
-  );
+  let variantConf: EmulsifyVariant;
+  if (guidedInstall && !options.variant) {
+    const compatibility = selectCompatiblePlatformVariant(
+      systemConf.variants,
+      projectPlatform,
+    );
+    if (compatibility.status === 'none') {
+      throw new CliError(
+        getVariantSelectionErrorMessage(systemConf, projectPlatform, undefined),
+      );
+    }
+
+    variantConf = await promptForVariantChoice(
+      systemConf.variants || [],
+      projectPlatform,
+      systemConf.name,
+      getVariantPromptErrorMessage(systemConf),
+      { step: ++wizardStep, total: wizardTotalSteps },
+    );
+  } else {
+    variantConf = await resolveSystemVariant(
+      systemConf,
+      projectPlatform,
+      options.variant,
+    );
+  }
+
+  const installAll =
+    guidedInstall && !options.all
+      ? await promptForInstallScope(variantConf, ++wizardStep, wizardTotalSteps)
+      : options.all === true;
+  let componentsToInstall = installAll
+    ? variantConf.components
+    : variantConf.components.filter(({ required }) => required === true);
+
+  if (guidedInstall) {
+    const projectConfigPath = findFileInCurrentPath(
+      EMULSIFY_PROJECT_CONFIG_FILE,
+    );
+    if (!projectConfigPath) {
+      throw new CliError(
+        'Unable to find the Emulsify project configuration for the installation review.',
+      );
+    }
+
+    const plan = buildSystemInstallPlan(
+      systemConf,
+      variantConf,
+      installAll,
+      projectConfigPath,
+    );
+    componentsToInstall = plan.components;
+    const confirmed = await promptForInstallConfirmation(
+      formatSystemInstallReview(
+        systemLabel,
+        repo.repository,
+        repo.checkout,
+        variantConf,
+        plan,
+        installAll,
+      ),
+      ++wizardStep,
+      wizardTotalSteps,
+      options.yes === true,
+    );
+    if (!confirmed) {
+      log('info', 'System install cancelled. No project files were changed.');
+      return;
+    }
+  }
 
   // Update emulsify project config.
   try {
-    // If no checkout was passed along, and the default checkout was used, fetch it
-    // it can be stored in the project config.
-    let checkout = repo.checkout;
-    if (!checkout) {
-      checkout = await getCachedItemCheckout({
-        bucket: 'systems',
-        itemPath: [repo.name],
-        repository: repo.repository,
-        checkout: repo.checkout,
-      });
-    }
-
     await setEmulsifyConfig({
       system: {
         repository: repo.repository,
-        checkout,
+        checkout: repo.checkout,
       },
       // @TODO: Because we don't yet support referenced variants, for now we only
       // pass in the platform name.
@@ -344,12 +783,7 @@ export default async function systemInstall(
 
   try {
     // Install all required components or all available components.
-    const componentsList = variantConf.components;
-    const requiredComponents = componentsList.filter(
-      ({ required }) => required === true,
-    );
-
-    for (const component of options.all ? componentsList : requiredComponents) {
+    for (const component of componentsToInstall) {
       await installComponentFromCache(
         systemConf,
         variantConf,
@@ -383,6 +817,8 @@ export default async function systemInstall(
 
   return log(
     'success',
-    `Successfully installed the ${systemConf.name} system using the ${variantConf.platform} variant.`,
+    guidedInstall
+      ? `Successfully installed the ${systemLabel} system using the ${formatPlatformLabel(variantConf.platform)} component set.`
+      : `Successfully installed the ${systemConf.name} system using the ${variantConf.platform} variant.`,
   );
 }

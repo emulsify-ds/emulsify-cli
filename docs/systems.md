@@ -26,20 +26,68 @@ Run `system install` from inside an Emulsify project.
 emulsify system install
 ```
 
-In an interactive terminal, the CLI prompts for a system:
+With no name or repository options in an interactive terminal, the CLI opens a
+guided installer. Its source picker includes the two built-in systems, a custom
+source, and a safe exit:
 
 ```text
-? Choose a component system:
-❯ compound
-  emulsify-ui-kit
-  cancel
+Which system?
+❯ Compound              Accessible, tested components. Drupal, WordPress, plain.
+  Emulsify UI Kit       Broader design-system starter kit.
+  Bring your own        Install from a git repository you control.
+  ────────────
+  Cancel
 ```
 
-Choosing `compound` or `emulsify-ui-kit` installs that built-in system. Choosing `cancel` exits without changing files:
+The built-in path has four decisions:
+
+1. **System/source.** Choose Compound, Emulsify UI Kit, or another repository.
+2. **Component set.** Choose a system variant. The CLI displays a plain-language
+   label and the raw platform expression, puts compatible choices first, and
+   marks the best match for the current project as `Recommended`. Component and
+   essential counts appear on every choice.
+3. **Installation scope.** Choose `Essentials only` to install components marked
+   `required: true`, or `Everything` to install every component. Both choices
+   show how many components they install.
+4. **Review.** Check the system and checkout, repository source, component set,
+   selected scope, component and asset counts, and their concrete destination
+   paths before confirming.
+
+The repository is downloaded and its configuration validated before the
+component-set and review screens can be built. This may populate the isolated
+Emulsify cache, but the CLI does not update `project.emulsify.json`, copy project
+files, or run the project install hook until the final review is confirmed.
+
+The final screen makes those project changes concrete before asking for
+confirmation:
+
+```text
+Install a component system                                Step 4 of 4
+
+  System         Compound  ·  v2.3.1
+  Source         github.com/emulsify-ds/compound
+  Component set  Drupal
+  Scope          Essentials only
+  Will install   5 components  →  components/
+                 2 asset folders  →  assets/, src/vendor/
+
+? Install now? (Y/n)
+```
+
+Use `-y, --yes` to render and accept that final review without opening the
+confirmation prompt. It supplies no earlier answer: source, component set, and
+scope choices are still required, so the guided installer still needs a TTY.
+
+Choosing `Cancel` at the source picker, or declining the final review, exits
+without changing project configuration or destinations:
 
 ```text
 System install cancelled.
 ```
+
+Choosing `Bring your own` inserts two additional steps for the repository URL or
+local path and the checkout (branch, tag, or commit). The wizard's displayed
+step total expands for this path rather than continuing to say four steps.
 
 For a built-in system, the command:
 
@@ -48,10 +96,11 @@ For a built-in system, the command:
 3. Checks out the latest Git tag when the built-in system reference does not specify a checkout.
 4. Clones the system into the local Emulsify cache.
 5. Reads and validates `system.emulsify.json` from the cached system.
-6. Selects the best compatible variant for `project.platform`, or the exact expression passed with `--variant`.
-7. Writes `system` and `variant` entries into `project.emulsify.json`.
-8. Installs components marked `required: true`.
-9. Installs variant-level general files and directories.
+6. Selects the reviewed component set in guided mode, or resolves the best compatible variant for `project.platform` in direct mode. `--variant` selects an exact expression in direct mode.
+7. Selects essential or all components.
+8. Presents and confirms the review in guided mode.
+9. Writes `system` and `variant` entries into `project.emulsify.json`.
+10. Installs the selected components and variant-level general files and directories.
 
 If you already know the system name, pass it directly:
 
@@ -59,6 +108,10 @@ If you already know the system name, pass it directly:
 emulsify system install compound
 emulsify system install emulsify-ui-kit
 ```
+
+An explicit built-in name bypasses the wizard. This is the form to use in a
+script or CI job. It selects the best compatible component set automatically and
+installs only essential components unless flags override those choices.
 
 Use `--all` to install every component in the selected variant during system installation:
 
@@ -68,7 +121,9 @@ emulsify system install compound --all
 
 ## Install A Custom System
 
-Use `--repository` and `--checkout` together.
+Choose `Bring your own` in the guided installer to be prompted for the
+repository and checkout, or use `--repository` and `--checkout` together for a
+direct install.
 
 ```bash
 emulsify system install \
@@ -88,6 +143,34 @@ emulsify system install \
 Omit `--variant` to use automatic platform compatibility selection. Pass it to select an exact variant platform expression; quote shared expressions such as `--variant "drupal || wordpress"`.
 
 Prefer tags or commit hashes for `--checkout` so subsequent installs use the same system version.
+
+## Non-Interactive Installation
+
+Every prompt is gated behind an interactive TTY. Bare `system install` fails
+immediately in CI, when piped, or when standard input is redirected, with this
+actionable message:
+
+```text
+No component system source was provided. Pass a built-in system name as the positional argument, or pass both --repository <repository> and --checkout <branch, tag, or commit>.
+```
+
+Use a positional built-in name or provide both custom source flags:
+
+```bash
+emulsify system install compound
+emulsify system install compound --variant drupal --all
+emulsify system install \
+  --repository https://github.com/example/example-system.git \
+  --checkout v1.0.0 \
+  --variant wordpress
+```
+
+Providing `--repository` without `--checkout`, or `--checkout` without
+`--repository`, exits non-zero and identifies the missing flag. Explicit source
+commands do not open the guided review: compatible component-set selection and
+the essentials-only default remain deterministic unless `--variant` or `--all`
+is passed. Because `--yes` only accepts the final guided review, it does not
+supply a missing source or make bare `system install --yes` valid outside a TTY.
 
 ## Author A Standalone System
 
