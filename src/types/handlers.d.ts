@@ -41,6 +41,11 @@ declare module '@emulsify-cli/handlers' {
     yes?: boolean;
   };
 
+  export type DetachSystemHandlerOptions = {
+    /** Detach the configured system without prompting for confirmation. */
+    yes?: boolean;
+  };
+
   export type ListComponentHandlerOptions = {
     /** Check the configured system's remote ref before reusing its local cache entry. */
     refresh?: boolean;

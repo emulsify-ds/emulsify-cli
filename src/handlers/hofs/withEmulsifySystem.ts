@@ -175,7 +175,7 @@ export async function withEmulsifySystem(
 
   if (!validation.valid) {
     throw new EmulsifySystemError(
-      `The cached copy of the ${systemName} system is invalid. Run "emulsify cache clear" and retry this command to re-clone it. To reinstall the system instead, remove the existing system and variant entries from project.emulsify.json, then re-run "emulsify system install".`,
+      `The cached copy of the ${systemName} system is invalid. Run "emulsify cache clear" and retry this command to re-clone it. To reinstall the system instead, run "emulsify system detach" followed by "emulsify system install".`,
     );
   }
 

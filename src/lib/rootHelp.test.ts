@@ -30,6 +30,8 @@ describe('getRootHelp', () => {
     expect(help).toContain('PROJECTS');
     expect(help).toContain('COMPONENTS');
     expect(help).toContain('SYSTEMS');
+    expect(help).toContain('system detach');
+    expect(help).toContain('Detach the system and keep project components');
     expect(help).toContain('system create [name]');
     expect(help).toContain('MAINTENANCE');
     expect(help).toContain('audit [args...]');

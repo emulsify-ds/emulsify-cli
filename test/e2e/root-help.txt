@@ -33,6 +33,8 @@ SYSTEMS
       -r, --repository <repo>        Install from a git repository
       -c, --checkout <ref>           Commit, branch, or tag
       -a, --all                      Install every component, not just required
+  system detach                   Detach the system and keep project components
+      -y, --yes                      Skip the confirmation prompt
   system create [name]            Scaffold a system others can install from
 
 MAINTENANCE

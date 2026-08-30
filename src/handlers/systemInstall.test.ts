@@ -366,7 +366,7 @@ describe('systemInstall', () => {
     });
 
     await expect(systemInstall('compound', {})).rejects.toThrow(
-      'This Emulsify project already has a component system configured. Run "emulsify component list" to see what is available. To choose a different system, remove the existing "system" and "variant" entries from project.emulsify.json, then run "emulsify system install" again.',
+      'This Emulsify project already has a component system configured. Run "emulsify component list" to see what is available. To choose a different system, run "emulsify system detach" first.',
     );
   });
 

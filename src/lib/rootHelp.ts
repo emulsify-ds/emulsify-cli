@@ -149,6 +149,16 @@ const sections: HelpSection[] = [
       },
       {
         kind: 'command',
+        label: 'system detach',
+        description: 'Detach the system and keep project components',
+      },
+      {
+        kind: 'option',
+        label: '-y, --yes',
+        description: 'Skip the confirmation prompt',
+      },
+      {
+        kind: 'command',
         label: 'system create [name]',
         description: 'Scaffold a system others can install from',
       },

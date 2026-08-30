@@ -5,6 +5,7 @@ import init from './handlers/init.js';
 import systemList from './handlers/systemList.js';
 import systemInstall from './handlers/systemInstall.js';
 import systemCreate from './handlers/systemCreate.js';
+import systemDetach from './handlers/systemDetach.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
 import componentCreate from './handlers/componentCreate.js';
@@ -58,7 +59,7 @@ program
 // System sub-commands.
 const system = program
   .command('system')
-  .description('List, create, or install component systems');
+  .description('List, create, install, or detach component systems');
 system
   .command('list')
   .description('List built-in systems available for installation')
@@ -108,6 +109,11 @@ system
     'Accept the final guided-install review without prompting.',
   )
   .action(systemInstall);
+system
+  .command('detach')
+  .description('Detach the configured system and keep project components')
+  .option('-y, --yes', 'Detach without prompting for confirmation.')
+  .action(systemDetach);
 
 // Component sub-commands.
 const component = program

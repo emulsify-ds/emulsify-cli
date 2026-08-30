@@ -19,6 +19,7 @@ The examples below reflect the command definitions in `src/index.ts` and the gen
 | `emulsify system list`              | `emulsify system ls`          | List built-in systems available for installation.                |
 | `emulsify system create [name]`     |                               | Create a standalone, distributable component system.             |
 | `emulsify system install [name]`    |                               | Install a system in the current Emulsify project.                |
+| `emulsify system detach`            |                               | Detach the system and keep project components.                   |
 | `emulsify component list`           | `emulsify component ls`       | List components available from the installed system and variant. |
 | `emulsify component install [name]` | `emulsify component i [name]` | Install a component from the installed system and variant.       |
 | `emulsify component create [name]`  | `emulsify component c [name]` | Generate a new local component in the current project.           |
@@ -297,6 +298,44 @@ System variant compatibility is selected from each variant's `platform` expressi
 Project configuration uses only concrete `project.platform` values: `drupal`, `wordpress`, or `none`. Only system variants use `||` expressions. A project with `project.platform: "none"` can install any component library system; when multiple variants are equally compatible, the CLI prompts in an interactive terminal or errors in non-interactive mode.
 
 Pass `--variant` to choose an exact variant platform expression instead of automatic compatibility selection. Quote a shared expression at the shell, for example `--variant "drupal || wordpress"`.
+
+## `system detach`
+
+```bash
+emulsify system detach
+```
+
+Detaches the configured component system from the current Emulsify project. The
+command rewrites only `project.emulsify.json`, removing its top-level `system`
+and `variant` entries while preserving every other configuration value.
+Components, project assets, generated files, and the cached system repository
+are not edited or removed.
+
+Options:
+
+| Option      | Description                                               |
+| ----------- | --------------------------------------------------------- |
+| `-y, --yes` | Confirm detachment without opening an interactive prompt. |
+
+Interactive terminals ask for confirmation before changing the configuration.
+Declining reports cancellation and leaves the project unchanged. When standard
+input is not a TTY, omit `--yes` and the command fails immediately with a message
+naming the flag instead of prompting or proceeding silently:
+
+```bash
+emulsify system detach --yes
+```
+
+The command also fails when no Emulsify project can be found or when the project
+has no configured system; the latter is reported as a no-op rather than success.
+After a successful detach, `emulsify system install` can configure a system
+again. Use `emulsify cache clear` separately if all cached repositories should
+be removed.
+
+To turn refined project components into a system, detach first, run
+`emulsify system create` to create a fresh repository, then move or copy the
+preserved components into that scaffold and update its `system.emulsify.json`.
+`system create` does not import project components automatically.
 
 ## `component list`
 

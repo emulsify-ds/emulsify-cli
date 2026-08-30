@@ -172,6 +172,48 @@ the essentials-only default remain deterministic unless `--variant` or `--all`
 is passed. Because `--yes` only accepts the final guided review, it does not
 supply a missing source or make bare `system install --yes` valid outside a TTY.
 
+## Detach A System
+
+Detach a system when components installed from it have been refined into the
+basis of a new system:
+
+```bash
+emulsify system detach
+```
+
+The command removes only the top-level `system` and `variant` entries from the
+nearest `project.emulsify.json`. It does not edit or remove components, project
+assets, generated files, or any other configuration. The cached system clone is
+also retained, making it quick to install the same system again. Use
+`emulsify cache clear` separately when every cached repository should be
+removed.
+
+Interactive terminals ask for confirmation before writing. Declining leaves the
+project unchanged. In CI, scripts, and terminals without an interactive input,
+pass `--yes`; without it, the command fails immediately and names the required
+flag:
+
+```bash
+emulsify system detach --yes
+```
+
+The command reports the detached system by name and confirms that project
+components remain in place. With the system and variant references gone,
+`emulsify system install` can configure a system again.
+
+For the refine-then-publish workflow:
+
+1. Install a system and refine its copied components in the project.
+2. Run `emulsify system detach`; the refined files remain byte-for-byte intact.
+3. Run `emulsify system create` to scaffold a new system repository.
+4. Move or copy the preserved components into the scaffold, replace the example
+   component, and update the variant mappings and component definitions in
+   `system.emulsify.json`.
+5. Commit, tag, and install the new repository in another project.
+
+`system create` creates a fresh scaffold and does not import components from the
+detached project automatically.
+
 ## Author A Standalone System
 
 `system create` generates a complete, distributable system repository. It is a standalone command: run it inside or outside an Emulsify project, and it will not read or update `project.emulsify.json`.

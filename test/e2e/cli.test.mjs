@@ -9,6 +9,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -93,6 +94,38 @@ function createGitRepository(directory, files) {
     '-m',
     'test: create e2e fixture',
   ]);
+}
+
+function snapshotFiles(directory, excludedRelativePaths = new Set()) {
+  const files = {};
+
+  function visit(currentDirectory, relativeDirectory = '') {
+    const entries = readdirSync(currentDirectory, {
+      withFileTypes: true,
+    }).sort((first, second) => first.name.localeCompare(second.name));
+
+    for (const entry of entries) {
+      const relativePath = relativeDirectory
+        ? join(relativeDirectory, entry.name)
+        : entry.name;
+      if (excludedRelativePaths.has(relativePath)) {
+        continue;
+      }
+
+      const absolutePath = join(currentDirectory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath, relativePath);
+      } else {
+        files[relativePath] = readFileSync(absolutePath).toString('base64');
+      }
+    }
+  }
+
+  if (existsSync(directory)) {
+    visit(directory);
+  }
+
+  return files;
 }
 
 function runCli(cwd, args, environment = isolatedEnvironment()) {
@@ -453,6 +486,191 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
         `generated example-card.${extension} should install`,
       );
     }
+  });
+
+  test('detaches a system without changing component files and permits the next system workflow', () => {
+    const detachProjectRoot = join(projectsRoot, 'detach-project');
+    const projectConfigPath = join(detachProjectRoot, 'project.emulsify.json');
+    const refinedComponentPath = join(
+      detachProjectRoot,
+      'components',
+      'card',
+      'fixture.txt',
+    );
+    const cacheRoot = join(isolatedHome, '.emulsify', 'cache');
+    const generatedSystemName = 'detached-project-system';
+    const generatedSystemRoot = join(tempRoot, generatedSystemName);
+
+    mkdirSync(detachProjectRoot, { recursive: true });
+    writeFileSync(
+      projectConfigPath,
+      json({
+        project: {
+          platform: 'wordpress',
+          name: 'Detach Project',
+          machineName: 'detach-project',
+        },
+        starter: {
+          repository: starterRepository,
+        },
+      }),
+    );
+
+    const installResult = runCli(detachProjectRoot, [
+      'system',
+      'install',
+      '--repository',
+      systemRepository,
+      '--checkout',
+      'main',
+      '--variant',
+      'wordpress',
+    ]);
+    assert.equal(
+      installResult.status,
+      0,
+      commandFailure('detach fixture system install', installResult),
+    );
+    assert.equal(readFileSync(refinedComponentPath, 'utf8'), 'card fixture\n');
+
+    const refinedComponent = Buffer.from(
+      'locally refined card\nwith project-specific changes\n',
+      'utf8',
+    );
+    writeFileSync(refinedComponentPath, refinedComponent);
+    mkdirSync(join(detachProjectRoot, 'notes'), { recursive: true });
+    writeFileSync(
+      join(detachProjectRoot, 'notes', 'unrelated.bin'),
+      Buffer.from([0, 1, 2, 127, 128, 254, 255]),
+    );
+
+    const installedConfigContents = readFileSync(projectConfigPath, 'utf8');
+    const installedConfig = JSON.parse(installedConfigContents);
+    const projectFilesBefore = snapshotFiles(
+      detachProjectRoot,
+      new Set(['project.emulsify.json']),
+    );
+    const cacheFilesBefore = snapshotFiles(cacheRoot);
+    assert.ok(
+      Object.keys(cacheFilesBefore).length > 0,
+      'system install should populate the isolated cache',
+    );
+
+    const rejectedResult = runCli(detachProjectRoot, ['system', 'detach']);
+    assert.notEqual(rejectedResult.status, 0);
+    assert.equal(rejectedResult.stdout, '');
+    assert.match(rejectedResult.stderr, /--yes/u);
+    assert.equal(
+      readFileSync(projectConfigPath, 'utf8'),
+      installedConfigContents,
+    );
+    assert.deepEqual(
+      snapshotFiles(detachProjectRoot, new Set(['project.emulsify.json'])),
+      projectFilesBefore,
+    );
+    assert.deepEqual(snapshotFiles(cacheRoot), cacheFilesBefore);
+
+    const detachResult = runCli(detachProjectRoot, [
+      'system',
+      'detach',
+      '--yes',
+    ]);
+    assert.equal(
+      detachResult.status,
+      0,
+      commandFailure('system detach', detachResult),
+    );
+    assert.equal(detachResult.stderr, '');
+    assert.match(detachResult.stdout, /Detached the fixture-system system/u);
+    assert.match(
+      detachResult.stdout,
+      /All component files were left in place/u,
+    );
+
+    const detachedConfig = JSON.parse(readFileSync(projectConfigPath, 'utf8'));
+    const {
+      system: _installedSystem,
+      variant: _installedVariant,
+      ...expectedDetachedConfig
+    } = installedConfig;
+    assert.deepEqual(detachedConfig, expectedDetachedConfig);
+    assert.equal(Object.hasOwn(detachedConfig, 'system'), false);
+    assert.equal(Object.hasOwn(detachedConfig, 'variant'), false);
+    assert.deepEqual(
+      snapshotFiles(detachProjectRoot, new Set(['project.emulsify.json'])),
+      projectFilesBefore,
+      'detach must not write or remove any project file except project.emulsify.json',
+    );
+    assert.deepEqual(
+      snapshotFiles(cacheRoot),
+      cacheFilesBefore,
+      'detach must leave the cached clone intact',
+    );
+    assert.deepEqual(readFileSync(refinedComponentPath), refinedComponent);
+
+    const createResult = runCli(detachProjectRoot, [
+      'system',
+      'create',
+      generatedSystemName,
+      '--directory',
+      tempRoot,
+      '--platform',
+      'wordpress',
+      '--no-git',
+    ]);
+    assert.equal(
+      createResult.status,
+      0,
+      commandFailure('system create from detached project', createResult),
+    );
+    const generatedSystemConfig = JSON.parse(
+      readFileSync(join(generatedSystemRoot, 'system.emulsify.json'), 'utf8'),
+    );
+    assert.deepEqual(
+      generatedSystemConfig.variants[0].components.map(({ name }) => name),
+      ['example-card'],
+      'system create should make a fresh scaffold rather than importing project components',
+    );
+    assert.equal(
+      existsSync(join(generatedSystemRoot, 'components', 'card')),
+      false,
+    );
+    assert.deepEqual(
+      snapshotFiles(detachProjectRoot, new Set(['project.emulsify.json'])),
+      projectFilesBefore,
+    );
+
+    const reinstallResult = runCli(detachProjectRoot, [
+      'system',
+      'install',
+      '--repository',
+      systemRepository,
+      '--checkout',
+      'main',
+      '--variant',
+      'none',
+    ]);
+    assert.equal(
+      reinstallResult.status,
+      0,
+      commandFailure('system reinstall after detach', reinstallResult),
+    );
+    const reinstalledConfig = JSON.parse(
+      readFileSync(projectConfigPath, 'utf8'),
+    );
+    assert.deepEqual(reinstalledConfig.system, {
+      repository: systemRepository,
+      checkout: 'main',
+    });
+    assert.equal(reinstalledConfig.variant.platform, 'none');
+    assert.deepEqual(readFileSync(refinedComponentPath), refinedComponent);
+    assert.equal(
+      readFileSync(
+        join(detachProjectRoot, 'components', 'button', 'fixture.txt'),
+        'utf8',
+      ),
+      'button fixture\n',
+    );
   });
 
   test('initializes a WordPress project with starter hook metadata', () => {
