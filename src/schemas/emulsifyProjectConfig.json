@@ -19,6 +19,29 @@
         "machineName": {
           "type": "string",
           "description": "Machine-friendly name of the project, such as 'carmen-sandiego'."
+        },
+        "singleDirectoryComponents": {
+          "type": "boolean",
+          "description": "Whether Drupal Single Directory Component output mirroring is enabled."
+        },
+        "generatedFrom": {
+          "type": "string",
+          "description": "Name of the Emulsify project that generated this project."
+        },
+        "generatedFromVersion": {
+          "type": "string",
+          "description": "Version of the Emulsify project that generated this project."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-facing description of the generated project."
+        },
+        "assetRoots": {
+          "type": "array",
+          "description": "Compatibility alias for additional project-relative asset directories. Prefer the top-level assets.roots property.",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false,
@@ -35,6 +58,42 @@
       },
       "additionalProperties": false,
       "required": ["repository"]
+    },
+    "projectStructure": {
+      "type": "object",
+      "description": "Compatibility configuration for Emulsify Core project structure. Prefer the top-level assets property for asset settings.",
+      "properties": {
+        "assetRoots": {
+          "type": "array",
+          "description": "Compatibility alias for additional project-relative asset directories. Prefer assets.roots.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "assets": {
+      "type": "object",
+      "description": "Configures Emulsify Core asset discovery and output behavior.",
+      "properties": {
+        "roots": {
+          "type": "array",
+          "description": "Additional project-relative directories containing static assets.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rebase": {
+          "type": "boolean",
+          "description": "Whether Emulsify Core resolves asset aliases and repairs unresolved CSS asset URLs."
+        },
+        "selfContainedOutput": {
+          "type": "boolean",
+          "description": "Whether project assets remain under the build output so it can be deployed independently."
+        }
+      },
+      "additionalProperties": false
     },
     "system": {
       "type": "object",

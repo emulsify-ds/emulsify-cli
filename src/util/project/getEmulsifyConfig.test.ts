@@ -44,6 +44,32 @@ describe('getEmulsifyConfig', () => {
     await expect(getEmulsifyConfig()).resolves.toEqual(wordpressProjectConfig);
   });
 
+  it('accepts shared starter and Emulsify Core configuration fields', async () => {
+    const sharedProjectConfig = {
+      ...projectConfig,
+      project: {
+        ...projectConfig.project,
+        platform: 'drupal',
+        singleDirectoryComponents: true,
+        generatedFrom: 'emulsify-drupal',
+        generatedFromVersion: '7.2.1',
+        description: 'A generated Drupal theme.',
+        assetRoots: ['./legacy-project-assets'],
+      },
+      projectStructure: {
+        assetRoots: ['./legacy-structure-assets'],
+      },
+      assets: {
+        roots: ['./design-system/assets'],
+        rebase: false,
+        selfContainedOutput: false,
+      },
+    };
+    loadJsonFileMock.mockResolvedValueOnce(sharedProjectConfig);
+
+    await expect(getEmulsifyConfig()).resolves.toEqual(sharedProjectConfig);
+  });
+
   it('returns void if no Emulsify config file is found within the users cwd', async () => {
     findFileMock.mockReturnValueOnce(undefined);
     await expect(getEmulsifyConfig()).resolves.toBe(undefined);
