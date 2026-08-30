@@ -154,6 +154,16 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
           },
         },
       }),
+      '.cli/init.js': [
+        "import { readFileSync, writeFileSync } from 'node:fs';",
+        "const configUrl = new URL('../project.emulsify.json', import.meta.url);",
+        "const config = JSON.parse(readFileSync(configUrl, 'utf8'));",
+        "config.project.generatedFrom = 'emulsify-wordpress';",
+        "config.project.generatedFromVersion = '2.0.0';",
+        "config.project.description = 'A generated WordPress child theme.';",
+        'writeFileSync(configUrl, `${JSON.stringify(config, null, 2)}\\n`);',
+        '',
+      ].join('\n'),
       '.cli/systemInstall.js': [
         "import { writeFileSync } from 'node:fs';",
         "writeFileSync(new URL('../system-install-hook-ran.txt', import.meta.url), 'ran\\n');",
@@ -246,7 +256,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     );
   });
 
-  test('initializes a project from a local starter repository', () => {
+  test('initializes a WordPress project with starter hook metadata', () => {
     const result = runCli(tempRoot, [
       'init',
       'Fixture Project',
@@ -258,7 +268,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       '--checkout',
       'main',
       '--platform',
-      'none',
+      'wordpress',
       '--yes',
     ]);
 
@@ -271,9 +281,12 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       ),
       {
         project: {
-          platform: 'none',
+          platform: 'wordpress',
           name: 'Fixture Project',
           machineName: 'fixture-project',
+          generatedFrom: 'emulsify-wordpress',
+          generatedFromVersion: '2.0.0',
+          description: 'A generated WordPress child theme.',
         },
         starter: {
           repository: starterRepository,
@@ -288,7 +301,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(existsSync(join(projectRoot, '.git')), false);
   });
 
-  test('installs an exact variant from a local system repository', () => {
+  test('loads starter hook metadata when installing a system', () => {
     const result = runCli(projectRoot, [
       'system',
       'install',

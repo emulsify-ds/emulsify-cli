@@ -28,6 +28,42 @@ Emulsify CLI stores project state in `project.emulsify.json`. Commands search fo
 
 `project.platform` never uses compatibility expressions. Values such as `drupal || wordpress` are valid only on system variant `platform` fields.
 
+Starter hooks may add optional project metadata that records platform behavior and generated-project lineage:
+
+| Field                               | Type     | Description                                                                                   |
+| ----------------------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `project.singleDirectoryComponents` | Boolean  | Enables Drupal Single Directory Component output mirroring when used with the Drupal adapter. |
+| `project.generatedFrom`             | String   | Emulsify source project that generated this project, such as `emulsify-wordpress`.            |
+| `project.generatedFromVersion`      | String   | Version of the source project used to generate this project.                                  |
+| `project.description`               | String   | Human-facing description retained by generated-project tooling.                               |
+| `project.assetRoots`                | String[] | Compatibility alias for additional asset roots. Prefer the top-level `assets.roots` field.    |
+
+These fields are optional, but generated starters may rely on them for upgrades and support diagnostics. Preserve them when editing a generated project.
+
+## Asset Configuration
+
+Emulsify Core discovers assets in the default `./assets` and `./src/assets` directories. Projects can add asset roots and control asset output with the optional top-level `assets` section:
+
+```json
+{
+  "assets": {
+    "roots": ["./design-system/assets", "./prototype-assets"],
+    "rebase": true,
+    "selfContainedOutput": true
+  }
+}
+```
+
+| Field                        | Type     | Default | Description                                                                                                     |
+| ---------------------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------- |
+| `assets.roots`               | String[] | `[]`    | Additional project-relative asset directories. Configured roots take precedence over the default roots.         |
+| `assets.rebase`              | Boolean  | `true`  | Resolves asset aliases, repairs unresolved CSS asset URLs, and calculates emitted paths.                        |
+| `assets.selfContainedOutput` | Boolean  | `true`  | Keeps project assets under `dist/assets`. Set to `false` only when the complete project asset tree is deployed. |
+
+Asset roots are resolved relative to the project root. Emulsify Core ignores paths outside the project and reports them through its audit command.
+
+For compatibility with earlier project-structure work, Emulsify Core also accepts string arrays at `project.assetRoots` and `projectStructure.assetRoots`. It combines those roots with `assets.roots`; new configuration should use `assets.roots`. The `projectStructure` compatibility object supports only `assetRoots`.
+
 ## System And Variant Configuration
 
 `emulsify system install` adds system and variant sections.
@@ -109,7 +145,7 @@ Common validation issues:
 
 | Issue                                                                           | Fix                                                                                             |
 | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Unknown top-level properties                                                    | Remove properties that are not defined by the schema.                                           |
+| Unknown properties                                                              | Remove properties that are not defined by the schema.                                           |
 | Missing `project`, `project.platform`, `project.name`, or `project.machineName` | Re-run init or restore the required fields.                                                     |
 | Missing `starter.repository`                                                    | Restore the starter repository field.                                                           |
 | Component commands fail because `system` or `variant` is missing                | Run `emulsify system install <name>` from the project.                                          |
@@ -125,3 +161,8 @@ Manual edits are safe when they preserve the schema and match the installed syst
 | `system.repository`                | Component commands parse the system name from this URL and expect a `.git` suffix.                                                                         |
 | `variant.structureImplementations` | Install and create destinations are calculated from these directories.                                                                                     |
 | `project.platform`                 | System install selects variants from this concrete value. Existing system and variant config may no longer match. Do not change it to a `\|\|` expression. |
+| `project.generatedFrom*`           | Generated-project upgrade and support tooling uses these values to identify the source release.                                                            |
+| `assets.roots`                     | Roots must stay inside the project and affect Storybook, Vite, Twig asset lookup, and audit behavior.                                                      |
+| Legacy `assetRoots` aliases        | `project.assetRoots` and `projectStructure.assetRoots` remain supported, but new configuration should use `assets.roots`.                                  |
+| `assets.rebase`                    | Disabling rebasing also disables Emulsify's CSS asset alias normalization and URL repair pipeline.                                                         |
+| `assets.selfContainedOutput`       | `false` requires deploying the complete project asset tree alongside build output.                                                                         |

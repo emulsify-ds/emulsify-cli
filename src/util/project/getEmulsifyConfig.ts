@@ -25,6 +25,14 @@ async function getProjectConfigValidator(): Promise<ValidateFunction> {
 
 function formatProjectConfigError(error: ErrorObject): string {
   const location = error.instancePath || '/';
+
+  if (
+    error.keyword === 'additionalProperties' &&
+    typeof error.params.additionalProperty === 'string'
+  ) {
+    return `${location} must NOT have additional property ${JSON.stringify(error.params.additionalProperty)}`;
+  }
+
   return `${location} ${error.message}`;
 }
 

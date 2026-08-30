@@ -36,6 +36,26 @@ export interface EmulsifyProjectConfiguration {
      * Machine-friendly name of the project, such as 'carmen-sandiego'.
      */
     machineName: string;
+    /**
+     * Whether Drupal Single Directory Component output mirroring is enabled.
+     */
+    singleDirectoryComponents?: boolean;
+    /**
+     * Name of the Emulsify project that generated this project.
+     */
+    generatedFrom?: string;
+    /**
+     * Version of the Emulsify project that generated this project.
+     */
+    generatedFromVersion?: string;
+    /**
+     * Human-facing description of the generated project.
+     */
+    description?: string;
+    /**
+     * Compatibility alias for additional project-relative asset directories. Prefer the top-level assets.roots property.
+     */
+    assetRoots?: string[];
   };
   /**
    * Contains information about the Emulsify starter this project is based upon
@@ -45,6 +65,32 @@ export interface EmulsifyProjectConfiguration {
      * Git repository containing the starter this project is based upon
      */
     repository: string;
+  };
+  /**
+   * Compatibility configuration for Emulsify Core project structure. Prefer the top-level assets property for asset settings.
+   */
+  projectStructure?: {
+    /**
+     * Compatibility alias for additional project-relative asset directories. Prefer assets.roots.
+     */
+    assetRoots?: string[];
+  };
+  /**
+   * Configures Emulsify Core asset discovery and output behavior.
+   */
+  assets?: {
+    /**
+     * Additional project-relative directories containing static assets.
+     */
+    roots?: string[];
+    /**
+     * Whether Emulsify Core resolves asset aliases and repairs unresolved CSS asset URLs.
+     */
+    rebase?: boolean;
+    /**
+     * Whether project assets remain under the build output so it can be deployed independently.
+     */
+    selfContainedOutput?: boolean;
   };
   /**
    * Contains information about the Emulsify system this project is utilizing
