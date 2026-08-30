@@ -393,30 +393,48 @@ emulsify component c [name]
 
 Run without `[name]` in an interactive terminal to start the complete creation
 wizard. The CLI prompts for the component name first, explains invalid names and
-prompts again, then asks for any missing format and directory values. Supplying
+prompts again, then asks for any missing type and directory values. Supplying
 any of those values on the command line skips its corresponding prompt.
+
+The interactive type picker always offers Twig. It offers Twig SDC only for a
+Drupal project, and offers React and Web Component when the project's
+`package.json` declares `@emulsify/core`. A hint explains omitted choices. If
+Twig is the only suitable type, the CLI selects it without displaying a
+one-choice prompt. These filters do not restrict explicit flags: `--type` is
+always honored, with a warning rather than a failure when React or Web Component
+is requested but Core is not detected.
 
 Options:
 
-| Option                        | Description                                                                           |
-| ----------------------------- | ------------------------------------------------------------------------------------- |
-| `-d, --directory <directory>` | Variant structure name where the component should be created.                         |
-| `-f, --format <default\|sdc>` | Component format to generate.                                                         |
-| `-y, --yes`                   | Replace an existing generated component without prompting.                            |
-| `--dry-run`                   | Preview destination and generated files without writing, removing, or creating files. |
-| `--refresh`                   | Check the system's remote ref before reusing its local cache entry.                   |
+| Option                                              | Description                                                                                         |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `-d, --directory <directory>`                       | Variant structure name where the component should be created.                                       |
+| `-t, --type <twig\|twig-sdc\|react\|web-component>` | Component renderer and packaging type.                                                              |
+| `-f, --format <default\|sdc>`                       | Deprecated alias: `default` maps to `twig`; `sdc` maps to `twig-sdc`. Prints a deprecation warning. |
+| `-y, --yes`                                         | Replace an existing generated component without prompting.                                          |
+| `--dry-run`                                         | Preview destination and generated files without writing, removing, or creating files.               |
+| `--refresh`                                         | Check the system's remote ref before reusing its local cache entry.                                 |
 
 Examples:
 
 ```bash
-emulsify component create promo-card --directory molecules --format default
-emulsify component create promo-card --directory molecules --format default --refresh
-emulsify component create promo-card --directory molecules --format default --dry-run
-emulsify component c teaser --directory molecules --format sdc --yes
+emulsify component create promo-card --directory molecules --type twig
+emulsify component create teaser --directory molecules --type twig-sdc
+emulsify component create promo-card --directory molecules --type react
+emulsify component create promo-card --directory molecules --type web-component
+emulsify component create promo-card --directory molecules --type twig --dry-run
 ```
 
+React scaffolds use Storybook's standard React support. Web Component stories
+use Emulsify Core's `renderWebComponent` helper. For Web Components, a
+hyphenated component filename is also the custom element tag. A single-word
+filename is prefixed with the project's machine name, so `card` in `acme-theme`
+becomes `<acme-theme-card>`. The wizard confirms this tag and allows an
+override; non-interactive creation derives and validates it silently.
+
 When standard input is not a TTY, provide the positional `[name]` plus both
-`--directory` and `--format`; otherwise the command exits with an actionable
+`--directory` and `--type`; otherwise the command exits with an actionable
 error instead of waiting for prompts that cannot be answered. If the generated
 component already exists, also pass `--yes` to replace it without an overwrite
-prompt.
+prompt. Existing scripts may continue using `--format default` or
+`--format sdc`; both aliases work and print a deprecation warning.

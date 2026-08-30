@@ -34,7 +34,7 @@ cd ./web/themes/custom/my_theme
 emulsify system install
 emulsify component list
 emulsify component install card
-emulsify component create promo-card --directory molecules --format default
+emulsify component create promo-card --directory molecules --type twig
 ```
 
 Built-in platforms are `drupal`, `wordpress`, and `none`. For WordPress child themes, use the WordPress platform and starter:
@@ -72,7 +72,11 @@ update `system.emulsify.json`; `system create` does not import them
 automatically.
 
 Interactive terminals can run `emulsify component create` with no arguments to
-walk through the component name, format, and directory prompts. Likewise,
+walk through the component name, type, and directory prompts. The type picker
+always offers Twig, offers Twig SDC in Drupal projects, and offers React and Web
+Component scaffolds when the project's `package.json` declares
+`@emulsify/core`. When a choice is unavailable, the wizard explains why; when
+Twig is the only suitable choice, it skips the one-item prompt. Likewise,
 `emulsify component install` with no name presents the components available in
 the installed system variant plus an explicit choice to install all components.
 
@@ -87,14 +91,18 @@ emulsify system install compound
 emulsify component install card --force
 # Or install every available component:
 emulsify component install --all
-emulsify component create promo-card --directory molecules --format default --yes
+emulsify component create promo-card --directory molecules --type twig --yes
 emulsify system detach --yes
 ```
 
 For component installation, provide either a component name or `--all`, and use
 `--force` when an existing destination should be replaced. For component
-creation, provide the positional name plus `--format` and `--directory`, and use
-`--yes` when an existing generated component should be replaced.
+creation, provide the positional name plus `--type` and `--directory`, and use
+`--yes` when an existing generated component should be replaced. Explicit
+`--type` values are honored even when project detection would hide that choice
+from the wizard. The deprecated `--format default` and `--format sdc` forms
+remain available as aliases for `--type twig` and `--type twig-sdc`,
+respectively, and print a deprecation warning.
 
 ## Documentation
 

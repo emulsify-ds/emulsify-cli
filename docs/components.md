@@ -115,12 +115,25 @@ emulsify component create
 ```
 
 The CLI prompts for a component name first. Invalid names are explained and
-prompted again, after which the CLI prompts for any missing format and directory
+prompted again, after which the CLI prompts for any missing type and directory
 values.
 
+The type choices adapt to the current project. Twig is always available.
+`twig-sdc` appears only when `project.platform` is `drupal`, because Single
+Directory Components are a Drupal feature. React and Web Component choices
+appear when the project's `package.json` declares `@emulsify/core`, which
+indicates that Core's Storybook workspace is available. The wizard explains why
+it omitted choices, and it skips the type prompt entirely when Twig is the only
+suitable option.
+
+This filtering applies only to the wizard. An explicit `--type` is always
+honored. If React or Web Component is requested without a detected Core
+dependency, the CLI warns and generates the component so monorepos and unusual
+install layouts are not blocked.
+
 ```bash
-emulsify component create promo-card --directory molecules --format default
-emulsify component c teaser --directory molecules --format sdc
+emulsify component create promo-card --directory molecules --type twig
+emulsify component c teaser --directory molecules --type twig-sdc
 ```
 
 Component names may include letters, numbers, and single hyphens between words. The CLI derives reusable name forms from the input.
@@ -139,7 +152,7 @@ The destination is:
 For a Drupal variant structure named `base` with directory `components/00-base`, this command:
 
 ```bash
-emulsify component create featured-item --directory base --format default
+emulsify component create featured-item --directory base --type twig
 ```
 
 Creates:
@@ -148,9 +161,19 @@ Creates:
 components/00-base/featured-item
 ```
 
-## Generated Formats
+## Generated Component Types
 
-Default components generate:
+Choose a type based on how the component should render and, for Drupal SDC,
+how it should be packaged:
+
+| Type            | Use It For                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------- |
+| `twig`          | A standard Twig component that can be used across Emulsify platforms.                                |
+| `twig-sdc`      | A Twig component packaged as a Drupal Single Directory Component.                                    |
+| `react`         | A React component rendered with Storybook's standard React support.                                  |
+| `web-component` | A browser-native custom element whose story uses Emulsify Core's `renderWebComponent` Storybook API. |
+
+Twig components generate:
 
 ```text
 <filename>.twig
@@ -159,7 +182,7 @@ Default components generate:
 <filename>.stories.js
 ```
 
-SDC components generate:
+Twig SDC components generate:
 
 ```text
 <filename>.twig
@@ -169,34 +192,72 @@ SDC components generate:
 <filename>.stories.js
 ```
 
+React components generate:
+
+```text
+<filename>.jsx
+<filename>.scss
+<filename>.stories.jsx
+```
+
+Web Components generate:
+
+```text
+<filename>.js
+<filename>.scss
+<filename>.stories.js
+```
+
+React and Web Component scaffolds do not generate Twig files.
+
+### Web Component Tag Names
+
+Custom element tag names must contain a hyphen. For a component whose derived
+filename already contains one, that filename becomes the tag name. For example,
+`featured-item` generates `<featured-item>`.
+
+For a single-word component, the CLI prefixes the filename with the project's
+machine name. In a project whose machine name is `acme-theme`, `card` generates
+`<acme-theme-card>`. The interactive wizard confirms the derived tag name and
+lets you override it. In non-interactive mode, the CLI derives the value
+silently and validates it before writing files; an invalid tag fails with an
+actionable error rather than generating a custom element the browser would
+reject.
+
 ## Create Dry Runs
 
 Use `--dry-run` to preview component creation without writing files.
 
 ```bash
-emulsify component create featured-item --directory base --format default --dry-run
-emulsify component create featured-item --directory base --format sdc --dry-run
+emulsify component create featured-item --directory base --type twig --dry-run
+emulsify component create featured-item --directory base --type twig-sdc --dry-run
 ```
 
-Dry-run output includes the selected format, structure path, parent directory, final destination, whether the destination exists, and generated file paths.
+Dry-run output includes the selected type, structure path, parent directory,
+final destination, whether the destination exists, and generated file paths.
 
 ## Non-Interactive Creation
 
 Prompts only run when standard input is a TTY. In CI, scripts, and commands with
 piped or redirected input, provide the positional component name plus both
-`--format` and `--directory`; otherwise the command exits with an actionable
+`--type` and `--directory`; otherwise the command exits with an actionable
 error instead of waiting for input:
 
 ```bash
-emulsify component create featured-item --directory base --format default
+emulsify component create featured-item --directory base --type twig
 ```
+
+For compatibility with existing scripts, deprecated `--format default` maps to
+`--type twig` and `--format sdc` maps to `--type twig-sdc`. Both legacy forms
+print a deprecation warning.
 
 Use `--yes` when the command should replace an existing generated component without asking:
 
 ```bash
-emulsify component create featured-item --directory base --format default --yes
+emulsify component create featured-item --directory base --type twig --yes
 ```
 
 ## Template Overrides
 
-Projects can override the generated files with `.cli/templates/<format>/...` files. See [Component Template Overrides](./component-template-overrides.md).
+Projects can override the generated files with `.cli/templates/<type>/...`
+files. See [Component Template Overrides](./component-template-overrides.md).

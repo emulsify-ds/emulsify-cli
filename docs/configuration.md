@@ -134,7 +134,7 @@ The destination is:
 For `component create`, the `--directory` option takes the structure implementation name, not the filesystem path:
 
 ```bash
-emulsify component create promo --directory base --format default
+emulsify component create promo --directory base --type twig
 ```
 
 ## Validation
