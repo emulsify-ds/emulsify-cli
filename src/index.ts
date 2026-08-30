@@ -11,6 +11,7 @@ import audit from './handlers/audit.js';
 import cacheClear from './handlers/cacheClear.js';
 import CliError from './lib/CliError.js';
 import log from './lib/log.js';
+import { isExitPromptError } from './util/prompt/index.js';
 import { createRequire } from 'module';
 import { cyan, green } from 'colorette';
 import boxen from 'boxen';
@@ -277,9 +278,14 @@ if (rootHelpRequested) {
 try {
   await program.parseAsync(process.argv);
 } catch (err) {
+  // Ctrl-C is an expected prompt cancellation, not a command failure.
+  if (isExitPromptError(err)) {
+    log('info', 'Cancelled.');
+    process.exitCode = 130;
+  }
   // Expected CliError failures map their message and exitCode to the process;
   // unexpected failures still produce a message and a default non-zero exit.
-  if (err instanceof CliError) {
+  else if (err instanceof CliError) {
     log('error', err.message);
     process.exitCode = err.exitCode;
   } else {

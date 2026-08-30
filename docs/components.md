@@ -32,6 +32,15 @@ emulsify component i card
 
 The command installs the named component from the cached system into the project-relative directory defined by the selected variant structure.
 
+In an interactive terminal, you can omit the name:
+
+```bash
+emulsify component install
+```
+
+The CLI presents the components actually available in the installed system
+variant, along with an explicit choice to install all available components.
+
 If the component declares dependencies, those dependencies are installed too.
 
 ```json
@@ -64,6 +73,19 @@ Use `--all` to install every component from the selected variant. This mode forc
 emulsify component install --all
 ```
 
+## Non-Interactive Installation
+
+Prompts only run when standard input is a TTY. In CI, scripts, and commands with
+piped or redirected input, provide either a component name or `--all`; otherwise
+the command exits with an actionable error instead of waiting for input.
+
+If a named component destination already exists, the non-interactive command
+exits unless `--force` is passed to replace it without an overwrite prompt:
+
+```bash
+emulsify component install card --force
+```
+
 ## Dry Runs
 
 Use `--dry-run` to preview component installation without copying, removing, or overwriting files.
@@ -85,6 +107,16 @@ Dry-run output includes:
 ## Create A Local Component
 
 `component create` generates a new component from built-in templates or project-level template overrides.
+
+In an interactive terminal, run it without a name to start the complete wizard:
+
+```bash
+emulsify component create
+```
+
+The CLI prompts for a component name first. Invalid names are explained and
+prompted again, after which the CLI prompts for any missing format and directory
+values.
 
 ```bash
 emulsify component create promo-card --directory molecules --format default
@@ -150,7 +182,10 @@ Dry-run output includes the selected format, structure path, parent directory, f
 
 ## Non-Interactive Creation
 
-In interactive terminals, missing `--format` or `--directory` values are prompted. In non-interactive environments, pass both flags:
+Prompts only run when standard input is a TTY. In CI, scripts, and commands with
+piped or redirected input, provide the positional component name plus both
+`--format` and `--directory`; otherwise the command exits with an actionable
+error instead of waiting for input:
 
 ```bash
 emulsify component create featured-item --directory base --format default

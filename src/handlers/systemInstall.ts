@@ -37,6 +37,7 @@ import {
   selectCompatiblePlatformVariant,
   selectExactPlatformVariant,
 } from '../util/platform/platformCompatibility.js';
+import { runPrompt } from '../util/prompt/index.js';
 
 const CREATE_NEW_SYSTEM_CHOICE = 'create a new system';
 const CANCEL_SYSTEM_INSTALL_CHOICE = 'cancel';
@@ -104,14 +105,19 @@ export async function getSystemRepoInfo(
 }
 
 async function promptForSystemInstallChoice(): Promise<string | void> {
-  const availableSystems = await getAvailableSystems();
-  const selectedSystem = await select({
-    message: 'Choose a component system:',
-    choices: [
-      ...availableSystems.map(({ name }) => name),
-      CREATE_NEW_SYSTEM_CHOICE,
-      CANCEL_SYSTEM_INSTALL_CHOICE,
-    ],
+  const selectedSystem = await runPrompt({
+    prompt: async () => {
+      const availableSystems = await getAvailableSystems();
+      return select({
+        message: 'Choose a component system:',
+        choices: [
+          ...availableSystems.map(({ name }) => name),
+          CREATE_NEW_SYSTEM_CHOICE,
+          CANCEL_SYSTEM_INSTALL_CHOICE,
+        ],
+      });
+    },
+    nonInteractive: { error: SYSTEM_INSTALL_ERROR },
   });
 
   if (selectedSystem === CANCEL_SYSTEM_INSTALL_CHOICE) {
@@ -140,10 +146,15 @@ async function promptForVariantChoice<T extends { platform: string }>(
   variants: T[],
   projectPlatform: Platform,
   systemName: string,
+  nonInteractiveError: string,
 ): Promise<T> {
-  const selectedPlatform = await select({
-    message: `Choose a ${systemName} variant for project platform "${projectPlatform}":`,
-    choices: variants.map(({ platform }) => platform),
+  const selectedPlatform = await runPrompt({
+    prompt: () =>
+      select({
+        message: `Choose a ${systemName} variant for project platform "${projectPlatform}":`,
+        choices: variants.map(({ platform }) => platform),
+      }),
+    nonInteractive: { error: nonInteractiveError },
   });
   return variants.find(({ platform }) => platform === selectedPlatform) as T;
 }
@@ -162,11 +173,16 @@ async function resolveSystemVariant(
       return selection.variant;
     }
 
-    if (selection.status === 'ambiguous' && process.stdin.isTTY === true) {
+    if (selection.status === 'ambiguous') {
       return await promptForVariantChoice(
         selection.variants,
         projectPlatform,
         systemConf.name,
+        getVariantSelectionErrorMessage(
+          systemConf,
+          projectPlatform,
+          requestedVariant,
+        ),
       );
     }
 
@@ -188,18 +204,13 @@ async function resolveSystemVariant(
   }
 
   if (selection.status === 'ambiguous') {
-    if (process.stdin.isTTY === true) {
-      return await promptForVariantChoice(
-        selection.variants,
-        projectPlatform,
-        systemConf.name,
-      );
-    }
-
     const compatibleVariants = selection.variants
       .map(({ platform }) => platform)
       .join(', ');
-    throw new CliError(
+    return await promptForVariantChoice(
+      selection.variants,
+      projectPlatform,
+      systemConf.name,
       `Multiple compatible variants were found for project platform "${projectPlatform}" within the system (${systemConf.name}): ${compatibleVariants}. Run this command in an interactive terminal or specify a variant.`,
     );
   }
@@ -304,12 +315,7 @@ export default async function systemInstall(
   // Attempt to load system information, and exit with a log message
   // if a valid system was not found.
   let selectedName = name;
-  if (
-    !selectedName &&
-    !options.repository &&
-    !options.checkout &&
-    process.stdin.isTTY === true
-  ) {
+  if (!selectedName && !options.repository && !options.checkout) {
     selectedName = await promptForSystemInstallChoice();
     if (!selectedName) {
       return;

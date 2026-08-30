@@ -179,6 +179,10 @@ emulsify component install [name]
 emulsify component i [name]
 ```
 
+In an interactive terminal, omit `[name]` and `--all` to choose from the
+components actually available in the installed system variant. The picker also
+includes an explicit choice to install all available components.
+
 Options:
 
 | Option        | Description                                                                                         |
@@ -198,12 +202,22 @@ emulsify component i accordion --force
 emulsify component install --all
 ```
 
+When standard input is not a TTY, provide either `[name]` or `--all`; the CLI
+exits with an actionable error instead of opening the picker. If a named
+component destination already exists, the command also exits unless `--force`
+is passed to replace it without an overwrite prompt.
+
 ## `component create`
 
 ```bash
 emulsify component create [name]
 emulsify component c [name]
 ```
+
+Run without `[name]` in an interactive terminal to start the complete creation
+wizard. The CLI prompts for the component name first, explains invalid names and
+prompts again, then asks for any missing format and directory values. Supplying
+any of those values on the command line skips its corresponding prompt.
 
 Options:
 
@@ -224,4 +238,8 @@ emulsify component create promo-card --directory molecules --format default --dr
 emulsify component c teaser --directory molecules --format sdc --yes
 ```
 
-In a non-interactive environment, pass both `--directory` and `--format`; otherwise the command errors instead of waiting for prompts that cannot be answered.
+When standard input is not a TTY, provide the positional `[name]` plus both
+`--directory` and `--format`; otherwise the command exits with an actionable
+error instead of waiting for prompts that cannot be answered. If the generated
+component already exists, also pass `--yes` to replace it without an overwrite
+prompt.

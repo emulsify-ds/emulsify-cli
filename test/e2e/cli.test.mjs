@@ -256,6 +256,28 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     );
   });
 
+  test('fails fast when component create has no name outside a TTY', () => {
+    const result = runCli(tempRoot, ['component', 'create']);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(
+      result.stderr,
+      /Please specify a name for the new component\./,
+    );
+  });
+
+  test('fails fast when component install has no target outside a TTY', () => {
+    const result = runCli(tempRoot, ['component', 'install']);
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, '');
+    assert.match(
+      result.stderr,
+      /Please specify a component to install, or pass --all to install all available components\./,
+    );
+  });
+
   test('initializes a WordPress project with starter hook metadata', () => {
     const result = runCli(tempRoot, [
       'init',

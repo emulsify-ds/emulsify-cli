@@ -45,13 +45,28 @@ emulsify init "My Theme" ./wp-content/themes --platform wordpress
 
 When WordPress is auto-detected, Emulsify initializes child themes into the detected themes directory, such as `wp-content/themes/my-theme` or `web/app/themes/my-theme` for Bedrock.
 
-For non-interactive environments, pass the flags that normally prompt for input:
+Interactive terminals can run `emulsify component create` with no arguments to
+walk through the component name, format, and directory prompts. Likewise,
+`emulsify component install` with no name presents the components available in
+the installed system variant plus an explicit choice to install all components.
+
+Prompts only run when standard input is a TTY. In CI, scripts, and commands with
+piped or redirected input, provide every required positional argument and flag;
+the CLI exits with an actionable error instead of waiting for input:
 
 ```bash
 emulsify init "My Theme" ./web/themes/custom --platform drupal --yes
 emulsify system install compound
+emulsify component install card --force
+# Or install every available component:
+emulsify component install --all
 emulsify component create promo-card --directory molecules --format default --yes
 ```
+
+For component installation, provide either a component name or `--all`, and use
+`--force` when an existing destination should be replaced. For component
+creation, provide the positional name plus `--format` and `--directory`, and use
+`--yes` when an existing generated component should be replaced.
 
 ## Documentation
 

@@ -12,7 +12,7 @@ jest.mock('@inquirer/prompts');
 
 import { pathExists } from 'fs-extra';
 import { join, resolve } from 'path';
-import { confirm } from '@inquirer/prompts';
+import { confirm, select } from '@inquirer/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
@@ -36,6 +36,15 @@ const copyItemFromCacheMock = copyItemFromCache as jest.Mock;
 const findFileInCurrentPathMock = findFileInCurrentPath as jest.Mock;
 const pathExistsMock = pathExists as jest.Mock;
 const confirmMock = confirm as jest.Mock;
+const selectMock = select as jest.Mock;
+const originalStdinIsTTY = process.stdin.isTTY;
+
+function setStdinIsTTY(value: boolean | undefined) {
+  Object.defineProperty(process.stdin, 'isTTY', {
+    value,
+    configurable: true,
+  });
+}
 
 const projectRoot = resolve('/project');
 const projectConfigPath = join(projectRoot, 'project.emulsify.json');
@@ -102,6 +111,7 @@ const system = {
 describe('componentInstall', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setStdinIsTTY(true);
     // The handler clones systems through a higher-order cache helper.
     cloneIntoCacheMock.mockReturnValue(cloneSystemMock);
     cloneSystemMock.mockResolvedValue(undefined);
@@ -111,6 +121,11 @@ describe('componentInstall', () => {
     findFileInCurrentPathMock.mockReturnValue(projectConfigPath);
     pathExistsMock.mockResolvedValue(false);
     confirmMock.mockResolvedValue(false);
+    selectMock.mockResolvedValue('card');
+  });
+
+  afterAll(() => {
+    setStdinIsTTY(originalStdinIsTTY);
   });
 
   it('throws when no Emulsify project is detected', async () => {
@@ -228,14 +243,82 @@ describe('componentInstall', () => {
     );
   });
 
-  it('throws a CliError when neither a component name nor all option is provided', async () => {
-    await expect(componentInstall('', {})).rejects.toThrow(CliError);
-    await expect(componentInstall('', {})).rejects.toThrow(
+  it('throws a CliError before loading the system when neither a component name nor all option is provided non-interactively', async () => {
+    setStdinIsTTY(false);
+
+    await expect(componentInstall('', { refresh: true })).rejects.toThrow(
+      CliError,
+    );
+    await expect(componentInstall('', { refresh: true })).rejects.toThrow(
       'Please specify a component to install, or pass --all to install all available components.',
     );
 
+    expect(selectMock).not.toHaveBeenCalled();
     expect(logMock).not.toHaveBeenCalled();
     expect(getEmulsifyConfigMock).not.toHaveBeenCalled();
+    expect(cloneIntoCacheMock).not.toHaveBeenCalled();
+  });
+
+  it('prompts with components from the installed variant and installs the selection', async () => {
+    selectMock.mockResolvedValueOnce('button');
+
+    await componentInstall(undefined, { force: true });
+
+    expect(selectMock).toHaveBeenCalledWith({
+      message: 'Choose a component to install:',
+      choices: [
+        {
+          name: 'button',
+          value: 'button',
+          description: undefined,
+        },
+        {
+          name: 'icon',
+          value: 'icon',
+          description: undefined,
+        },
+        {
+          name: 'card',
+          value: 'card',
+          description: undefined,
+        },
+        {
+          name: 'Install all available components',
+          value: expect.any(Symbol),
+        },
+      ],
+    });
+    expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
+      1,
+      'systems',
+      ['compound', 'components/00-base', 'button'],
+      componentPath('button'),
+      true,
+    );
+    expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
+      2,
+      'systems',
+      ['compound', 'components/00-base', 'icon'],
+      componentPath('icon'),
+      true,
+    );
+  });
+
+  it('installs all components when the interactive all choice is selected', async () => {
+    selectMock.mockImplementationOnce(async ({ choices }) => {
+      return choices.at(-1).value;
+    });
+
+    await componentInstall(undefined, {});
+
+    expect(copyItemFromCacheMock).toHaveBeenCalledTimes(3);
+    expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
+      3,
+      'systems',
+      ['compound', 'components/00-base', 'card'],
+      componentPath('card'),
+      true,
+    );
   });
 
   it('throws when the requested component is not found', async () => {
@@ -247,6 +330,7 @@ describe('componentInstall', () => {
   it('installs all components with force when all option is passed', async () => {
     await componentInstall('', { all: true });
 
+    expect(selectMock).not.toHaveBeenCalled();
     expect(copyItemFromCacheMock).toHaveBeenCalledTimes(3);
     expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
       1,
@@ -437,6 +521,19 @@ describe('componentInstall', () => {
       'Skipping installation of component "button".',
     );
     expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an existing destination without opening an overwrite prompt when stdin is non-interactive', async () => {
+    setStdinIsTTY(false);
+    pathExistsMock.mockResolvedValue(true);
+
+    await expect(componentInstall('card', {})).rejects.toThrow(
+      'The component "card" already exists. Pass --force to replace existing components in non-interactive mode.',
+    );
+
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+    expect(logMock).not.toHaveBeenCalled();
   });
 
   it('reports dependency installation failures and rejects', async () => {

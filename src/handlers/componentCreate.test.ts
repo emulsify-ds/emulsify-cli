@@ -12,7 +12,7 @@ jest.mock('@inquirer/prompts');
 import fs from 'fs';
 import { join, normalize, resolve, sep } from 'path';
 import { pathExists, remove } from 'fs-extra';
-import { select, confirm } from '@inquirer/prompts';
+import { input, select, confirm } from '@inquirer/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
@@ -35,6 +35,7 @@ const cloneSystemMock = jest.fn();
 const findFileInCurrentPathMock = findFileInCurrentPath as jest.Mock;
 const pathExistsMock = pathExists as jest.Mock;
 const removeMock = remove as jest.Mock;
+const inputMock = input as jest.Mock;
 const selectMock = select as jest.Mock;
 const confirmMock = confirm as jest.Mock;
 const mkdirMock = fs.promises.mkdir as jest.Mock;
@@ -122,6 +123,7 @@ describe('componentCreate', () => {
     findFileInCurrentPathMock.mockReturnValue(projectConfigPath);
     pathExistsMock.mockResolvedValue(false);
     removeMock.mockResolvedValue(undefined);
+    inputMock.mockResolvedValue('button');
     selectMock.mockResolvedValue('default');
     confirmMock.mockResolvedValue(false);
     mkdirMock.mockResolvedValue(undefined);
@@ -236,14 +238,44 @@ describe('componentCreate', () => {
     );
   });
 
-  it('throws a CliError when no component name is provided', async () => {
-    await expect(componentCreate('', {})).rejects.toThrow(CliError);
-    await expect(componentCreate('', {})).rejects.toThrow(
+  it('throws a CliError before loading the system when no component name is provided non-interactively', async () => {
+    setStdinIsTTY(false);
+
+    await expect(componentCreate('', { refresh: true })).rejects.toThrow(
+      CliError,
+    );
+    await expect(componentCreate('', { refresh: true })).rejects.toThrow(
       'Please specify a name for the new component.',
     );
 
+    expect(inputMock).not.toHaveBeenCalled();
     expect(logMock).not.toHaveBeenCalled();
     expect(getEmulsifyConfigMock).not.toHaveBeenCalled();
+  });
+
+  it('prompts for a missing component name and validates it before continuing', async () => {
+    inputMock.mockImplementationOnce(async ({ validate }) => {
+      expect(validate('promo card')).toBe(
+        'Component name may only include letters, numbers, and single hyphens between words.',
+      );
+      expect(validate('---')).toBe(
+        'Component name must include at least one letter or number.',
+      );
+      expect(validate('promo-card')).toBe(true);
+      return 'promo-card';
+    });
+    selectMock.mockResolvedValueOnce('default').mockResolvedValueOnce('base');
+
+    await componentCreate(undefined, {});
+
+    expect(inputMock).toHaveBeenCalledWith({
+      message: 'Component name:',
+      validate: expect.any(Function),
+    });
+    expect(writeFileMock).toHaveBeenCalledWith(
+      join(componentPath('promo-card'), 'promo-card.twig'),
+      expect.stringContaining('promo-card.twig'),
+    );
   });
 
   it('prompts for format and directory when no directory is provided', async () => {
@@ -357,5 +389,13 @@ describe('componentCreate', () => {
     ).rejects.toThrow(
       'Unable to create the button component: Unable to find an Emulsify project to create the component into.',
     );
+  });
+
+  it('preserves prompt cancellation for the top-level handler', async () => {
+    const cancellation = new Error('User force closed the prompt');
+    cancellation.name = 'ExitPromptError';
+    selectMock.mockRejectedValueOnce(cancellation);
+
+    await expect(componentCreate('button', {})).rejects.toBe(cancellation);
   });
 });

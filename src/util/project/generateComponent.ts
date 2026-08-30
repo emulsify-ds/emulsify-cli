@@ -12,6 +12,7 @@ import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import safeResolveWithin from '../fs/safeResolveWithin.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
 import deriveComponentNames from '../deriveComponentNames.js';
+import { runPrompt } from '../prompt/index.js';
 import resolveComponentTemplate from './resolveComponentTemplate.js';
 import type { ComponentTemplateVars } from './renderTemplate.js';
 import {
@@ -84,7 +85,6 @@ export default async function generateComponent(
 ): Promise<void> {
   const { filename, className, camelName, snakeName, humanName } =
     deriveComponentNames(componentName);
-  const canPrompt = process.stdin.isTTY === true;
   const providedFormat = options.format
     ? getComponentFormat(options.format)
     : undefined;
@@ -104,31 +104,33 @@ export default async function generateComponent(
   // the command never waits for input it cannot receive.
   const format = providedFormat
     ? providedFormat
-    : canPrompt
-      ? await select({
-          message: cyan('Choose the component format:'),
-          choices: COMPONENT_FORMAT_CHOICES,
-        })
-      : (() => {
-          throw new Error(
+    : await runPrompt({
+        prompt: () =>
+          select({
+            message: cyan('Choose the component format:'),
+            choices: COMPONENT_FORMAT_CHOICES,
+          }),
+        nonInteractive: {
+          error:
             'Component format is required in non-interactive mode. Pass --format default or --format sdc.',
-          );
-        })();
+        },
+      });
 
   // Choose the component's parent structure within the given variant configuration.
   if (!directory) {
-    if (!canPrompt) {
-      throw new Error(
-        'Component directory is required in non-interactive mode. Pass --directory <directory>.',
-      );
-    }
-
-    directory = await select({
-      message: cyan('Choose a directory for the new component:'),
-      choices: variant.structureImplementations.map((structure) => ({
-        name: structure.name,
-        value: structure.name,
-      })),
+    directory = await runPrompt({
+      prompt: () =>
+        select({
+          message: cyan('Choose a directory for the new component:'),
+          choices: variant.structureImplementations.map((structure) => ({
+            name: structure.name,
+            value: structure.name,
+          })),
+        }),
+      nonInteractive: {
+        error:
+          'Component directory is required in non-interactive mode. Pass --directory <directory>.',
+      },
     });
   }
 
@@ -268,16 +270,17 @@ export default async function generateComponent(
   }
 
   if (componentExists) {
-    const shouldReplace =
-      options.yes ||
-      (canPrompt
-        ? await confirm({
-            message: yellow(
-              `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
-            ),
-            default: false,
-          })
-        : false);
+    const shouldReplace = await runPrompt({
+      prompt: () =>
+        confirm({
+          message: yellow(
+            `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
+          ),
+          default: false,
+        }),
+      nonInteractive: { value: false },
+      accept: { when: options.yes === true, value: true },
+    });
 
     if (!shouldReplace) {
       return log('info', `Component creation canceled.`);
