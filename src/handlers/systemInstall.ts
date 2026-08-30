@@ -51,12 +51,24 @@ const SYSTEM_INSTALL_ERROR =
  *
  * @returns GitCloneOptions or void, if no valid system could be found using the input.
  *
- * @throws {CliError} if an explicit repository URL is invalid.
+ * @throws {CliError} if custom repository options are incomplete or invalid.
  */
 export async function getSystemRepoInfo(
   name: string | void,
   { repository, checkout }: InstallSystemHandlerOptions,
 ): Promise<(GitCloneOptions & { name: string }) | void> {
+  if (repository && !checkout) {
+    throw new CliError(
+      'The --repository option requires --checkout when installing a custom system.',
+    );
+  }
+
+  if (checkout && !repository) {
+    throw new CliError(
+      'The --checkout option requires --repository when installing a custom system.',
+    );
+  }
+
   // If a repository and checkout were specified, use that to return system information.
   if (repository && checkout) {
     try {
@@ -292,7 +304,12 @@ export default async function systemInstall(
   // Attempt to load system information, and exit with a log message
   // if a valid system was not found.
   let selectedName = name;
-  if (!selectedName && !options.repository && process.stdin.isTTY === true) {
+  if (
+    !selectedName &&
+    !options.repository &&
+    !options.checkout &&
+    process.stdin.isTTY === true
+  ) {
     selectedName = await promptForSystemInstallChoice();
     if (!selectedName) {
       return;

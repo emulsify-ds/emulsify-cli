@@ -186,6 +186,30 @@ describe('getSystemRepoInfo', () => {
     ).rejects.toThrow('The repository URL must end in .git.');
   });
 
+  it('rejects a repository without a checkout instead of falling back to a named system', async () => {
+    await expect(
+      getSystemRepoInfo('compound', {
+        repository: 'https://github.com/example/custom-system.git',
+      }),
+    ).rejects.toThrow(
+      'The --repository option requires --checkout when installing a custom system.',
+    );
+
+    expect(getAvailableSystemsMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a checkout without a repository instead of falling back to a named system', async () => {
+    await expect(
+      getSystemRepoInfo('compound', {
+        checkout: 'v1.0.0',
+      }),
+    ).rejects.toThrow(
+      'The --checkout option requires --repository when installing a custom system.',
+    );
+
+    expect(getAvailableSystemsMock).not.toHaveBeenCalled();
+  });
+
   it('returns nothing when an explicit repository has no parseable name', async () => {
     await expect(
       getSystemRepoInfo(undefined, {
@@ -415,6 +439,37 @@ describe('systemInstall', () => {
     await systemInstall('compound', {});
 
     expect(selectMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a repository without a checkout before installing a named system', async () => {
+    await expect(
+      systemInstall('compound', {
+        repository: 'https://github.com/example/custom-system.git',
+      }),
+    ).rejects.toThrow(
+      'The --repository option requires --checkout when installing a custom system.',
+    );
+
+    expect(getAvailableSystemsMock).not.toHaveBeenCalled();
+    expect(getRepositoryLatestTagMock).not.toHaveBeenCalled();
+    expect(cloneIntoCacheMock).not.toHaveBeenCalled();
+    expect(cloneSystemMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a checkout without a repository before prompting for a system', async () => {
+    setStdinIsTTY(true);
+
+    await expect(
+      systemInstall(undefined, {
+        checkout: 'v1.0.0',
+      }),
+    ).rejects.toThrow(
+      'The --checkout option requires --repository when installing a custom system.',
+    );
+
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(getAvailableSystemsMock).not.toHaveBeenCalled();
+    expect(cloneIntoCacheMock).not.toHaveBeenCalled();
   });
 
   it('throws a helpful error in non-interactive mode when no system is provided', async () => {
