@@ -1,7 +1,7 @@
 {
   "name": "@emulsify/cli",
   "productName": "Emulsify CLI",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "description": "Build and use component systems in Drupal, WordPress, or standalone front ends.",
   "repository": "git@github.com:emulsify-ds/emulsify-cli.git",
   "author": "Patrick Coffey <patrickcoffey48@gmail.com>",
