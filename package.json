@@ -38,7 +38,6 @@
     "test:unit": "jest --coverage --silent",
     "test:release": "node --test ./scripts/version-develop.test.mjs ./scripts/verify-release-analysis.test.mjs",
     "test:e2e": "node --test ./test/e2e/*.test.mjs",
-    "lint": "npm run test",
     "type": "tsc --noEmit",
     "twatch": "jest --no-coverage --watch --verbose",
     "version:develop": "node ./scripts/version-develop.mjs",
@@ -47,7 +46,7 @@
     "semantic-release": "semantic-release --config ./release.config.cjs",
     "pack:dry-run": "node ./scripts/pack-dry-run.mjs",
     "smoke:pack": "node ./scripts/smoke-pack.mjs",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",

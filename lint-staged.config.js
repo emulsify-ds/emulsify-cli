@@ -1,3 +1,3 @@
 export default {
-  '*.{js,ts}': ['npm run format'],
+  '*.{js,ts}': ['prettier --write'],
 };

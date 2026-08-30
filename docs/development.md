@@ -50,7 +50,6 @@ emulsify --help
 | `npm run husky:commit-msg`   | Validate a commit message with the repository's conventional commitlint rules.                     |
 | `npm run husky:pre-commit`   | Run the repository's lint-staged pre-commit checks.                                                |
 | `npm run husky:pre-push`     | Run the complete test suite before pushing.                                                        |
-| `npm run lint`               | Run the complete test suite through `npm run test`.                                                |
 | `npm run test`               | Run unit and release tests, build the CLI, then run the end-to-end suite.                          |
 | `npm run test:e2e`           | Run the built CLI end to end with Node's test runner.                                              |
 | `npm run test:unit`          | Run the Jest unit suite with coverage.                                                             |
