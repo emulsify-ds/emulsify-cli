@@ -67,6 +67,7 @@ function getRootHelp(): string {
     '    Options:',
     '      -r, --repository <repository>       Install from a custom system repository ending in .git.',
     '      -c, --checkout <commit/branch/tag>  Checkout to use with --repository.',
+    '          --variant <platform-expression> Select an exact variant platform expression.',
     '      -a, --all                           Install every component in the selected variant.',
     '',
     '  component list',
@@ -163,6 +164,10 @@ system
   .option(
     '-c --checkout <commit/branch/tag>',
     'Commit, branch, or tag to check out. Required when --repository is used.',
+  )
+  .option(
+    '--variant <platform-expression>',
+    'Exact system variant platform expression to install.',
   )
   .option(
     '-a --all',

@@ -49,7 +49,7 @@ For a built-in system, the command:
 3. Checks out the latest Git tag when the built-in system reference does not specify a checkout.
 4. Clones the system into the local Emulsify cache.
 5. Reads and validates `system.emulsify.json` from the cached system.
-6. Selects the best compatible variant for `project.platform`.
+6. Selects the best compatible variant for `project.platform`, or the exact expression passed with `--variant`.
 7. Writes `system` and `variant` entries into `project.emulsify.json`.
 8. Installs components marked `required: true`.
 9. Installs variant-level general files and directories.
@@ -74,10 +74,13 @@ Use `--repository` and `--checkout` together.
 ```bash
 emulsify system install \
   --repository https://github.com/example/example-system.git \
-  --checkout v1.0.0
+  --checkout v1.0.0 \
+  --variant wordpress
 ```
 
 Custom system repository URLs must end in `.git`, because the CLI parses the system name from the repository filename.
+
+Omit `--variant` to use automatic platform compatibility selection. Pass it to select an exact variant platform expression; quote shared expressions such as `--variant "drupal || wordpress"`.
 
 Prefer tags or commit hashes for `--checkout` so subsequent installs use the same system version.
 

@@ -32,6 +32,7 @@ emulsify --help
 | `src/types`         | Type modules. Generated schema types are prefixed with `_`.                                                  |
 | `src/util`          | Platform detection, cache utilities, filesystem helpers, component generation, and project config utilities. |
 | `scripts`           | Package verification and release-calculation scripts, plus their regression tests.                           |
+| `test/e2e`          | End-to-end tests that run the built CLI against temporary local Git repositories.                            |
 
 ## Scripts
 
@@ -47,7 +48,8 @@ emulsify --help
 | `npm run watch-ts`           | Recompile TypeScript when files in `src` change.                                                   |
 | `npm run format`             | Run Prettier on source TypeScript and JavaScript files.                                            |
 | `npm run lint`               | Run the complete test suite through `npm run test`.                                                |
-| `npm run test`               | Run Jest coverage and release-automation regression tests.                                         |
+| `npm run test`               | Run unit and release tests, build the CLI, then run the end-to-end suite.                          |
+| `npm run test:e2e`           | Run the built CLI end to end with Node's test runner.                                              |
 | `npm run test:unit`          | Run the Jest unit suite with coverage.                                                             |
 | `npm run test:release`       | Run the release-calculation integration tests with Node's test runner.                             |
 | `npm run type`               | Run TypeScript checking without emitting files.                                                    |
@@ -61,6 +63,25 @@ Run one test file by passing the path after `--`:
 
 ```bash
 npm run test:unit -- src/handlers/componentCreate.test.ts
+```
+
+## End-to-End Tests
+
+The tests in `test/e2e/` use Node's test runner to spawn the real built binary
+at `dist/index.js`. They create local Git repositories and an isolated home and
+cache beneath the operating system's temporary directory, so they do not use
+the network or the developer's Emulsify cache.
+
+These tests must remain outside `src/`. Jest applies `jest.setup.cjs` to every
+test under `src/`, globally mocking `simple-git`, `fs`, `fs-extra`,
+`child_process`, and `progress`; those mocks would prevent a real end-to-end
+run.
+
+Build first, then run one end-to-end file directly:
+
+```bash
+npm run build
+node --test ./test/e2e/cli.test.mjs
 ```
 
 ## Generated Types

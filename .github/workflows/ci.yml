@@ -34,8 +34,12 @@ jobs:
         run: npm run build
       - name: Typecheck
         run: npm run type
-      - name: Test
-        run: npm test
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Release tests
+        run: npm run test:release
+      - name: End-to-end tests
+        run: npm run test:e2e
 
   package:
     name: Package

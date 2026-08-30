@@ -134,6 +134,7 @@ Options:
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `-r, --repository <repository>`      | Install a system from a specific Git repository. Custom repository URLs must end in `.git`.                                                      |
 | `-c, --checkout <commit/branch/tag>` | Checkout to use. This is required when `--repository` is used.                                                                                   |
+| `--variant <platform-expression>`    | Install the variant whose platform expression exactly matches this value. Quote compound expressions at the shell.                               |
 | `-a, --all`                          | Install every component in the selected variant. Without this flag, only components marked `required: true` are installed during system install. |
 
 Examples:
@@ -144,6 +145,7 @@ emulsify system install compound
 emulsify system install emulsify-ui-kit
 emulsify system install compound --all
 emulsify system install --repository https://github.com/example/example-system.git --checkout v1.0.0
+emulsify system install --repository https://github.com/example/example-system.git --checkout v1.0.0 --variant wordpress
 ```
 
 Selecting `create a new system` writes `system.emulsify.json` in the current Emulsify project root. Complete the generated system name, repository, structures, variants, and components before using it to install or generate components.
@@ -155,6 +157,8 @@ System variant compatibility is selected from each variant's `platform` expressi
 - `"platform": "none"` is generic and can be installed by any concrete project platform.
 
 Project configuration uses only concrete `project.platform` values: `drupal`, `wordpress`, or `none`. Only system variants use `||` expressions. A project with `project.platform: "none"` can install any component library system; when multiple variants are equally compatible, the CLI prompts in an interactive terminal or errors in non-interactive mode.
+
+Pass `--variant` to choose an exact variant platform expression instead of automatic compatibility selection. Quote a shared expression at the shell, for example `--variant "drupal || wordpress"`.
 
 ## `component list`
 
