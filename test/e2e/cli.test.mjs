@@ -876,6 +876,25 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(existsSync(join(isolatedHome, '.emulsify', 'cache')), true);
   });
 
+  test('creates a component through the plural command alias', () => {
+    const componentName = 'plural-alias-example';
+    const componentRoot = join(projectRoot, 'components', componentName);
+    const templatePath = join(componentRoot, `${componentName}.twig`);
+    const result = runCli(projectRoot, [
+      'components',
+      'create',
+      componentName,
+      '--type',
+      'twig',
+      '--directory',
+      'components',
+    ]);
+
+    assert.equal(result.status, 0, commandFailure('components create', result));
+    assert.equal(result.stderr, '');
+    assert.equal(existsSync(templatePath), true);
+  });
+
   test('requires an explicit template type outside a TTY without writing files', () => {
     const templatesRoot = join(projectRoot, '.cli', 'templates');
     const before = snapshotFiles(templatesRoot);

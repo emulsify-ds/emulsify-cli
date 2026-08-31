@@ -2,6 +2,7 @@ import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
 
 import { dirname, relative, sep } from 'path';
 import safeResolveWithin from '../fs/safeResolveWithin.js';
+import buildComponentDependencyList from '../project/buildComponentDependencyList.js';
 import { getComponentDestination } from '../project/installComponentFromCache.js';
 
 type SystemComponent = EmulsifyVariant['components'][number];
@@ -28,6 +29,28 @@ function toProjectRelativeDisplayPath(
 
 function uniqueInOrder(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+export function selectSystemComponents(
+  variantConf: EmulsifyVariant,
+  installAll: boolean,
+): SystemComponent[] {
+  if (installAll) {
+    return [...variantConf.components];
+  }
+
+  const requiredComponents = variantConf.components.filter(
+    ({ required }) => required === true,
+  );
+  const selectedNames = uniqueInOrder(
+    requiredComponents.flatMap(({ name }) =>
+      buildComponentDependencyList(variantConf.components, name),
+    ),
+  );
+
+  return selectedNames.map((name) =>
+    variantConf.components.find((component) => component.name === name)!,
+  );
 }
 
 function assertSystemStructure(
@@ -58,9 +81,7 @@ export default function buildSystemInstallPlan(
   const requiredComponents = variantConf.components.filter(
     ({ required }) => required === true,
   );
-  const components = installAll
-    ? [...variantConf.components]
-    : requiredComponents;
+  const components = selectSystemComponents(variantConf, installAll);
 
   const componentParentDestinations = uniqueInOrder(
     components.map((component) => {

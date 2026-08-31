@@ -1075,6 +1075,42 @@ describe('systemInstall', () => {
     );
   });
 
+  it('installs optional dependencies of required components', async () => {
+    const variantWithDependency = {
+      ...variant,
+      components: [
+        {
+          ...variant.components[0],
+          dependency: ['card'],
+        },
+        variant.components[1],
+      ],
+    };
+    const systemWithDependency = {
+      ...system,
+      variants: [variantWithDependency],
+    };
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithDependency);
+
+    await systemInstall('compound', {});
+
+    expect(installComponentFromCacheMock).toHaveBeenCalledTimes(2);
+    expect(installComponentFromCacheMock).toHaveBeenNthCalledWith(
+      1,
+      systemWithDependency,
+      variantWithDependency,
+      'button',
+      true,
+    );
+    expect(installComponentFromCacheMock).toHaveBeenNthCalledWith(
+      2,
+      systemWithDependency,
+      variantWithDependency,
+      'card',
+      true,
+    );
+  });
+
   it('installs all components when the all option is passed', async () => {
     await systemInstall('compound', { all: true });
 

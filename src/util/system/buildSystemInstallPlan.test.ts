@@ -76,6 +76,37 @@ describe('buildSystemInstallPlan', () => {
     expect(plan.components[1]).toBe(icon);
   });
 
+  it('includes optional transitive dependencies of required components once', () => {
+    const requiredButton = {
+      ...button,
+      dependency: ['card', 'icon'],
+    };
+    const dependentCard = {
+      ...card,
+      dependency: ['icon'],
+    };
+    const optionalIcon = {
+      ...icon,
+      required: false,
+    };
+    const variant = buildVariant({
+      components: [requiredButton, dependentCard, optionalIcon],
+    });
+    const plan = buildSystemInstallPlan(
+      buildSystem(variant),
+      variant,
+      false,
+      projectConfigPath,
+    );
+
+    expect(plan.components).toEqual([
+      requiredButton,
+      dependentCard,
+      optionalIcon,
+    ]);
+    expect(plan.requiredComponentCount).toBe(1);
+  });
+
   it('selects all component objects while preserving config order', () => {
     const variant = buildVariant();
     const plan = buildSystemInstallPlan(

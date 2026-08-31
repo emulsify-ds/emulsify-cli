@@ -129,6 +129,7 @@ system
 // Component sub-commands.
 const component = program
   .command('component')
+  .alias('components')
   .description('List, install, create, or customize components');
 component
   .command('list')

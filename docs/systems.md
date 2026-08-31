@@ -97,7 +97,7 @@ For a built-in system, the command:
 4. Clones the system into the local Emulsify cache.
 5. Reads and validates `system.emulsify.json` from the cached system.
 6. Selects the reviewed component set in guided mode, or resolves the best compatible variant for `project.platform` in direct mode. `--variant` selects an exact expression in direct mode.
-7. Selects essential or all components.
+7. Selects essential components and their declared dependencies, or all components.
 8. Presents and confirms the review in guided mode.
 9. Writes `system` and `variant` entries into `project.emulsify.json`.
 10. Installs the selected components and variant-level general files and directories.
@@ -111,7 +111,8 @@ emulsify system install emulsify-ui-kit
 
 An explicit built-in name bypasses the wizard. This is the form to use in a
 script or CI job. It selects the best compatible component set automatically and
-installs only essential components unless flags override those choices.
+installs only essential components and their declared dependencies unless flags
+override those choices.
 
 Use `--all` to install every component in the selected variant during system installation:
 

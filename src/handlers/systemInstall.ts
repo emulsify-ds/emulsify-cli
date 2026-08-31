@@ -41,6 +41,7 @@ import {
 } from '../util/platform/platformCompatibility.js';
 import { runPrompt } from '../util/prompt/index.js';
 import buildSystemInstallPlan, {
+  selectSystemComponents,
   type SystemInstallPlan,
 } from '../util/system/buildSystemInstallPlan.js';
 
@@ -723,9 +724,7 @@ export default async function systemInstall(
     guidedInstall && !options.all
       ? await promptForInstallScope(variantConf, ++wizardStep, wizardTotalSteps)
       : options.all === true;
-  let componentsToInstall = installAll
-    ? variantConf.components
-    : variantConf.components.filter(({ required }) => required === true);
+  let componentsToInstall = selectSystemComponents(variantConf, installAll);
 
   if (guidedInstall) {
     const projectConfigPath = findFileInCurrentPath(

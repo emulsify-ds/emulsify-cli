@@ -26,6 +26,9 @@ The examples below reflect the command definitions in `src/index.ts` and the gen
 | `emulsify component eject-templates [type]` |                               | Write editable built-in component templates into the project.    |
 | `emulsify cache clear`                      |                               | Clear locally cached system repositories.                        |
 
+`emulsify components` is an alias for the canonical `emulsify component`
+command group, and accepts the same component subcommands and options.
+
 ## `init`
 
 ```bash
