@@ -118,6 +118,12 @@ web/app/themes/my-theme
 
 If the target already exists, initialization stops with an error and does not overwrite the directory.
 
+## Failed Initialization And Cleanup
+
+Init atomically creates the target directory before cloning, so it only treats a target created by that command run as owned. If the target already exists or another process creates it during preflight, initialization stops without removing it. If cloning, configuration, dependency installation, the starter hook, or Git metadata cleanup then fails, the error identifies the failed phase and the CLI removes the incomplete target recursively so the same init command can be retried.
+
+If automatic cleanup also fails, the error includes the target path and asks you to remove it manually before retrying. A target that existed before init started is never removed; the preflight occupied-target check stops before cloning begins.
+
 ## Machine Names
 
 If `--machineName` is omitted, the CLI derives one from the project name by removing non-alphanumeric characters, replacing spaces, and lowercasing the result.
@@ -171,6 +177,8 @@ If `--checkout` is omitted, the starter repository default branch is cloned.
 
 After init, the generated `project.emulsify.json` stores a concrete platform value. It never stores compatibility expressions such as `drupal || wordpress` in `project.platform`.
 
+When a starter already contains `project.emulsify.json`, init preserves its project defaults and other top-level configuration. The requested platform, project name, machine name, and starter repository replace the starter's template identity. This lets starter-owned settings such as Drupal Single Directory Component output remain enabled.
+
 For a Drupal init, the file looks like this:
 
 ```json
@@ -178,7 +186,8 @@ For a Drupal init, the file looks like this:
   "project": {
     "platform": "drupal",
     "name": "My Theme",
-    "machineName": "my_theme"
+    "machineName": "my_theme",
+    "singleDirectoryComponents": true
   },
   "starter": {
     "repository": "https://github.com/emulsify-ds/emulsify-drupal-starter"

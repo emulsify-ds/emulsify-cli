@@ -1,5 +1,6 @@
 jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/platform/getPlatformInfo', () => jest.fn());
+jest.mock('../util/fs/loadJsonFile', () => jest.fn());
 jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 jest.mock('../util/fs/executeScript', () => jest.fn());
 jest.mock('../util/project/installDependencies', () => jest.fn());
@@ -13,6 +14,7 @@ import { input, select } from '@inquirer/prompts';
 import ProgressBar from 'progress';
 import installDependencies from '../util/project/installDependencies.js';
 import getPlatformInfo from '../util/platform/getPlatformInfo.js';
+import loadJsonFile from '../util/fs/loadJsonFile.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
 import executeScript from '../util/fs/executeScript.js';
 import {
@@ -37,6 +39,7 @@ const wordpressThemesDirectory = join(root, 'wp-content', 'themes');
 const wordpressTarget = join(wordpressThemesDirectory, 'my-theme');
 
 const existsSyncMock = (fs.existsSync as jest.Mock).mockReturnValue(false);
+const mkdirMock = (fs.promises.mkdir as jest.Mock).mockResolvedValue(undefined);
 const rmMock = (fs.promises.rm as jest.Mock).mockReturnValue(true);
 const gitCloneMock = git().clone as jest.Mock;
 const getPlatformInfoMock = (getPlatformInfo as jest.Mock).mockReturnValue({
@@ -46,7 +49,12 @@ const getPlatformInfoMock = (getPlatformInfo as jest.Mock).mockReturnValue({
   platformMajorVersion: 1,
 });
 const logMock = log as jest.Mock;
+const loadJsonFileMock = (loadJsonFile as jest.Mock).mockResolvedValue(
+  undefined,
+);
 const writeJsonFileMock = writeToJsonFile as jest.Mock;
+const installDependenciesMock = installDependencies as jest.Mock;
+const executeScriptMock = executeScript as jest.Mock;
 const progressMock = {
   tick: jest.fn(),
 };
@@ -70,7 +78,13 @@ describe('init', () => {
   beforeEach(() => {
     logMock.mockClear();
     gitCloneMock.mockClear();
+    existsSyncMock.mockClear();
+    mkdirMock.mockClear();
+    rmMock.mockClear();
+    loadJsonFileMock.mockClear();
     writeJsonFileMock.mockClear();
+    installDependenciesMock.mockClear();
+    executeScriptMock.mockClear();
     progressMock.tick.mockClear();
     inputMock.mockClear();
     selectMock.mockClear();
@@ -117,6 +131,44 @@ describe('init', () => {
         name: 'cornflake',
       },
       starter: {
+        repository: 'https://github.com/emulsify-ds/emulsify-starter',
+      },
+    });
+  });
+
+  it('preserves starter configuration defaults while overriding generated project identity', async () => {
+    const starterConfig = {
+      project: {
+        platform: 'drupal' as const,
+        name: 'Starter Theme',
+        machineName: 'starter_theme',
+        singleDirectoryComponents: true,
+        description: 'Starter-provided description',
+      },
+      starter: {
+        repository: 'https://github.com/example/original-starter.git',
+      },
+      assets: {
+        roots: ['./static'],
+        rebase: true,
+        selfContainedOutput: true,
+      },
+    };
+    loadJsonFileMock.mockResolvedValueOnce(starterConfig);
+
+    await init(progress)('cornflake');
+
+    expect(loadJsonFileMock).toHaveBeenCalledWith(defaultConfigPath);
+    expect(writeJsonFileMock).toHaveBeenCalledWith(defaultConfigPath, {
+      ...starterConfig,
+      project: {
+        ...starterConfig.project,
+        platform: 'none',
+        name: 'cornflake',
+        machineName: 'cornflake',
+      },
+      starter: {
+        ...starterConfig.starter,
         repository: 'https://github.com/emulsify-ds/emulsify-starter',
       },
     });
@@ -398,13 +450,116 @@ describe('init', () => {
     );
   });
 
-  it('throws a helpful error if the given Emulsify starter is not clone-able', async () => {
-    gitCloneMock.mockImplementationOnce(() => {
-      throw new Error('Does not exist!');
-    });
+  it('reports the clone phase and removes a partial target when cloning fails', async () => {
+    gitCloneMock.mockRejectedValueOnce(new Error('Does not exist!'));
+
     await expect(init(progress)('cornflake')).rejects.toThrow(
-      'Unable to pull down https://github.com/emulsify-ds/emulsify-starter: Error: Does not exist!',
+      `Unable to initialize project while cloning the starter: Error: Does not exist!. Removed the incomplete target "${defaultTarget}".`,
     );
+    expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('reports the configuration-read phase and rolls back invalid starter configuration', async () => {
+    loadJsonFileMock.mockRejectedValueOnce(
+      new Error('Invalid JSON in project.emulsify.json'),
+    );
+
+    await expect(init(progress)('cornflake')).rejects.toThrow(
+      `Unable to initialize project while reading the starter project configuration: Error: Invalid JSON in project.emulsify.json. Removed the incomplete target "${defaultTarget}".`,
+    );
+    expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('reports the configuration-write phase and removes the incomplete target', async () => {
+    writeJsonFileMock.mockRejectedValueOnce(new Error('config write failed'));
+
+    await expect(init(progress)('cornflake')).rejects.toThrow(
+      `Unable to initialize project while writing the project configuration: Error: config write failed. Removed the incomplete target "${defaultTarget}".`,
+    );
+    expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('reports the dependency phase and removes the incomplete target', async () => {
+    installDependenciesMock.mockRejectedValueOnce(
+      new Error('npm install failed'),
+    );
+
+    await expect(init(progress)('cornflake')).rejects.toThrow(
+      `Unable to initialize project while installing dependencies: Error: npm install failed. Removed the incomplete target "${defaultTarget}".`,
+    );
+    expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('reports the hook phase and removes the incomplete target', async () => {
+    existsSyncMock.mockReturnValueOnce(false).mockReturnValueOnce(true);
+    executeScriptMock.mockRejectedValueOnce(new Error('hook failed'));
+
+    await expect(init(progress)('cornflake')).rejects.toThrow(
+      `Unable to initialize project while executing the starter init hook: Error: hook failed. Removed the incomplete target "${defaultTarget}".`,
+    );
+    expect(executeScriptMock).toHaveBeenCalledWith(defaultInitHookPath);
+    expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('provides manual cleanup guidance when rollback fails', async () => {
+    installDependenciesMock.mockRejectedValueOnce(
+      new Error('npm install failed'),
+    );
+    rmMock.mockRejectedValueOnce(new Error('EACCES'));
+
+    await expect(init(progress)('cornflake')).rejects.toThrow(
+      `Unable to initialize project while installing dependencies: Error: npm install failed. Automatic cleanup of the incomplete target "${defaultTarget}" also failed: Error: EACCES. Remove it manually before retrying.`,
+    );
+    expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('rolls back the target when removing starter Git metadata fails', async () => {
+    rmMock.mockRejectedValueOnce(new Error('Git metadata is locked'));
+
+    await expect(init(progress)('cornflake')).rejects.toThrow(
+      `Unable to initialize project while removing the starter Git metadata: Error: Git metadata is locked. Removed the incomplete target "${defaultTarget}".`,
+    );
+    expect(rmMock).toHaveBeenNthCalledWith(1, defaultGitPath, {
+      recursive: true,
+    });
+    expect(rmMock).toHaveBeenNthCalledWith(2, defaultTarget, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('does not roll back a completed project when success logging fails', async () => {
+    logMock.mockImplementationOnce(() => {
+      throw new Error('terminal output failed');
+    });
+
+    await expect(init(progress)('cornflake')).rejects.toThrow(
+      'terminal output failed',
+    );
+    expect(rmMock).toHaveBeenCalledTimes(1);
+    expect(rmMock).toHaveBeenCalledWith(defaultGitPath, { recursive: true });
+    expect(rmMock).not.toHaveBeenCalledWith(defaultTarget, {
+      recursive: true,
+      force: true,
+    });
   });
 
   it('throws if no target is found or specified', async () => {
@@ -428,11 +583,38 @@ describe('init', () => {
   });
 
   it('throws if the target directory already exists', async () => {
-    expect.assertions(1);
+    expect.assertions(4);
     existsSyncMock.mockReturnValueOnce(true);
     await expect(init(progress)('cornflake')).rejects.toThrow(
       `The intended target is already occupied: ${defaultTarget}`,
     );
+    expect(mkdirMock).not.toHaveBeenCalled();
+    expect(gitCloneMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalled();
+  });
+
+  it('does not remove a target created by another process after preflight', async () => {
+    mkdirMock.mockRejectedValueOnce(
+      Object.assign(new Error('already exists'), { code: 'EEXIST' }),
+    );
+
+    await expect(init(progress)('cornflake')).rejects.toThrow(
+      `The intended target is already occupied: ${defaultTarget}`,
+    );
+    expect(gitCloneMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalled();
+  });
+
+  it('does not remove an unowned target when reserving it fails', async () => {
+    mkdirMock.mockRejectedValueOnce(
+      Object.assign(new Error('permission denied'), { code: 'EACCES' }),
+    );
+
+    await expect(init(progress)('cornflake')).rejects.toThrow(
+      `Unable to initialize project while creating the target directory "${defaultTarget}": Error: permission denied`,
+    );
+    expect(gitCloneMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalled();
   });
 
   it('should prompt for all info if name is missing', async () => {

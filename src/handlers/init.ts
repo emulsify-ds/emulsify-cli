@@ -16,6 +16,7 @@ import {
 } from '../lib/constants.js';
 import getPlatformInfo from '../util/platform/getPlatformInfo.js';
 import getAvailableStarters from '../util/getAvailableStarters.js';
+import loadJsonFile from '../util/fs/loadJsonFile.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
 import strToMachineName from '../util/strToMachineName.js';
 import installDependencies from '../util/project/installDependencies.js';
@@ -36,6 +37,43 @@ const PLATFORM_CHOICES = [
   'wordpress',
   'none',
 ] as const satisfies readonly Platform[];
+
+type InitializationPhase =
+  | 'cloning the starter'
+  | 'reading the starter project configuration'
+  | 'writing the project configuration'
+  | 'installing dependencies'
+  | 'executing the starter init hook'
+  | 'removing the starter Git metadata';
+
+function isAlreadyExistsError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === 'EEXIST'
+  );
+}
+
+async function rollbackFailedInitialization(
+  target: string,
+  phase: InitializationPhase,
+  error: unknown,
+): Promise<CliError> {
+  const failure = `Unable to initialize project while ${phase}: ${String(error)}`;
+
+  try {
+    await fs.rm(target, { recursive: true, force: true });
+
+    return new CliError(
+      `${failure}. Removed the incomplete target "${target}".`,
+    );
+  } catch (cleanupError) {
+    return new CliError(
+      `${failure}. Automatic cleanup of the incomplete target "${target}" also failed: ${String(cleanupError)}. Remove it manually before retrying.`,
+    );
+  }
+}
 
 /**
  * Handler for the initialization command.
@@ -174,6 +212,25 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       throw new CliError(`The intended target is already occupied: ${target}`);
     }
 
+    // Reserve the target atomically before cloning so rollback only ever
+    // removes a directory created by this command run. Git can clone into an
+    // existing empty directory.
+    try {
+      await fs.mkdir(target);
+    } catch (error) {
+      if (isAlreadyExistsError(error)) {
+        throw new CliError(
+          `The intended target is already occupied: ${target}`,
+        );
+      }
+
+      throw new CliError(
+        `Unable to initialize project while creating the target directory "${target}": ${String(error)}`,
+      );
+    }
+
+    let phase: InitializationPhase = 'cloning the starter';
+
     try {
       progress.tick(10, { message: 'validation complete, cloning starter' });
 
@@ -189,18 +246,27 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
           : {},
       );
 
-      // Construct an Emulsify configuration object.
-      await writeToJsonFile<EmulsifyProjectConfiguration>(
-        join(target, EMULSIFY_PROJECT_CONFIG_FILE),
-        {
-          project: {
-            platform: platformName,
-            name: projectName,
-            machineName,
-          },
-          starter: { repository },
+      // Preserve starter-provided settings while replacing the values that
+      // describe this concrete generated project.
+      phase = 'reading the starter project configuration';
+      const configPath = join(target, EMULSIFY_PROJECT_CONFIG_FILE);
+      const starterConfig =
+        await loadJsonFile<Partial<EmulsifyProjectConfiguration>>(configPath);
+
+      phase = 'writing the project configuration';
+      await writeToJsonFile<EmulsifyProjectConfiguration>(configPath, {
+        ...starterConfig,
+        project: {
+          ...starterConfig?.project,
+          platform: platformName,
+          name: projectName,
+          machineName,
         },
-      );
+        starter: {
+          ...starterConfig?.starter,
+          repository,
+        },
+      });
 
       progress.tick(30, {
         message:
@@ -208,6 +274,7 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       });
 
       // Install project dependencies.
+      phase = 'installing dependencies';
       await installDependencies(target);
 
       progress.tick(40, {
@@ -221,25 +288,30 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
         EMULSIFY_PROJECT_HOOK_INIT,
       );
       if (existsSync(initPath)) {
+        phase = 'executing the starter init hook';
         await executeScript(initPath);
       }
 
       // Remove the .git directory, as this is a starter kit. This step
       // should happen after dependencies are installed, and init scripts are
       // executed, otherwise git-reliant dev deps in the starter may error out.
+      phase = 'removing the starter Git metadata';
       await fs.rm(join(target, '.git'), { recursive: true });
-
-      progress.tick(10, {
-        message: 'init script executed, initialization complete',
-      });
-
-      log('success', `Created an Emulsify project in ${target}.`);
-      getInitSuccessMessageForPlatform(platformName, target, {
-        includeDrupalInstallReminder:
-          isDetectedDrupalProject && platformName === 'drupal',
-      }).map(({ method, message }) => log(method, message));
     } catch (e) {
-      throw new CliError(`Unable to pull down ${repository}: ${String(e)}`);
+      throw await rollbackFailedInitialization(target, phase, e);
     }
+
+    // The filesystem transaction is complete. Keep display-only work outside
+    // the rollback boundary so a terminal/logging failure cannot delete a
+    // successfully initialized project.
+    progress.tick(10, {
+      message: 'init script executed, initialization complete',
+    });
+
+    log('success', `Created an Emulsify project in ${target}.`);
+    getInitSuccessMessageForPlatform(platformName, target, {
+      includeDrupalInstallReminder:
+        isDetectedDrupalProject && platformName === 'drupal',
+    }).map(({ method, message }) => log(method, message));
   };
 }
