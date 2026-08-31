@@ -307,7 +307,7 @@ describe('cloneIntoCache', () => {
     expect(rmMock).not.toHaveBeenCalled();
   });
 
-  it('bounds remote lookups and disables terminal prompts', async () => {
+  it('bounds remote lookups and disables Git and SSH prompts', async () => {
     existsSyncMock.mockReturnValueOnce(true);
     readFileMock.mockResolvedValueOnce(metadata());
     listRemoteMock.mockResolvedValueOnce(
@@ -325,9 +325,11 @@ describe('cloneIntoCache', () => {
         stdErr: false,
       },
     });
-    expect(envMock).toHaveBeenCalledWith(
-      expect.objectContaining({ GIT_TERMINAL_PROMPT: '0' }),
-    );
+    expect(envMock).toHaveBeenCalledWith({
+      ...process.env,
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -oBatchMode=yes',
+    });
   });
 
   it('reuses a valid default-branch entry when remote HEAD matches', async () => {

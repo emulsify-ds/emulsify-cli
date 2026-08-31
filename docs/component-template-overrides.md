@@ -1,128 +1,156 @@
 # Component Template Overrides
 
-`emulsify component create` uses built-in templates by default. A project can replace any generated artifact with a matching override file under `.cli/templates/`.
+Run `emulsify component eject-templates` from an Emulsify project to see and
+edit the exact templates used by `component create`:
 
-Overrides replace known generated files one-for-one. They do not add arbitrary extra files and they do not change which artifacts are generated.
-
-## Directory Layout
-
-Default component overrides:
-
-```text
-.cli/templates/default/component.twig
-.cli/templates/default/component.scss
-.cli/templates/default/component.yml
-.cli/templates/default/component.stories.js
+```bash
+emulsify component eject-templates
 ```
 
-SDC component overrides:
+In an interactive terminal, the command lets you select one or more component
+types. To eject one type directly, including from a script or CI job, provide
+its canonical type. Use `--all` when all four types are wanted:
 
-```text
-.cli/templates/sdc/component.twig
-.cli/templates/sdc/component.scss
-.cli/templates/sdc/component.component.yml
-.cli/templates/sdc/component.js
-.cli/templates/sdc/component.stories.js
+```bash
+emulsify component eject-templates twig
+emulsify component eject-templates twig-sdc
+emulsify component eject-templates react
+emulsify component eject-templates web-component
+emulsify component eject-templates --all
 ```
 
-For each generated artifact, the CLI looks for the matching override first. If the file is missing, the built-in template is used.
+The command writes the selected defaults beneath
+`.cli/templates/<type>/` and reports each real destination path. It adds no
+generated header or other content, so rendering a freshly ejected template is
+byte-for-byte identical to using the corresponding built-in template.
+
+## Protecting Existing Overrides
+
+Before writing, the CLI checks the complete selected set. If any target already
+exists, it lists every conflict and writes nothing. This protects customized
+templates from partial replacement.
+
+Use `--force` only when all conflicting files in the selected set may be
+replaced:
+
+```bash
+emulsify component eject-templates twig --force
+```
+
+Use `--dry-run` to inspect the destinations and conflicts without creating or
+changing files:
+
+```bash
+emulsify component eject-templates react --dry-run
+```
+
+When standard input is not a TTY, `[type]` or `--all` is required. The CLI exits
+with an actionable error instead of opening a prompt. Do not combine them.
+
+## How Overrides Are Resolved
+
+Overrides replace known generated artifacts one-for-one. They do not add
+arbitrary files or change the artifact set generated for a component type.
+
+The canonical directory names match the `--type` values: `twig`, `twig-sdc`,
+`react`, and `web-component`. `eject-templates` always writes to these canonical
+directories.
+
+Existing Twig directory aliases continue to work. For each Twig artifact, the
+CLI checks `.cli/templates/twig/` first and then `.cli/templates/default/`. For
+each Twig SDC artifact, it checks `.cli/templates/twig-sdc/` and then
+`.cli/templates/sdc/`. Alias fallback is resolved one artifact at a time, so a
+partial canonical override does not hide legacy overrides for other artifacts.
+React and Web Component overrides have no legacy aliases.
+
+Canonical directories use the collision-free token syntax documented below.
+The `default/` and `sdc/` aliases retain the v2.3 double-brace token syntax for
+backward compatibility. Move an older override into its canonical directory
+and update its tokens when convenient; this prevents CLI placeholders from
+overlapping with ordinary Twig variables.
+
+When no override is available, `component create` uses its built-in template.
+An override file that exists but is empty is ignored in favor of the built-in
+and produces a warning. Deleting an override restores this normal fallback
+sequence: a legacy alias where applicable, then the built-in.
+
+Ejecting a type creates its complete current template set. If only one artifact
+needs customization, delete the other ejected files so those artifacts continue
+to inherit built-in changes from future CLI releases.
 
 ## Supported Tokens
 
-Override files can use double-brace tokens.
+Canonical override files use namespaced placeholders. Their delimiter is
+intentionally different from Twig's `{{ variable }}` syntax, so ordinary Twig
+variables are never rewritten by the CLI.
 
-| Token             | Example Value For `featured-item` |
-| ----------------- | --------------------------------- |
-| `{{ filename }}`  | `featured-item`                   |
-| `{{ className }}` | `featured-item`                   |
-| `{{ camelName }}` | `featuredItem`                    |
-| `{{ snakeName }}` | `featured_item`                   |
-| `{{ humanName }}` | `Featured Item`                   |
-| `{{ directory }}` | `base`                            |
-| `{{ format }}`    | `default` or `sdc`                |
+| Token                         | Example Value For `featured-item`                                            |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `__EMULSIFY_filename__`       | `featured-item`                                                              |
+| `__EMULSIFY_className__`      | `featured-item`                                                              |
+| `__EMULSIFY_camelName__`      | `featuredItem`                                                               |
+| `__EMULSIFY_pascalName__`     | `FeaturedItem`                                                               |
+| `__EMULSIFY_snakeName__`      | `featured_item`                                                              |
+| `__EMULSIFY_humanName__`      | `Featured Item`                                                              |
+| `__EMULSIFY_directory__`      | `base`                                                                       |
+| `__EMULSIFY_directoryTitle__` | `Base`                                                                       |
+| `__EMULSIFY_type__`           | `twig`, `twig-sdc`, `react`, or `web-component`                              |
+| `__EMULSIFY_tagName__`        | `featured-item` for a Web Component; an empty string for every other type    |
+| `__EMULSIFY_format__`         | `default` for Twig, `sdc` for Twig SDC, otherwise `react` or `web-component` |
+| `__EMULSIFY_formatLabel__`    | `STANDARD`, `SDC`, `REACT`, or `WEB COMPONENT`                               |
 
-Whitespace inside the braces is optional:
+`__EMULSIFY_type__` is the canonical type. `__EMULSIFY_format__` remains
+available for compatibility with the deprecated `--format` terminology.
+`__EMULSIFY_formatLabel__` contains the display label used in generated file
+headers. `__EMULSIFY_directoryTitle__` contains the structure name with its
+first character capitalized for Storybook titles.
+
+For example, an override can combine a scaffold-time placeholder with a Twig
+variable. Only the namespaced placeholder is replaced:
 
 ```twig
-{{humanName}}
-{{ humanName }}
+<article data-component="__EMULSIFY_filename__">
+  {{ type }}
+</article>
 ```
 
-Unknown tokens are left unchanged and logged as warnings. Empty override files are ignored and the built-in template is used.
+Unknown namespaced placeholders are left unchanged and logged as warnings.
+Ordinary Twig expressions are ignored by the CLI renderer.
 
-## Example Default Twig Override
+Legacy overrides in `default/` and `sdc/` continue to recognize the v2.3
+double-brace tokens: `filename`, `className`, `camelName`, `snakeName`,
+`humanName`, `directory`, and `format`. New 2.4 tokens are not enabled in those
+directories, preventing new collisions from being introduced into legacy
+files.
 
-Create `.cli/templates/default/component.twig`:
+## Customize An Ejected Template
 
-```twig
-{% set classes = [
-  '{{ className }}',
-] %}
-
-<section class="{{ className }}" data-component="{{ filename }}">
-  {% block content %}
-  {% endblock %}
-</section>
-```
-
-Then generate a component:
+First eject the defaults for the component type:
 
 ```bash
-emulsify component create featured-item --directory base --format default
+emulsify component eject-templates twig
 ```
 
-The generated file is:
+Edit `.cli/templates/twig/component.twig`, then generate a component normally:
+
+```bash
+emulsify component create featured-item --directory base --type twig
+```
+
+The edited template produces:
 
 ```text
 components/00-base/featured-item/featured-item.twig
 ```
 
-## Example SDC Metadata Override
+Only that project uses the override. Other projects and component types
+continue using their own overrides or the CLI's built-ins.
 
-Create `.cli/templates/sdc/component.component.yml`:
+## Preview Component Creation
 
-```yaml
-name: {{ humanName }}
-status: stable
-props:
-  type: object
-  properties:
-    {{ snakeName }}_title:
-      type: string
-      title: Title
-slots:
-  content:
-    title: Content
-```
-
-Generate the SDC component:
+After editing an override, use `component create --dry-run` to confirm the
+selected type, structure, and output paths without writing component files:
 
 ```bash
-emulsify component create featured-item --directory base --format sdc
+emulsify component create featured-item --directory base --type twig --dry-run
 ```
-
-The generated file is:
-
-```text
-components/00-base/featured-item/featured-item.component.yml
-```
-
-## Partial Overrides
-
-Override only the artifacts you need. For example, a project can override Twig and keep the built-in SCSS, data, and story templates:
-
-```text
-.cli/templates/default/component.twig
-```
-
-All missing override files fall back to the built-in builders.
-
-## Dry-Run With Overrides
-
-Dry runs do not write files, but they still resolve the selected format, structure, and output paths:
-
-```bash
-emulsify component create featured-item --directory base --format default --dry-run
-```
-
-Use dry runs to confirm the component destination before replacing or adding override files.

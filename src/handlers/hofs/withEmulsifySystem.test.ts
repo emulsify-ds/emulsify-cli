@@ -183,7 +183,7 @@ describe('withEmulsifySystem', () => {
     expect(error).toBeInstanceOf(EmulsifySystemError);
     expect(error).toMatchObject({
       message:
-        'The cached copy of the compound system is invalid. Run "emulsify cache clear" and retry this command to re-clone it. To reinstall the system instead, remove the existing system and variant entries from project.emulsify.json, then re-run "emulsify system install".',
+        'The cached copy of the compound system is invalid. Run "emulsify cache clear" and retry this command to re-clone it. To reinstall the system instead, run "emulsify system detach" followed by "emulsify system install".',
     });
   });
 
@@ -202,7 +202,7 @@ describe('withEmulsifySystem', () => {
     expect(error).not.toBeInstanceOf(TypeError);
     expect(error).toMatchObject({
       message:
-        'The cached copy of the compound system is invalid. Run "emulsify cache clear" and retry this command to re-clone it. To reinstall the system instead, remove the existing system and variant entries from project.emulsify.json, then re-run "emulsify system install".',
+        'The cached copy of the compound system is invalid. Run "emulsify cache clear" and retry this command to re-clone it. To reinstall the system instead, run "emulsify system detach" followed by "emulsify system install".',
     });
   });
 

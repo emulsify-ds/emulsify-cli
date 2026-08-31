@@ -28,7 +28,7 @@ function mockLsRemoteSuccess(output: string): void {
     (
       _command: string,
       _args: string[],
-      _options: { encoding: string },
+      _options: object,
       callback: ExecFileCallback,
     ) => {
       callback(null, output, '');
@@ -41,10 +41,30 @@ function mockLsRemoteFailure(stderr: string): void {
     (
       _command: string,
       _args: string[],
-      _options: { encoding: string },
+      _options: object,
       callback: ExecFileCallback,
     ) => {
       callback(new Error('Command failed'), '', stderr);
+    },
+  );
+}
+
+function mockLsRemoteTimeout(): void {
+  execFileMock.mockImplementationOnce(
+    (
+      _command: string,
+      _args: string[],
+      _options: object,
+      callback: ExecFileCallback,
+    ) => {
+      callback(
+        Object.assign(new Error('Command failed'), {
+          killed: true,
+          signal: 'SIGTERM',
+        }),
+        '',
+        '',
+      );
     },
   );
 }
@@ -63,8 +83,16 @@ describe('getRepositoryLatestTag', () => {
     expect(latest).toBe('v1.5.0');
     expect(execFileMock).toHaveBeenCalledWith(
       'git',
-      ['ls-remote', '--tags', '--refs', repoUrl],
-      { encoding: 'utf8' },
+      ['ls-remote', '--tags', '--refs', '--', repoUrl],
+      {
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: {
+          ...process.env,
+          GIT_TERMINAL_PROMPT: '0',
+          GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -oBatchMode=yes',
+        },
+      },
       expect.any(Function),
     );
   });
@@ -227,6 +255,41 @@ describe('getRepositoryLatestTag', () => {
 
     await expect(getRepositoryLatestTag(repoUrl)).rejects.toThrow(
       `Unable to read tags from repository ${repoUrl}: Command failed`,
+    );
+  });
+
+  it('throws a bounded timeout error with an explicit checkout escape hatch', async () => {
+    expect.assertions(1);
+
+    mockLsRemoteTimeout();
+
+    await expect(getRepositoryLatestTag(repoUrl)).rejects.toThrow(
+      `Unable to read tags from repository ${repoUrl}: The lookup timed out after 10 seconds. Retry with --repository "${repoUrl}" --checkout <branch, tag, or commit> to skip automatic tag lookup.`,
+    );
+  });
+
+  it('does not misclassify another child-process signal as a timeout', async () => {
+    expect.assertions(1);
+    execFileMock.mockImplementationOnce(
+      (
+        _command: string,
+        _args: string[],
+        _options: object,
+        callback: ExecFileCallback,
+      ) => {
+        callback(
+          Object.assign(new Error('Command was killed'), {
+            killed: true,
+            signal: 'SIGKILL',
+          }),
+          '',
+          '',
+        );
+      },
+    );
+
+    await expect(getRepositoryLatestTag(repoUrl)).rejects.toThrow(
+      `Unable to read tags from repository ${repoUrl}: Command was killed`,
     );
   });
 

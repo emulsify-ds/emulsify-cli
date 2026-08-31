@@ -10,6 +10,19 @@ type VariantWithPlatform = {
   platform: string;
 };
 
+export type PlatformVariantMatchRank = 0 | 1 | 2 | 3;
+
+export type RankedPlatformVariant<T extends VariantWithPlatform> = {
+  variant: T;
+  rank?: PlatformVariantMatchRank;
+  index: number;
+};
+
+type RankedCompatiblePlatformVariant<T extends VariantWithPlatform> =
+  RankedPlatformVariant<T> & {
+    rank: PlatformVariantMatchRank;
+  };
+
 type VariantSelectionResult<T extends VariantWithPlatform> =
   | {
       status: 'selected';
@@ -77,7 +90,7 @@ export function platformExpressionMatchesProject(
 function getVariantMatchRank(
   variantPlatform: string,
   projectPlatform: Platform,
-): number | undefined {
+): PlatformVariantMatchRank | undefined {
   const platforms = tryParsePlatformExpression(variantPlatform);
   if (!platforms) {
     return undefined;
@@ -104,6 +117,34 @@ function getVariantMatchRank(
   return undefined;
 }
 
+/**
+ * Return every variant with compatible variants ordered from the strongest
+ * platform match to the weakest, followed by incompatible variants. Variants
+ * with the same rank retain their source order.
+ *
+ * The returned records and array are new; variants and the source array are
+ * never mutated.
+ */
+export function rankPlatformVariants<T extends VariantWithPlatform>(
+  variants: readonly T[] | undefined,
+  projectPlatform: Platform,
+): RankedPlatformVariant<T>[] {
+  return (variants || [])
+    .map((variant, index) => {
+      const rank = getVariantMatchRank(variant.platform, projectPlatform);
+      return rank === undefined ? { variant, index } : { variant, rank, index };
+    })
+    .sort((left, right) => {
+      if (left.rank === undefined) {
+        return right.rank === undefined ? left.index - right.index : 1;
+      }
+      if (right.rank === undefined) {
+        return -1;
+      }
+      return left.rank - right.rank || left.index - right.index;
+    });
+}
+
 export function getVariantPlatformExpressions(
   variants: readonly VariantWithPlatform[] | undefined,
 ): string[] {
@@ -114,21 +155,16 @@ export function selectCompatiblePlatformVariant<T extends VariantWithPlatform>(
   variants: readonly T[] | undefined,
   projectPlatform: Platform,
 ): VariantSelectionResult<T> {
-  const rankedVariants = (variants || [])
-    .map((variant) => ({
-      variant,
-      rank: getVariantMatchRank(variant.platform, projectPlatform),
-    }))
-    .filter(
-      (match): match is { variant: T; rank: number } =>
-        match.rank !== undefined,
-    );
+  const rankedVariants = rankPlatformVariants(variants, projectPlatform).filter(
+    (match): match is RankedCompatiblePlatformVariant<T> =>
+      match.rank !== undefined,
+  );
 
   if (rankedVariants.length === 0) {
     return { status: 'none' };
   }
 
-  const bestRank = Math.min(...rankedVariants.map(({ rank }) => rank));
+  const bestRank = rankedVariants[0].rank;
   const bestMatches = rankedVariants
     .filter(({ rank }) => rank === bestRank)
     .map(({ variant }) => variant);

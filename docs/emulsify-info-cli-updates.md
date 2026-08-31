@@ -132,48 +132,104 @@ emulsify component install --all
 Options:
 
 - `--directory <directory>`: Sets the variant structure where the component is created.
-- `--format <format>`: Sets the component format. Supported values are `default` and `sdc`.
-- `--yes`: Replaces an existing component without an overwrite confirmation prompt.
+- `--type <type>`: Sets the component type. Supported values are `twig`, `twig-sdc`, `react`, and `web-component`.
+- `--format <format>`: Deprecated compatibility alias. `default` maps to `twig`; `sdc` maps to `twig-sdc`, and both print a warning.
+- `--force`: Replaces an existing component without an overwrite confirmation prompt.
+- `--yes`: Compatibility alias for `--force`.
 - `--dry-run`: Previews the destination and generated files without writing, removing, or creating files.
 
-In non-interactive environments, pass both `--directory` and `--format`.
+In the interactive wizard, Twig is always available, Twig SDC is shown only
+for Drupal projects, and React and Web Component are shown when the project's
+`package.json` declares `@emulsify/core`. The wizard explains why choices were
+omitted and skips the type prompt when Twig is the only suitable choice.
+Explicit `--type` values are always honored; requesting React or Web Component
+without a detected Core dependency warns and proceeds.
+
+In non-interactive environments, pass both `--directory` and `--type`.
 
 Examples:
 
 ```bash
-emulsify component create promo-card --directory molecules --format default
-emulsify component create promo-card --directory molecules --format default --dry-run
-emulsify component create teaser --directory molecules --format sdc --yes
-emulsify component create teaser --directory molecules --format sdc --dry-run
+emulsify component create promo-card --directory molecules --type twig
+emulsify component create teaser --directory molecules --type twig-sdc --force
+emulsify component create promo-card --directory molecules --type react
+emulsify component create promo-card --directory molecules --type web-component
+emulsify component create promo-card --directory molecules --type twig --dry-run
 ```
+
+Generated artifact sets:
+
+- `twig`: `.twig`, `.scss`, `.yml`, and `.stories.js`.
+- `twig-sdc`: `.twig`, `.scss`, `.component.yml`, `.js`, and `.stories.js`.
+- `react`: `.jsx`, `.scss`, and `.stories.jsx`; stories use standard Storybook React support.
+- `web-component`: `.js`, `.scss`, and `.stories.js`; stories use Emulsify Core's `renderWebComponent` helper.
+
+React and Web Component scaffolds do not include a Twig file. Web Component
+tag names must contain a hyphen. A hyphenated filename is used directly;
+otherwise the project machine name is prefixed, so `card` in `acme-theme`
+becomes `<acme-theme-card>`. The wizard confirms and can override the tag.
+Non-interactive creation derives and validates it.
 
 ## Component Template Overrides
 
 Projects can override the built-in `component create` templates by adding component template override files under `.cli/templates/` at the Emulsify project root. Overrides replace only the known artifacts that Emulsify CLI already generates; they do not add extra files or change which files are created.
 
-Default component overrides:
+Twig component overrides:
 
-- `.cli/templates/default/component.twig`
-- `.cli/templates/default/component.scss`
-- `.cli/templates/default/component.yml`
-- `.cli/templates/default/component.stories.js`
+- `.cli/templates/twig/component.twig`
+- `.cli/templates/twig/component.scss`
+- `.cli/templates/twig/component.yml`
+- `.cli/templates/twig/component.stories.js`
 
-SDC component overrides:
+Twig SDC component overrides:
 
-- `.cli/templates/sdc/component.twig`
-- `.cli/templates/sdc/component.scss`
-- `.cli/templates/sdc/component.component.yml`
-- `.cli/templates/sdc/component.js`
-- `.cli/templates/sdc/component.stories.js`
+- `.cli/templates/twig-sdc/component.twig`
+- `.cli/templates/twig-sdc/component.scss`
+- `.cli/templates/twig-sdc/component.component.yml`
+- `.cli/templates/twig-sdc/component.js`
+- `.cli/templates/twig-sdc/component.stories.js`
 
-Override files can use double-brace tokens:
+React component overrides:
 
-- `{{ filename }}`
-- `{{ className }}`
-- `{{ camelName }}`
-- `{{ snakeName }}`
-- `{{ humanName }}`
-- `{{ directory }}`
-- `{{ format }}`
+- `.cli/templates/react/component.jsx`
+- `.cli/templates/react/component.scss`
+- `.cli/templates/react/component.stories.jsx`
 
-For each generated artifact, Emulsify CLI first checks for the matching override file. If the override is missing, the built-in template is used. If the override exists but is empty, the built-in template is used and a warning is logged. Unknown tokens are left unchanged and logged as warnings. Partial override sets are supported, so a project can override only `component.twig` and keep the built-in SCSS, data, and story templates.
+Web Component overrides:
+
+- `.cli/templates/web-component/component.js`
+- `.cli/templates/web-component/component.scss`
+- `.cli/templates/web-component/component.stories.js`
+
+For each Twig artifact, the CLI checks `twig/` and, if that artifact is absent,
+the legacy `default/` alias. For Twig SDC it checks `twig-sdc/` and then the
+legacy `sdc/` alias under the same rule. The fallback is resolved per artifact,
+so partial legacy override sets continue working. If neither path contains the
+artifact, the built-in template is used.
+
+Canonical override files use namespaced tokens so ordinary Twig variables are
+not rewritten by the CLI:
+
+- `__EMULSIFY_filename__`
+- `__EMULSIFY_className__`
+- `__EMULSIFY_camelName__`
+- `__EMULSIFY_pascalName__`
+- `__EMULSIFY_snakeName__`
+- `__EMULSIFY_humanName__`
+- `__EMULSIFY_directory__`
+- `__EMULSIFY_directoryTitle__`
+- `__EMULSIFY_type__`
+- `__EMULSIFY_tagName__`
+- `__EMULSIFY_format__`
+- `__EMULSIFY_formatLabel__`
+
+`__EMULSIFY_type__` contains the canonical type.
+`__EMULSIFY_tagName__` contains the validated Web Component tag and is empty
+for the other types. For compatibility, `__EMULSIFY_format__` remains
+`default` for Twig and `sdc` for Twig SDC; it contains `react` or
+`web-component` for the new types. The legacy `default/` and `sdc/` aliases
+continue to render the seven double-brace tokens supported in v2.3.
+
+If an override is unavailable, the built-in template is used. If an override
+exists but is empty, it is ignored and a warning is logged. Unknown tokens are
+left unchanged and logged as warnings. Partial override sets are supported.

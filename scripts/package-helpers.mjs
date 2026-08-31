@@ -222,6 +222,7 @@ export function assertPackageContents(packResult) {
         'test',
         'tests',
         '__tests__',
+        'testutils',
         'spec',
         'specs',
         '__specs__',

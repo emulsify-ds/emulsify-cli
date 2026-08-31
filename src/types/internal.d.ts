@@ -47,7 +47,12 @@ declare module '@emulsify-cli/internal' {
    * Represents an internal reference to an Emulsify system, such as compound.
    */
   export type EmulsifySystemReference = {
+    /** Machine-friendly system identifier used by CLI arguments and cache paths. */
     name: string;
+    /** Human-facing system name used in interactive choices. */
+    label: string;
+    /** Short human-facing summary used when choosing a system. */
+    description: string;
     /**
      * Path to the git repository containing the system.
      */

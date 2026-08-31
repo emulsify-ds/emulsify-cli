@@ -9,7 +9,7 @@
  * @param filename Kebab-case component file and folder name.
  * @param snakeName Snake-case prefix used by the generated SDC props.
  * @param humanName Human-readable component name shown in Storybook.
- * @param directory Component structure name used as the Storybook title group.
+ * @param directoryTitle Display-ready Storybook title group.
  * @returns JavaScript source content for the generated SDC Storybook story.
  */
 export function buildSdcStoriesTemplate(
@@ -17,7 +17,7 @@ export function buildSdcStoriesTemplate(
   filename: string,
   snakeName: string,
   humanName: string,
-  directory: string,
+  directoryTitle: string,
 ): string {
   return `import ${camelName}Twig from './${filename}.twig';
 import { props } from './${filename}.component.yml';
@@ -29,7 +29,7 @@ const ${camelName}Data = props.properties;
  * Storybook Definition.
  */
 export default { 
-  title: '${directory[0].toUpperCase() + directory.slice(1)}/${humanName}',
+  title: '${directoryTitle}/${humanName}',
   args: {
     heading: ${camelName}Data.${snakeName}__heading.data,
     content: ${camelName}Data.${snakeName}__content.data,

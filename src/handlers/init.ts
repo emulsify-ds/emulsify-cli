@@ -24,6 +24,7 @@ import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMes
 import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
 import { isPlatform } from '../util/platform/platformCompatibility.js';
+import { runPrompt } from '../util/prompt/index.js';
 
 const git = simpleGit();
 
@@ -60,21 +61,27 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
     const { name: autoPlatformName, emulsifyParentDirectory } =
       (await getPlatformInfo()) || {};
     const isDetectedDrupalProject = autoPlatformName === 'drupal';
-    const canPrompt = process.stdin.isTTY === true;
     const acceptDefaults = options?.yes === true;
 
     // Prompts are skipped in non-TTY runs; --yes accepts prompt defaults and
     // explicit flags/arguments always take precedence.
     let projectName = name || options?.machineName;
     if (!projectName) {
-      if (acceptDefaults) {
-        projectName = DEFAULT_PROJECT_NAME;
-      } else if (canPrompt) {
-        projectName = await input({
-          message: 'Project name:',
-          default: DEFAULT_PROJECT_NAME,
-        });
-      }
+      projectName = await runPrompt({
+        prompt: () =>
+          input({
+            message: 'Project name:',
+            default: DEFAULT_PROJECT_NAME,
+          }),
+        nonInteractive: {
+          error:
+            'Unable to determine the project name. Please provide a valid project name.',
+        },
+        accept: {
+          when: acceptDefaults,
+          value: DEFAULT_PROJECT_NAME,
+        },
+      });
     }
 
     if (!projectName) {
@@ -85,14 +92,17 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
 
     let targetParent = targetDirectory || emulsifyParentDirectory;
     if (!targetParent) {
-      if (acceptDefaults) {
-        targetParent = './';
-      } else if (canPrompt) {
-        targetParent = await input({
-          message: 'Target directory:',
-          default: './',
-        });
-      }
+      targetParent = await runPrompt<string | undefined>({
+        prompt: () =>
+          input({
+            message: 'Target directory:',
+            default: './',
+          }),
+        // Preserve the existing error ordering: platform validation occurs
+        // before the missing target is reported below.
+        nonInteractive: { value: undefined },
+        accept: { when: acceptDefaults, value: './' },
+      });
     }
 
     // If no platform name is given, and none can be detected, exit and error.
@@ -106,15 +116,19 @@ export default function init(progress: InstanceType<typeof ProgressBar>) {
       );
     }
     if (!platformName) {
-      if (acceptDefaults) {
-        platformName = DEFAULT_PLATFORM;
-      } else if (canPrompt) {
-        platformName = await select({
-          message: 'Platform:',
-          choices: PLATFORM_CHOICES,
-          default: DEFAULT_PLATFORM,
-        });
-      }
+      platformName = await runPrompt({
+        prompt: () =>
+          select({
+            message: 'Platform:',
+            choices: PLATFORM_CHOICES,
+            default: DEFAULT_PLATFORM,
+          }),
+        nonInteractive: {
+          error:
+            'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
+        },
+        accept: { when: acceptDefaults, value: DEFAULT_PLATFORM },
+      });
     }
 
     if (!platformName) {

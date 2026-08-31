@@ -28,6 +28,10 @@ const exitMock = jest
 import log from './log.js';
 
 describe('log', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('can log info messages', () => {
     expect.assertions(1);
     log('info', 'information');

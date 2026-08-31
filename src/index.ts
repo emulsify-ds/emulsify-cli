@@ -4,108 +4,25 @@ import withProgressBar from './handlers/hofs/withProgressBar.js';
 import init from './handlers/init.js';
 import systemList from './handlers/systemList.js';
 import systemInstall from './handlers/systemInstall.js';
+import systemCreate from './handlers/systemCreate.js';
+import systemDetach from './handlers/systemDetach.js';
 import componentList from './handlers/componentList.js';
 import componentInstall from './handlers/componentInstall.js';
 import componentCreate from './handlers/componentCreate.js';
+import componentEjectTemplates from './handlers/componentEjectTemplates.js';
 import audit from './handlers/audit.js';
 import cacheClear from './handlers/cacheClear.js';
 import CliError from './lib/CliError.js';
 import log from './lib/log.js';
+import getRootHelp from './lib/rootHelp.js';
+import getTerminalColors, {
+  terminalSupportsColor,
+} from './lib/terminalColors.js';
+import { isExitPromptError } from './util/prompt/index.js';
 import { createRequire } from 'module';
-import { cyan, green } from 'colorette';
 import boxen from 'boxen';
 
 const packageInfo = createRequire(import.meta.url)('../package.json');
-
-function getRootHelp(): string {
-  return [
-    `${packageInfo.productName} ${packageInfo.version}`,
-    '',
-    'Create Emulsify projects, choose component systems, install components, generate local components, and route audits to Emulsify Core.',
-    '',
-    'Usage:',
-    '  emulsify',
-    '  emulsify --help',
-    '  emulsify <command> --help',
-    '  emulsify init [name] [path] [options]',
-    '  emulsify audit [...args]',
-    '  emulsify system install [name] [options]',
-    '  emulsify component <command> [options]',
-    '  emulsify cache clear [options]',
-    '',
-    'Common workflow:',
-    '  emulsify init',
-    '  emulsify system install',
-    '  emulsify component list',
-    '  emulsify component install <name>',
-    '  emulsify component create <name>',
-    '',
-    'Commands:',
-    '  init [name] [path]',
-    '    Create a project from a starter repository. Prompts for project name, target directory,',
-    '    and platform when values are missing in an interactive terminal.',
-    '    Options:',
-    '      -m, --machineName <machineName>     Set the project folder/config machine name.',
-    '      -s, --starter <repository>          Use a custom starter repository.',
-    '      -c, --checkout <commit/branch/tag>  Checkout for the starter repository.',
-    '      -p, --platform <none|drupal|wordpress>',
-    '                                           Select the project platform when auto-detection is unavailable.',
-    '                                           Built-in platforms: drupal, wordpress, none.',
-    '      -y, --yes                           Accept defaults for missing init values without prompting.',
-    '',
-    '  audit [...args]',
-    '    Run the project-installed Emulsify Core audit with unchanged arguments, output, and exit status.',
-    '    Run "emulsify audit --help" for Core-owned audit options.',
-    '',
-    '  system list',
-    '    List built-in component systems available for installation. Alias: system ls.',
-    '',
-    '  system install [name]',
-    '    Install a built-in or repository-backed component system. With no name or repository in',
-    '    an interactive terminal, prompts for compound, emulsify-ui-kit, create a new system,',
-    '    or cancel.',
-    '    Options:',
-    '      -r, --repository <repository>       Install from a custom system repository ending in .git.',
-    '      -c, --checkout <commit/branch/tag>  Checkout to use with --repository.',
-    '          --variant <platform-expression> Select an exact variant platform expression.',
-    '      -a, --all                           Install every component in the selected variant.',
-    '',
-    '  component list',
-    '    List components available from the installed system and selected variant. Alias: component ls.',
-    '    Options:',
-    '          --refresh                       Check the system remote before reusing the local cache.',
-    '',
-    '  component install [name]',
-    '    Install one component, dependencies, or all components from the installed system. Alias: component i.',
-    '    Options:',
-    '      -f, --force                         Replace an existing component destination.',
-    '      -a, --all                           Install all available components.',
-    '          --dry-run                       Preview installs without writing files.',
-    '          --refresh                       Check the system remote before reusing the local cache.',
-    '',
-    '  component create [name]',
-    '    Generate a new local component in this project. Alias: component c.',
-    '    Options:',
-    '      -d, --directory <directory>         Variant structure where the component should be created.',
-    '      -f, --format <default|sdc>          Component format to generate.',
-    '      -y, --yes                           Replace existing generated components without prompting.',
-    '          --dry-run                       Preview generated files without writing them.',
-    '          --refresh                       Check the system remote before reusing the local cache.',
-    '',
-    '  cache clear',
-    '    Remove all locally cached Emulsify repositories.',
-    '    Options:',
-    '          --dry-run                       Report cache contents without removing files.',
-    '',
-    '  help [command]',
-    '    Show help for a command.',
-    '',
-    'Global options:',
-    '  -V, --version                           Show the installed CLI version.',
-    '  -h, --help                              Show this help output.',
-    '',
-  ].join('\n');
-}
 
 // Main program commands.
 program.name('emulsify').enablePositionalOptions();
@@ -114,20 +31,20 @@ program
   .command('init [name] [path]')
   .description('Create a new Emulsify project from a starter repository')
   .option(
-    '-m --machineName <machineName>',
+    '-m, --machineName <machineName>',
     'Machine-friendly project folder and config name. If omitted, this is generated from the project name.',
   )
-  .option('-s --starter <repository>', 'Starter Git repository to clone.')
+  .option('-s, --starter <repository>', 'Starter Git repository to clone.')
   .option(
-    '-c --checkout <commit/branch/tag>',
+    '-c, --checkout <commit/branch/tag>',
     'Starter commit, branch, or tag to check out after clone.',
   )
   .option(
-    '-p --platform <none|drupal|wordpress>',
+    '-p, --platform <none|drupal|wordpress>',
     'Project platform to use when auto-detection is unavailable or should be overridden.',
   )
   .option(
-    '-y --yes',
+    '-y, --yes',
     'Accept default init values for any missing options without prompting.',
   )
   .action(withProgressBar(init));
@@ -143,23 +60,51 @@ program
 // System sub-commands.
 const system = program
   .command('system')
-  .description('List, install, or scaffold component systems');
+  .description('List, create, install, or detach component systems');
 system
   .command('list')
   .description('List built-in systems available for installation')
   .alias('ls')
   .action(systemList);
 system
+  .command('create [name]')
+  .description('Scaffold a standalone component-system repository')
+  .option(
+    '-d, --directory <directory>',
+    'Parent directory in which to create the new system repository.',
+  )
+  .option(
+    '-p, --platform <platform-expression>',
+    'Platform compatibility expression for the first variant.',
+  )
+  .option('--git', 'Initialize a Git repository on branch main.')
+  .option('--no-git', 'Do not initialize a Git repository.')
+  .option(
+    '--homepage <url>',
+    'Homepage URI; overrides the generated TODO.invalid placeholder.',
+  )
+  .option(
+    '--repository <url>',
+    'Repository URI; overrides the generated TODO.invalid placeholder.',
+  )
+  .option(
+    '-y, --yes',
+    'Accept defaults for all missing system scaffold values without prompting.',
+  )
+  .option(
+    '--dry-run',
+    'Preview the system scaffold without creating files or initializing Git.',
+  )
+  .action(systemCreate);
+system
   .command('install [name]')
-  .description(
-    'Install a component system, prompt for a system, or scaffold a local system definition',
+  .description('Install a component system or open the guided installer')
+  .option(
+    '-r, --repository <repository>',
+    'Git repository containing the system to install. Remote URLs must end in .git; local paths are accepted.',
   )
   .option(
-    '-r --repository <repository>',
-    'Git repository containing the system to install. Custom repository URLs must end in .git.',
-  )
-  .option(
-    '-c --checkout <commit/branch/tag>',
+    '-c, --checkout <commit/branch/tag>',
     'Commit, branch, or tag to check out. Required when --repository is used.',
   )
   .option(
@@ -167,15 +112,24 @@ system
     'Exact system variant platform expression to install.',
   )
   .option(
-    '-a --all',
+    '-a, --all',
     'Install every component in the selected variant. Without this flag, only required components are installed.',
   )
+  .option(
+    '-y, --yes',
+    'Accept the final guided-install review without prompting.',
+  )
   .action(systemInstall);
+system
+  .command('detach')
+  .description('Detach the configured system and keep project components')
+  .option('-y, --yes', 'Detach without prompting for confirmation.')
+  .action(systemDetach);
 
 // Component sub-commands.
 const component = program
   .command('component')
-  .description('List, install, or create components');
+  .description('List, install, create, or customize components');
 component
   .command('list')
   .description(
@@ -190,9 +144,9 @@ component
 component
   .command('install [name]')
   .description('Install one component from the installed system and variant')
-  .option('-f --force', 'Replace an existing component destination.')
+  .option('-f, --force', 'Replace an existing component destination.')
   .option(
-    '-a --all',
+    '-a, --all',
     'Install all available components instead of one named component.',
   )
   .option(
@@ -208,16 +162,28 @@ component
 component
   .command('create [name]')
   .option(
-    '-d --directory <directory>',
+    '-d, --directory <directory>',
     'Variant structure name where the component should be created.',
   )
   .option(
-    '-f --format <format>',
-    'Component format to generate. Supported values: default, sdc.',
+    '-t, --type <twig|twig-sdc|react|web-component>',
+    'Component implementation type to generate.',
   )
   .option(
-    '-y --yes',
-    'Skip overwrite confirmation prompts and replace existing components.',
+    '--tag-name <tag-name>',
+    'Custom element tag name for a Web Component.',
+  )
+  .option(
+    '-f, --format <default|sdc>',
+    'Deprecated alias: default maps to twig and sdc maps to twig-sdc.',
+  )
+  .option(
+    '--force',
+    'Replace an existing generated component without prompting.',
+  )
+  .option(
+    '-y, --yes',
+    'Compatibility alias for --force when replacing an existing component.',
   )
   .option(
     '--dry-run',
@@ -230,6 +196,19 @@ component
   .alias('c')
   .description('Generate a new local component in the current project')
   .action(componentCreate);
+component
+  .command('eject-templates [type]')
+  .description('Write editable copies of the built-in component templates')
+  .option('-a, --all', 'Eject templates for every supported component type.')
+  .option(
+    '-f, --force',
+    'Replace existing template files in the selected type set.',
+  )
+  .option(
+    '--dry-run',
+    'Preview template destinations and conflicts without writing files.',
+  )
+  .action(componentEjectTemplates);
 
 // Cache sub-commands.
 const cache = program
@@ -251,16 +230,18 @@ cache
  *  │                    │
  *  ╰────────────────────╯
  */
+const { cyan, green } = getTerminalColors();
 const title = cyan(packageInfo.productName);
 const message = `Version: ${green(packageInfo.version)}`;
 
 const boxedMessage = boxen(message, {
   title: title,
-  backgroundColor: 'black',
   borderStyle: 'round',
-  borderColor: 'blue',
   padding: 1,
   margin: 1,
+  ...(terminalSupportsColor()
+    ? { backgroundColor: 'black', borderColor: 'blue' }
+    : {}),
 });
 
 program.version(boxedMessage);
@@ -270,16 +251,30 @@ const rootHelpRequested =
     ['--help', '-h', 'help'].includes(process.argv[2]));
 
 if (rootHelpRequested) {
-  process.stdout.write(getRootHelp());
+  process.stdout.write(
+    getRootHelp({
+      colors: getTerminalColors(),
+      columns:
+        process.stdout.isTTY === true ? process.stdout.columns : undefined,
+      description: packageInfo.description,
+      productName: packageInfo.productName,
+      version: packageInfo.version,
+    }),
+  );
   process.exit(0);
 }
 
 try {
   await program.parseAsync(process.argv);
 } catch (err) {
+  // Ctrl-C is an expected prompt cancellation, not a command failure.
+  if (isExitPromptError(err)) {
+    log('info', 'Cancelled.');
+    process.exitCode = 130;
+  }
   // Expected CliError failures map their message and exitCode to the process;
   // unexpected failures still produce a message and a default non-zero exit.
-  if (err instanceof CliError) {
+  else if (err instanceof CliError) {
     log('error', err.message);
     process.exitCode = err.exitCode;
   } else {
