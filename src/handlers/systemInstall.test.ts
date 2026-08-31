@@ -22,7 +22,7 @@ jest.mock('@inquirer/prompts');
 
 import fs from 'fs';
 import { join, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { pathToFileURL } from 'url';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
 import { confirm, input, select, Separator } from '@inquirer/prompts';
 import log from '../lib/log.js';
@@ -321,8 +321,8 @@ describe('formatSystemInstallReview', () => {
   });
 
   it('decodes a file URL source and removes its Git suffix', () => {
-    const repository = 'file:///fixtures/local%20system.git';
-    const repositoryPath = fileURLToPath(repository).replace(/\.git$/u, '');
+    const repositoryPath = resolve('/fixtures/local system');
+    const repository = pathToFileURL(`${repositoryPath}.git`).href;
 
     expect(
       formatSystemInstallReview(
