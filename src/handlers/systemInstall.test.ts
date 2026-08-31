@@ -324,26 +324,31 @@ describe('formatSystemInstallReview', () => {
     const repositoryPath = resolve('/fixtures/local system');
     const repository = pathToFileURL(`${repositoryPath}.git`).href;
 
-    expect(
-      formatSystemInstallReview(
-        'Local System',
-        repository,
-        'main',
-        variant,
-        {
-          components: [],
-          requiredComponentCount: 0,
-          totalComponentCount: 0,
-          componentParentDestinations: [],
-          directoryAssetDestinations: [],
-          fileAssetDestinations: [],
-          directoryAssetCount: 0,
-          fileAssetCount: 0,
-          totalAssetCount: 0,
-        },
-        false,
-      ),
-    ).toContain(`Source         ${repositoryPath}`);
+    const review = formatSystemInstallReview(
+      'Local System',
+      repository,
+      'main',
+      variant,
+      {
+        components: [],
+        requiredComponentCount: 0,
+        totalComponentCount: 0,
+        componentParentDestinations: [],
+        directoryAssetDestinations: [],
+        fileAssetDestinations: [],
+        directoryAssetCount: 0,
+        fileAssetCount: 0,
+        totalAssetCount: 0,
+      },
+      false,
+    );
+    const sourceLine = review
+      .split('\n')
+      .find((line) => line.includes('Source'));
+
+    expect(sourceLine).toContain('local system');
+    expect(sourceLine).not.toContain('%20');
+    expect(sourceLine).not.toContain('.git');
   });
 });
 
