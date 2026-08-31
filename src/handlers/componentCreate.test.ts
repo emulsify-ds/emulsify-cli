@@ -116,6 +116,20 @@ describe('componentCreate', () => {
     );
   });
 
+  it('checks for a configured system before prompting for a missing name', async () => {
+    getEmulsifyConfigMock.mockResolvedValueOnce({
+      ...projectConfig,
+      system: undefined,
+    });
+
+    await expect(componentCreate(undefined)).rejects.toThrow(
+      'You must select and install a system before you can create components.',
+    );
+
+    expect(inputMock).not.toHaveBeenCalled();
+    expect(generateComponentMock).not.toHaveBeenCalled();
+  });
+
   it('throws when no variant is configured', async () => {
     getEmulsifyConfigMock.mockResolvedValueOnce({
       ...projectConfig,

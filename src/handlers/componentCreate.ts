@@ -37,19 +37,13 @@ export default async function componentCreate(
   name: string | void,
   options: CreateComponentHandlerOptions = {},
 ): Promise<void> {
-  const componentName = name?.trim()
-    ? name
-    : await runPrompt({
-        prompt: () =>
-          input({
-            message: 'Component name:',
-            validate: validateComponentName,
-          }),
-        nonInteractive: { error: MISSING_COMPONENT_NAME_ERROR },
-      });
+  const providedComponentName = name?.trim() ? name : undefined;
 
   // Missing prompt values can be rejected before loading or refreshing the
   // configured system, keeping CI failures fast and offline.
+  if (!providedComponentName) {
+    requireInteractiveTerminal(MISSING_COMPONENT_NAME_ERROR);
+  }
   if (!options.type && !options.format) {
     requireInteractiveTerminal(MISSING_COMPONENT_TYPE_ERROR);
   }
@@ -64,6 +58,17 @@ export default async function componentCreate(
       refresh: options.refresh,
     },
   );
+
+  const componentName =
+    providedComponentName ??
+    (await runPrompt({
+      prompt: () =>
+        input({
+          message: 'Component name:',
+          validate: validateComponentName,
+        }),
+      nonInteractive: { error: MISSING_COMPONENT_NAME_ERROR },
+    }));
 
   try {
     await generateComponent(
