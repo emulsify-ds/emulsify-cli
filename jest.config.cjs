@@ -1,3 +1,10 @@
+const tsJestOptions = {
+  diagnostics: { ignoreCodes: [1324, 151002] },
+  // Keep coverage mapped to TypeScript without changing the distribution build.
+  tsconfig: { sourceMap: true },
+  useESM: false,
+};
+
 module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
@@ -21,16 +28,13 @@ module.exports = {
     },
   },
   transform: {
-    '\\.[jt]sx?$': [
-      'ts-jest',
-      { diagnostics: { ignoreCodes: [1324, 151002] }, useESM: false },
-    ],
+    '\\.[jt]sx?$': ['ts-jest', tsJestOptions],
   },
   transformIgnorePatterns: [
     'node_modules[\\\\/](?!(@inquirer|fast-.+)[\\\\/])',
   ],
-  "moduleNameMapper": {
-    "^(\\.\\.?\\/.+)\\.js$": "$1",
+  moduleNameMapper: {
+    '^(\\.\\.?\\/.+)\\.js$': '$1',
   },
   coveragePathIgnorePatterns: [
     '[\\\\/]node_modules[\\\\/]',

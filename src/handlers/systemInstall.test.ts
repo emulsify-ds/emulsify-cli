@@ -22,6 +22,7 @@ jest.mock('@inquirer/prompts');
 
 import fs from 'fs';
 import { join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
 import { confirm, input, select, Separator } from '@inquirer/prompts';
 import log from '../lib/log.js';
@@ -317,6 +318,32 @@ describe('formatSystemInstallReview', () => {
         true,
       ),
     ).toContain('Will install   1 component  →  .');
+  });
+
+  it('decodes a file URL source and removes its Git suffix', () => {
+    const repository = 'file:///fixtures/local%20system.git';
+    const repositoryPath = fileURLToPath(repository).replace(/\.git$/u, '');
+
+    expect(
+      formatSystemInstallReview(
+        'Local System',
+        repository,
+        'main',
+        variant,
+        {
+          components: [],
+          requiredComponentCount: 0,
+          totalComponentCount: 0,
+          componentParentDestinations: [],
+          directoryAssetDestinations: [],
+          fileAssetDestinations: [],
+          directoryAssetCount: 0,
+          fileAssetCount: 0,
+          totalAssetCount: 0,
+        },
+        false,
+      ),
+    ).toContain(`Source         ${repositoryPath}`);
   });
 });
 
@@ -1553,6 +1580,21 @@ describe('systemInstall', () => {
         },
       }),
     );
+  });
+
+  it('throws when neither the latest tag nor cache identifies the loaded checkout', async () => {
+    getRepositoryLatestTagMock.mockResolvedValueOnce(undefined);
+    getCachedItemCheckoutMock.mockResolvedValueOnce(undefined);
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      'Unable to determine which system checkout was loaded. Retry with --checkout <branch, tag, or commit>.',
+    );
+
+    expect(cloneSystemMock).toHaveBeenCalledWith({
+      repository: 'https://github.com/emulsify-ds/compound.git',
+      checkout: undefined,
+    });
+    expect(setEmulsifyConfigMock).not.toHaveBeenCalled();
   });
 
   it('skips the install hook when no project config path is found', async () => {

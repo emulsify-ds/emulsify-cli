@@ -693,6 +693,60 @@ describe('componentEjectTemplates', () => {
     expect(logMock).not.toHaveBeenCalled();
   });
 
+  it('reports transaction files that cannot be cleaned up after installation', async () => {
+    rmMock.mockRejectedValueOnce(new Error('cleanup denied'));
+
+    const error = await componentEjectTemplates('twig').catch(
+      (reason: unknown) => reason,
+    );
+
+    const failedCleanupPath = writeFileMock.mock.calls[0][0];
+    expect(error).toMatchObject({ name: 'CliError' });
+    expect((error as Error).message).toContain(
+      'Component templates were installed, but transaction cleanup was incomplete:',
+    );
+    expect((error as Error).message).toContain(
+      `  - ${failedCleanupPath}: cleanup denied`,
+    );
+    expect(linkMock).toHaveBeenCalledTimes(
+      buildEjectableComponentTemplates('twig').length,
+    );
+    expect(logMock).not.toHaveBeenCalled();
+  });
+
+  it('reports rollback and transaction cleanup removal failures together', async () => {
+    const installedTarget = destination('react', 'component.jsx');
+    linkMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('publish failed'));
+    rmMock.mockImplementation(async (target: string) => {
+      if (target === installedTarget) {
+        throw new Error('rollback denied');
+      }
+      if (target.includes('.emulsify-temporary-')) {
+        throw new Error('cleanup denied');
+      }
+    });
+
+    const error = await componentEjectTemplates('react').catch(
+      (reason: unknown) => reason,
+    );
+
+    expect(error).toMatchObject({ name: 'CliError' });
+    expect((error as Error).message).toContain(
+      `Unable to install component template "${destination('react', 'component.scss')}": publish failed.`,
+    );
+    expect((error as Error).message).toContain('Rollback was incomplete:');
+    expect((error as Error).message).toContain(
+      `Could not remove newly installed "${installedTarget}": rollback denied`,
+    );
+    expect((error as Error).message).toContain(
+      'Temporary transaction files could not be removed:',
+    );
+    expect((error as Error).message).toContain('cleanup denied');
+    expect(logMock).not.toHaveBeenCalled();
+  });
+
   it('restores replaced files and removes new files after a mid-finalization failure', async () => {
     const replacedTarget = destination('react', 'component.jsx');
     const newTarget = destination('react', 'component.scss');
