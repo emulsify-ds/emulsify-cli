@@ -68,7 +68,7 @@
     "semantic-release": "^25.0.9",
     "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.7.0",
