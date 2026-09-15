@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { program } from 'commander';
-import withProgressBar from './handlers/hofs/withProgressBar.js';
+import withSession from './handlers/hofs/withSession.js';
 import init from './handlers/init.js';
 import systemList from './handlers/systemList.js';
 import systemInstall from './handlers/systemInstall.js';
@@ -15,17 +15,58 @@ import cacheClear from './handlers/cacheClear.js';
 import CliError from './lib/CliError.js';
 import log from './lib/log.js';
 import getRootHelp from './lib/rootHelp.js';
-import getTerminalColors, {
-  terminalSupportsColor,
-} from './lib/terminalColors.js';
-import { isExitPromptError } from './util/prompt/index.js';
+import getTerminalColors from './lib/terminalColors.js';
+import { cancelSession, isSessionOpen, startSession } from './lib/session.js';
+import { isPromptCancelledError } from './util/prompt/index.js';
 import { createRequire } from 'module';
-import boxen from 'boxen';
 
 const packageInfo = createRequire(import.meta.url)('../package.json');
 
+/**
+ * Render a Commander failure as a session so it matches every other message.
+ *
+ * @param text error text produced by Commander, including any suggestion.
+ */
+function renderCommanderError(text: string): void {
+  const [summary, ...hints] = text
+    .split('\n')
+    .map((line) => line.replace(/^error:\s*/i, '').trim())
+    .filter(Boolean);
+
+  if (!summary) {
+    return;
+  }
+
+  startSession('emulsify');
+  log('error', summary);
+
+  for (const hint of hints) {
+    log('info', hint);
+  }
+
+  cancelSession('Run emulsify --help for the full command list.');
+}
+
+/**
+ * Close a session that ended in cancellation or failure.
+ *
+ * @remarks A failure that happens before any session opened prints on its own
+ * and needs no closing line.
+ *
+ * @param message closing line shown beneath the reported failure.
+ */
+function closeFailedSession(message: string): void {
+  if (isSessionOpen()) {
+    cancelSession(message);
+  }
+}
+
 // Main program commands.
-program.name('emulsify').enablePositionalOptions();
+program
+  .name('emulsify')
+  .enablePositionalOptions()
+  .showSuggestionAfterError()
+  .configureOutput({ outputError: renderCommanderError });
 
 program
   .command('init [name] [path]')
@@ -47,7 +88,7 @@ program
     '-y, --yes',
     'Accept default init values for any missing options without prompting.',
   )
-  .action(withProgressBar(init));
+  .action(withSession('emulsify init', init));
 
 program
   .command('audit [args...]')
@@ -65,7 +106,7 @@ system
   .command('list')
   .description('List built-in systems available for installation')
   .alias('ls')
-  .action(systemList);
+  .action(withSession('emulsify system list', systemList));
 system
   .command('create [name]')
   .description('Scaffold a standalone component-system repository')
@@ -95,7 +136,7 @@ system
     '--dry-run',
     'Preview the system scaffold without creating files or initializing Git.',
   )
-  .action(systemCreate);
+  .action(withSession('emulsify system create', systemCreate));
 system
   .command('install [name]')
   .description('Install a component system or open the guided installer')
@@ -119,12 +160,12 @@ system
     '-y, --yes',
     'Accept the final guided-install review without prompting.',
   )
-  .action(systemInstall);
+  .action(withSession('emulsify system install', systemInstall));
 system
   .command('detach')
   .description('Detach the configured system and keep project components')
   .option('-y, --yes', 'Detach without prompting for confirmation.')
-  .action(systemDetach);
+  .action(withSession('emulsify system detach', systemDetach));
 
 // Component sub-commands.
 const component = program
@@ -141,7 +182,7 @@ component
     'Check the configured system remote before reusing its local cache entry.',
   )
   .alias('ls')
-  .action(componentList);
+  .action(withSession('emulsify component list', componentList));
 component
   .command('install [name]')
   .description('Install one component from the installed system and variant')
@@ -159,7 +200,7 @@ component
     'Check the configured system remote before reusing its local cache entry.',
   )
   .alias('i')
-  .action(componentInstall);
+  .action(withSession('emulsify component install', componentInstall));
 component
   .command('create [name]')
   .option(
@@ -196,7 +237,7 @@ component
   )
   .alias('c')
   .description('Generate a new local component in the current project')
-  .action(componentCreate);
+  .action(withSession('emulsify component create', componentCreate));
 component
   .command('eject-templates [type]')
   .description('Write editable copies of the built-in component templates')
@@ -209,7 +250,9 @@ component
     '--dry-run',
     'Preview template destinations and conflicts without writing files.',
   )
-  .action(componentEjectTemplates);
+  .action(
+    withSession('emulsify component eject-templates', componentEjectTemplates),
+  );
 
 // Cache sub-commands.
 const cache = program
@@ -219,33 +262,11 @@ cache
   .command('clear')
   .description('Remove all locally cached Emulsify repositories')
   .option('--dry-run', 'Report cache contents without removing files.')
-  .action(cacheClear);
+  .action(withSession('emulsify cache clear', cacheClear));
 
-/*
- * Generate a styled version message using boxen and colorette.
- * This displays the product name and version in a visually appealing format.
- *
- *  ╭ Emulsify CLI ──────╮
- *  |                    │
- *  │   Version: 2.0.0   │
- *  │                    │
- *  ╰────────────────────╯
- */
-const { cyan, green } = getTerminalColors();
-const title = cyan(packageInfo.productName);
-const message = `Version: ${green(packageInfo.version)}`;
+// The version is a value scripts read, so it is printed as one plain line.
+program.version(packageInfo.version, '-V, --version', 'Print the CLI version');
 
-const boxedMessage = boxen(message, {
-  title: title,
-  borderStyle: 'round',
-  padding: 1,
-  margin: 1,
-  ...(terminalSupportsColor()
-    ? { backgroundColor: 'black', borderColor: 'blue' }
-    : {}),
-});
-
-program.version(boxedMessage);
 const rootHelpRequested =
   process.argv.length <= 2 ||
   (process.argv.length === 3 &&
@@ -268,19 +289,22 @@ if (rootHelpRequested) {
 try {
   await program.parseAsync(process.argv);
 } catch (err) {
-  // Ctrl-C is an expected prompt cancellation, not a command failure.
-  if (isExitPromptError(err)) {
-    log('info', 'Cancelled.');
-    process.exitCode = 130;
+  // Ctrl-C is an expected prompt cancellation, not a command failure. It closes
+  // the session on its own line rather than being reported as an error.
+  if (isPromptCancelledError(err)) {
+    closeFailedSession(err.message);
+    process.exitCode = err.exitCode;
   }
   // Expected CliError failures map their message and exitCode to the process;
   // unexpected failures still produce a message and a default non-zero exit.
   else if (err instanceof CliError) {
     log('error', err.message);
+    closeFailedSession('No changes were made.');
     process.exitCode = err.exitCode;
   } else {
     const message = err instanceof Error ? err.message : String(err);
     log('error', message);
+    closeFailedSession('No changes were made.');
     process.exitCode = 1;
   }
 }

@@ -51,4 +51,43 @@ jest.mock('fs-extra', () => ({
 }));
 
 jest.mock('child_process');
-jest.mock('progress');
+
+// @clack/prompts ships ESM only and draws to a real terminal, so it is mocked
+// globally. Suites that assert on a specific prompt override this with their
+// own factory; the defaults here simply keep every other suite loadable.
+jest.mock('@clack/prompts', () => {
+  const CANCEL_SYMBOL = Symbol.for('clack:cancel');
+
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL,
+    isCancel: (value) => value === CANCEL_SYMBOL,
+    intro: jest.fn(),
+    outro: jest.fn(),
+    cancel: jest.fn(),
+    note: jest.fn(),
+    box: jest.fn(),
+    text: jest.fn(),
+    select: jest.fn(),
+    confirm: jest.fn(),
+    multiselect: jest.fn(),
+    spinner: jest.fn(() => ({
+      start: jest.fn(),
+      stop: jest.fn(),
+      message: jest.fn(),
+      cancel: jest.fn(),
+      error: jest.fn(),
+      clear: jest.fn(),
+      isCancelled: false,
+    })),
+    log: {
+      message: jest.fn(),
+      info: jest.fn(),
+      success: jest.fn(),
+      step: jest.fn(),
+      warn: jest.fn(),
+      warning: jest.fn(),
+      error: jest.fn(),
+    },
+  };
+});

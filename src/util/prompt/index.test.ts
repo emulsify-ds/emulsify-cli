@@ -1,9 +1,13 @@
+import { CANCEL_SYMBOL } from '@clack/prompts';
 import CliError from '../../lib/CliError.js';
 import {
-  isExitPromptError,
+  PROMPT_CANCELLED_EXIT_CODE,
+  PromptCancelledError,
   isInteractiveTerminal,
+  isPromptCancelledError,
   requireInteractiveTerminal,
   runPrompt,
+  unwrapPromptResult,
 } from './index.js';
 
 const originalStdinIsTTY = process.stdin.isTTY;
@@ -58,17 +62,41 @@ describe('prompt utilities', () => {
     });
   });
 
-  describe('isExitPromptError', () => {
-    it("recognizes an Error with Inquirer's cancellation name", () => {
-      const error = new Error('User force closed the prompt');
-      error.name = 'ExitPromptError';
-
-      expect(isExitPromptError(error)).toBe(true);
+  describe('isPromptCancelledError', () => {
+    it('recognizes a cancellation raised by a prompt', () => {
+      expect(isPromptCancelledError(new PromptCancelledError())).toBe(true);
     });
 
     it('rejects other errors and non-Error lookalikes', () => {
-      expect(isExitPromptError(new Error('different failure'))).toBe(false);
-      expect(isExitPromptError({ name: 'ExitPromptError' })).toBe(false);
+      expect(isPromptCancelledError(new Error('different failure'))).toBe(
+        false,
+      );
+      expect(isPromptCancelledError(new CliError('different failure'))).toBe(
+        false,
+      );
+      expect(isPromptCancelledError({ name: 'PromptCancelledError' })).toBe(
+        false,
+      );
+    });
+
+    it('carries the conventional cancellation exit code', () => {
+      expect(new PromptCancelledError()).toMatchObject({
+        exitCode: PROMPT_CANCELLED_EXIT_CODE,
+      });
+      expect(PROMPT_CANCELLED_EXIT_CODE).toBe(130);
+    });
+  });
+
+  describe('unwrapPromptResult', () => {
+    it('returns a submitted value unchanged', () => {
+      expect(unwrapPromptResult('chosen')).toBe('chosen');
+      expect(unwrapPromptResult(false)).toBe(false);
+    });
+
+    it('converts the cancel sentinel into a cancellation error', () => {
+      expect(() => unwrapPromptResult(CANCEL_SYMBOL)).toThrow(
+        PromptCancelledError,
+      );
     });
   });
 
@@ -144,19 +172,29 @@ describe('prompt utilities', () => {
       expect(prompt).toHaveBeenCalledTimes(1);
     });
 
-    it('preserves prompt cancellation errors for the top-level handler', async () => {
+    it('turns a cancelled prompt into a cancellation the top-level handler can report', async () => {
       setStdinIsTTY(true);
-      const cancellation = new Error('User force closed the prompt');
-      cancellation.name = 'ExitPromptError';
 
       await expect(
         runPrompt({
-          prompt: async () => {
-            throw cancellation;
-          },
+          prompt: async () => CANCEL_SYMBOL,
           nonInteractive: { error: 'Pass --value.' },
         }),
-      ).rejects.toBe(cancellation);
+      ).rejects.toMatchObject({
+        name: 'PromptCancelledError',
+        exitCode: PROMPT_CANCELLED_EXIT_CODE,
+      });
+    });
+
+    it('turns a cancelled prompt into a cancellation even when a fallback exists', async () => {
+      setStdinIsTTY(true);
+
+      await expect(
+        runPrompt({
+          prompt: async () => CANCEL_SYMBOL,
+          nonInteractive: { value: false },
+        }),
+      ).rejects.toBeInstanceOf(PromptCancelledError);
     });
   });
 });

@@ -30,9 +30,7 @@ module.exports = {
   transform: {
     '\\.[jt]sx?$': ['ts-jest', tsJestOptions],
   },
-  transformIgnorePatterns: [
-    'node_modules[\\\\/](?!(@inquirer|fast-.+)[\\\\/])',
-  ],
+  transformIgnorePatterns: ['node_modules[\\\\/](?!(fast-.+)[\\\\/])'],
   moduleNameMapper: {
     '^(\\.\\.?\\/.+)\\.js$': '$1',
   },
