@@ -1,8 +1,7 @@
 import { join } from 'path';
 import { existsSync, promises as fs } from 'fs';
 import { simpleGit } from 'simple-git';
-import ProgressBar from 'progress';
-import { input, select } from '@inquirer/prompts';
+import { select, text } from '@clack/prompts';
 
 import type {
   EmulsifyProjectConfiguration,
@@ -24,6 +23,7 @@ import executeScript from '../util/fs/executeScript.js';
 import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform.js';
 import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
+import { note, spinner } from '../lib/session.js';
 import { isPlatform } from '../util/platform/platformCompatibility.js';
 import { runPrompt } from '../util/prompt/index.js';
 
@@ -33,10 +33,14 @@ export const DIRECTORY = 1;
 const DEFAULT_PROJECT_NAME = 'emulsifyTheme';
 const DEFAULT_PLATFORM: Platform = 'drupal';
 const PLATFORM_CHOICES = [
-  'drupal',
-  'wordpress',
-  'none',
-] as const satisfies readonly Platform[];
+  { value: 'drupal', label: 'Drupal', hint: 'Drupal 10 or 11 theme' },
+  { value: 'wordpress', label: 'WordPress', hint: 'WordPress theme' },
+  { value: 'none', label: 'None', hint: 'standalone front end' },
+] as const satisfies readonly {
+  value: Platform;
+  label: string;
+  hint: string;
+}[];
 
 type InitializationPhase =
   | 'cloning the starter'
@@ -89,229 +93,235 @@ async function rollbackFailedInitialization(
  *
  * @throws {CliError} if required project information cannot be determined or initialization fails.
  */
-export default function init(progress: InstanceType<typeof ProgressBar>) {
-  return async (
-    name?: string,
-    targetDirectory?: string,
-    options?: InitHandlerOptions,
-  ): Promise<void> => {
-    // Load information about the project and platform.
-    const { name: autoPlatformName, emulsifyParentDirectory } =
-      (await getPlatformInfo()) || {};
-    const isDetectedDrupalProject = autoPlatformName === 'drupal';
-    const acceptDefaults = options?.yes === true;
+export default async function init(
+  name?: string,
+  targetDirectory?: string,
+  options?: InitHandlerOptions,
+): Promise<string> {
+  // Load information about the project and platform.
+  const { name: autoPlatformName, emulsifyParentDirectory } =
+    (await getPlatformInfo()) || {};
+  const isDetectedDrupalProject = autoPlatformName === 'drupal';
+  const acceptDefaults = options?.yes === true;
 
-    // Prompts are skipped in non-TTY runs; --yes accepts prompt defaults and
-    // explicit flags/arguments always take precedence.
-    let projectName = name || options?.machineName;
-    if (!projectName) {
-      projectName = await runPrompt({
-        prompt: () =>
-          input({
-            message: 'Project name:',
-            default: DEFAULT_PROJECT_NAME,
-          }),
-        nonInteractive: {
-          error:
-            'Unable to determine the project name. Please provide a valid project name.',
-        },
-        accept: {
-          when: acceptDefaults,
-          value: DEFAULT_PROJECT_NAME,
-        },
-      });
-    }
-
-    if (!projectName) {
-      throw new CliError(
-        'Unable to determine the project name. Please provide a valid project name.',
-      );
-    }
-
-    let targetParent = targetDirectory || emulsifyParentDirectory;
-    if (!targetParent) {
-      targetParent = await runPrompt<string | undefined>({
-        prompt: () =>
-          input({
-            message: 'Target directory:',
-            default: './',
-          }),
-        // Preserve the existing error ordering: platform validation occurs
-        // before the missing target is reported below.
-        nonInteractive: { value: undefined },
-        accept: { when: acceptDefaults, value: './' },
-      });
-    }
-
-    // If no platform name is given, and none can be detected, exit and error.
-    const requestedPlatformName = options?.platform || autoPlatformName;
-    let platformName = isPlatform(requestedPlatformName)
-      ? requestedPlatformName
-      : undefined;
-    if (requestedPlatformName && !platformName) {
-      throw new CliError(
-        `Unsupported platform "${requestedPlatformName}". Supported platforms are "none", "drupal", and "wordpress".`,
-      );
-    }
-    if (!platformName) {
-      platformName = await runPrompt({
-        prompt: () =>
-          select({
-            message: 'Platform:',
-            choices: PLATFORM_CHOICES,
-            default: DEFAULT_PLATFORM,
-          }),
-        nonInteractive: {
-          error:
-            'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
-        },
-        accept: { when: acceptDefaults, value: DEFAULT_PLATFORM },
-      });
-    }
-
-    if (!platformName) {
-      throw new CliError(
-        'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
-      );
-    }
-
-    progress.tick(10, {
-      message: `using starter for ${platformName} as the selected platform, validating config`,
+  // Prompts are skipped in non-TTY runs; --yes accepts prompt defaults and
+  // explicit flags/arguments always take precedence.
+  let projectName = name || options?.machineName;
+  if (!projectName) {
+    projectName = await runPrompt({
+      prompt: () =>
+        text({
+          message: 'Project name',
+          placeholder: DEFAULT_PROJECT_NAME,
+          defaultValue: DEFAULT_PROJECT_NAME,
+        }),
+      nonInteractive: {
+        error:
+          'Unable to determine the project name. Please provide a valid project name.',
+      },
+      accept: {
+        when: acceptDefaults,
+        value: DEFAULT_PROJECT_NAME,
+      },
     });
+  }
 
-    // Choose a folder name. If no machineName is given, create one using the project name.
-    const machineName =
-      options?.machineName || strToMachineName(projectName, platformName);
+  if (!projectName) {
+    throw new CliError(
+      'Unable to determine the project name. Please provide a valid project name.',
+    );
+  }
 
-    // Collection information about the starter kit, such as the target directory,
-    // starter repository, and checkout version.
-    const starters = getAvailableStarters();
-    const starter = starters.find((s) => s.platform === platformName);
+  let targetParent = targetDirectory || emulsifyParentDirectory;
+  if (!targetParent) {
+    targetParent = await runPrompt<string | undefined>({
+      prompt: () =>
+        text({
+          message: 'Target directory',
+          placeholder: './',
+          defaultValue: './',
+        }),
+      // Preserve the existing error ordering: platform validation occurs
+      // before the missing target is reported below.
+      nonInteractive: { value: undefined },
+      accept: { when: acceptDefaults, value: './' },
+    });
+  }
 
-    const target = targetParent ? join(targetParent, machineName) : undefined;
+  // If no platform name is given, and none can be detected, exit and error.
+  const requestedPlatformName = options?.platform || autoPlatformName;
+  let platformName = isPlatform(requestedPlatformName)
+    ? requestedPlatformName
+    : undefined;
+  if (requestedPlatformName && !platformName) {
+    throw new CliError(
+      `Unsupported platform "${requestedPlatformName}". Supported platforms are "none", "drupal", and "wordpress".`,
+    );
+  }
+  if (!platformName) {
+    platformName = await runPrompt<Platform>({
+      prompt: () =>
+        select<Platform>({
+          message: 'Platform',
+          options: [...PLATFORM_CHOICES],
+          initialValue: DEFAULT_PLATFORM,
+        }),
+      nonInteractive: {
+        error:
+          'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
+      },
+      accept: { when: acceptDefaults, value: DEFAULT_PLATFORM },
+    });
+  }
 
-    const repository = options?.starter || starter?.repository;
-    const checkout =
-      options?.checkout || (options?.starter ? undefined : starter?.checkout);
+  if (!platformName) {
+    throw new CliError(
+      'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
+    );
+  }
 
-    if (!target) {
-      throw new CliError(
-        'Unable to find a directory to put Emulsify in. Please specify a directory using the "path" argument: emulsify init myTheme ./themes',
-      );
-    }
+  // Choose a folder name. If no machineName is given, create one using the project name.
+  const machineName =
+    options?.machineName || strToMachineName(projectName, platformName);
 
-    if (!repository) {
-      throw new CliError(
-        `Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter ${
-          getAvailableStarters()[0].repository
-        }`,
-      );
-    }
+  // Collection information about the starter kit, such as the target directory,
+  // starter repository, and checkout version.
+  const starters = getAvailableStarters();
+  const starter = starters.find((s) => s.platform === platformName);
 
-    if (existsSync(target)) {
+  const target = targetParent ? join(targetParent, machineName) : undefined;
+
+  const repository = options?.starter || starter?.repository;
+  const checkout =
+    options?.checkout || (options?.starter ? undefined : starter?.checkout);
+
+  if (!target) {
+    throw new CliError(
+      'Unable to find a directory to put Emulsify in. Please specify a directory using the "path" argument: emulsify init myTheme ./themes',
+    );
+  }
+
+  if (!repository) {
+    throw new CliError(
+      `Unable to find an Emulsify starter for your project. Please specify one using the --starter flag: emulsify init myTheme --starter ${
+        getAvailableStarters()[0].repository
+      }`,
+    );
+  }
+
+  if (existsSync(target)) {
+    throw new CliError(`The intended target is already occupied: ${target}`);
+  }
+
+  // Reserve the target atomically before cloning so rollback only ever
+  // removes a directory created by this command run. Git can clone into an
+  // existing empty directory.
+  try {
+    await fs.mkdir(target);
+  } catch (error) {
+    if (isAlreadyExistsError(error)) {
       throw new CliError(`The intended target is already occupied: ${target}`);
     }
 
-    // Reserve the target atomically before cloning so rollback only ever
-    // removes a directory created by this command run. Git can clone into an
-    // existing empty directory.
-    try {
-      await fs.mkdir(target);
-    } catch (error) {
-      if (isAlreadyExistsError(error)) {
-        throw new CliError(
-          `The intended target is already occupied: ${target}`,
-        );
-      }
+    throw new CliError(
+      `Unable to initialize project while creating the target directory "${target}": ${String(error)}`,
+    );
+  }
 
-      throw new CliError(
-        `Unable to initialize project while creating the target directory "${target}": ${String(error)}`,
-      );
-    }
+  let phase: InitializationPhase = 'cloning the starter';
 
-    let phase: InitializationPhase = 'cloning the starter';
+  // The spinner only runs once every value is validated and the target is
+  // reserved, so no failure above this point can leave it spinning.
+  const progress = spinner();
 
-    try {
-      progress.tick(10, { message: 'validation complete, cloning starter' });
+  try {
+    progress.start(`Cloning ${repository}`);
 
-      // Clone the Emulsify starter into the target directory, and checkout
-      // the correct tag/branch/commit.
-      await git.clone(
+    // Clone the Emulsify starter into the target directory, and checkout
+    // the correct tag/branch/commit.
+    await git.clone(
+      repository,
+      target,
+      checkout
+        ? {
+            '--branch': checkout,
+          }
+        : {},
+    );
+
+    // Preserve starter-provided settings while replacing the values that
+    // describe this concrete generated project.
+    phase = 'reading the starter project configuration';
+    const configPath = join(target, EMULSIFY_PROJECT_CONFIG_FILE);
+    const starterConfig =
+      await loadJsonFile<Partial<EmulsifyProjectConfiguration>>(configPath);
+
+    phase = 'writing the project configuration';
+    await writeToJsonFile<EmulsifyProjectConfiguration>(configPath, {
+      ...starterConfig,
+      project: {
+        ...starterConfig?.project,
+        platform: platformName,
+        name: projectName,
+        machineName,
+      },
+      starter: {
+        ...starterConfig?.starter,
         repository,
-        target,
-        checkout
-          ? {
-              '--branch': checkout,
-            }
-          : {},
-      );
-
-      // Preserve starter-provided settings while replacing the values that
-      // describe this concrete generated project.
-      phase = 'reading the starter project configuration';
-      const configPath = join(target, EMULSIFY_PROJECT_CONFIG_FILE);
-      const starterConfig =
-        await loadJsonFile<Partial<EmulsifyProjectConfiguration>>(configPath);
-
-      phase = 'writing the project configuration';
-      await writeToJsonFile<EmulsifyProjectConfiguration>(configPath, {
-        ...starterConfig,
-        project: {
-          ...starterConfig?.project,
-          platform: platformName,
-          name: projectName,
-          machineName,
-        },
-        starter: {
-          ...starterConfig?.starter,
-          repository,
-        },
-      });
-
-      progress.tick(30, {
-        message:
-          'starter cloned, installing dependencies (this will take a moment)',
-      });
-
-      // Install project dependencies.
-      phase = 'installing dependencies';
-      await installDependencies(target);
-
-      progress.tick(40, {
-        message: 'dependencies installed, executing init script',
-      });
-
-      // Execute the init script, if one exists.
-      const initPath = join(
-        target,
-        EMULSIFY_PROJECT_HOOK_FOLDER,
-        EMULSIFY_PROJECT_HOOK_INIT,
-      );
-      if (existsSync(initPath)) {
-        phase = 'executing the starter init hook';
-        await executeScript(initPath);
-      }
-
-      // Remove the .git directory, as this is a starter kit. This step
-      // should happen after dependencies are installed, and init scripts are
-      // executed, otherwise git-reliant dev deps in the starter may error out.
-      phase = 'removing the starter Git metadata';
-      await fs.rm(join(target, '.git'), { recursive: true });
-    } catch (e) {
-      throw await rollbackFailedInitialization(target, phase, e);
-    }
-
-    // The filesystem transaction is complete. Keep display-only work outside
-    // the rollback boundary so a terminal/logging failure cannot delete a
-    // successfully initialized project.
-    progress.tick(10, {
-      message: 'init script executed, initialization complete',
+      },
     });
 
-    log('success', `Created an Emulsify project in ${target}.`);
-    getInitSuccessMessageForPlatform(platformName, target, {
+    progress.message('Installing dependencies');
+
+    // Install project dependencies.
+    phase = 'installing dependencies';
+    await installDependencies(target);
+
+    progress.message('Running the starter init hook');
+
+    // Execute the init script, if one exists.
+    const initPath = join(
+      target,
+      EMULSIFY_PROJECT_HOOK_FOLDER,
+      EMULSIFY_PROJECT_HOOK_INIT,
+    );
+    if (existsSync(initPath)) {
+      phase = 'executing the starter init hook';
+      await executeScript(initPath);
+    }
+
+    // Remove the .git directory, as this is a starter kit. This step
+    // should happen after dependencies are installed, and init scripts are
+    // executed, otherwise git-reliant dev deps in the starter may error out.
+    phase = 'removing the starter Git metadata';
+    await fs.rm(join(target, '.git'), { recursive: true });
+  } catch (e) {
+    // Stop the spinner before rollback so the failure is not reported beneath
+    // an indicator that is still spinning.
+    progress.error(`Could not finish ${phase}`);
+    throw await rollbackFailedInitialization(target, phase, e);
+  }
+
+  // The filesystem transaction is complete. Keep display-only work outside
+  // the rollback boundary so a terminal/logging failure cannot delete a
+  // successfully initialized project.
+  progress.stop(`Created ${machineName} in ${target}`);
+
+  for (const { method, message, title } of getInitSuccessMessageForPlatform(
+    platformName,
+    target,
+    {
       includeDrupalInstallReminder:
         isDetectedDrupalProject && platformName === 'drupal',
-    }).map(({ method, message }) => log(method, message));
-  };
+    },
+  )) {
+    if (title) {
+      note(message, title);
+      continue;
+    }
+
+    log(method, message);
+  }
+
+  return `${machineName} is ready`;
 }

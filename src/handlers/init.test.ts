@@ -4,14 +4,28 @@ jest.mock('../util/fs/loadJsonFile', () => jest.fn());
 jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 jest.mock('../util/fs/executeScript', () => jest.fn());
 jest.mock('../util/project/installDependencies', () => jest.fn());
-jest.mock('@inquirer/prompts');
+jest.mock('../lib/session', () => ({
+  note: jest.fn(),
+  spinner: jest.fn(),
+}));
+jest.mock('@clack/prompts', () => {
+  const CANCEL_SYMBOL = Symbol.for('clack:cancel');
+
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL,
+    isCancel: (value: unknown) => value === CANCEL_SYMBOL,
+    text: jest.fn(),
+    select: jest.fn(),
+  };
+});
 
 import fs from 'fs';
 import { join, resolve } from 'path';
 import { simpleGit as git } from 'simple-git';
 import log from '../lib/log.js';
-import { input, select } from '@inquirer/prompts';
-import ProgressBar from 'progress';
+import { select, text } from '@clack/prompts';
+import { note, spinner } from '../lib/session.js';
 import installDependencies from '../util/project/installDependencies.js';
 import getPlatformInfo from '../util/platform/getPlatformInfo.js';
 import loadJsonFile from '../util/fs/loadJsonFile.js';
@@ -55,16 +69,25 @@ const loadJsonFileMock = (loadJsonFile as jest.Mock).mockResolvedValue(
 const writeJsonFileMock = writeToJsonFile as jest.Mock;
 const installDependenciesMock = installDependencies as jest.Mock;
 const executeScriptMock = executeScript as jest.Mock;
-const progressMock = {
-  tick: jest.fn(),
+const spinnerMock = {
+  start: jest.fn(),
+  stop: jest.fn(),
+  message: jest.fn(),
+  cancel: jest.fn(),
+  error: jest.fn(),
+  clear: jest.fn(),
+  isCancelled: false,
 };
-const progress = progressMock as unknown as InstanceType<typeof ProgressBar>;
-const inputMock = input as jest.Mock;
+const noteMock = note as jest.Mock;
+const spinnerFactoryMock = (spinner as jest.Mock).mockReturnValue(spinnerMock);
+const textMock = text as jest.Mock;
 const selectMock = select as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
 const systemSelectionMessage = [
-  'Next, choose a component system:',
-  '  emulsify system install',
+  'emulsify system install',
+  '',
+  'Pick a component system to render with. Nothing renders until one',
+  'is installed.',
 ].join('\n');
 
 function setStdinIsTTY(value: boolean | undefined) {
@@ -85,8 +108,13 @@ describe('init', () => {
     writeJsonFileMock.mockClear();
     installDependenciesMock.mockClear();
     executeScriptMock.mockClear();
-    progressMock.tick.mockClear();
-    inputMock.mockClear();
+    spinnerFactoryMock.mockClear();
+    spinnerMock.start.mockClear();
+    spinnerMock.stop.mockClear();
+    spinnerMock.message.mockClear();
+    spinnerMock.error.mockClear();
+    noteMock.mockClear();
+    textMock.mockClear();
     selectMock.mockClear();
     setStdinIsTTY(false);
   });
@@ -96,7 +124,7 @@ describe('init', () => {
   });
 
   it('should execute the returned function', async () => {
-    await expect(init(progress)()).rejects.toThrow(
+    await expect(init()).rejects.toThrow(
       'Unable to determine the project name. Please provide a valid project name.',
     );
   });
@@ -104,19 +132,20 @@ describe('init', () => {
   it('should prompt for the name if not provided in an interactive terminal', async () => {
     expect.assertions(2);
     setStdinIsTTY(true);
-    inputMock.mockResolvedValueOnce('cornflake');
+    textMock.mockResolvedValueOnce('cornflake');
 
-    await init(progress)();
-    expect(input).toHaveBeenCalledTimes(1);
-    expect(input).toHaveBeenNthCalledWith(1, {
-      message: 'Project name:',
-      default: 'emulsifyTheme',
+    await init();
+    expect(text).toHaveBeenCalledTimes(1);
+    expect(text).toHaveBeenNthCalledWith(1, {
+      message: 'Project name',
+      placeholder: 'emulsifyTheme',
+      defaultValue: 'emulsifyTheme',
     });
   });
 
   it('can detect the platform, and use information about the platform to autodetect the target directory and Emulsify starter', async () => {
     expect.assertions(4);
-    await init(progress)('cornflake');
+    await init('cornflake');
     expect(selectMock).not.toHaveBeenCalled();
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-starter',
@@ -156,7 +185,7 @@ describe('init', () => {
     };
     loadJsonFileMock.mockResolvedValueOnce(starterConfig);
 
-    await init(progress)('cornflake');
+    await init('cornflake');
 
     expect(loadJsonFileMock).toHaveBeenCalledWith(defaultConfigPath);
     expect(writeJsonFileMock).toHaveBeenCalledWith(defaultConfigPath, {
@@ -183,26 +212,22 @@ describe('init', () => {
       platformMajorVersion: 11,
     });
 
-    await init(progress)('cornflake');
+    await init('cornflake');
 
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-drupal-starter',
       drupalTarget,
       { '--branch': 'main' },
     );
-    expect(logMock).toHaveBeenCalledWith(
-      'warn',
+    // Guidance on a successful run is a note, never a warning.
+    expect(noteMock).toHaveBeenCalledWith(
       expect.stringContaining(
         'composer require drupal/emulsify drupal/emulsify_tools',
       ),
+      'Drupal also needs',
     );
-    expect(logMock).toHaveBeenCalledWith(
-      'warn',
-      expect.stringContaining(
-        'drupal/emulsify as its base theme and emulsify_tools for Drupal integration',
-      ),
-    );
-    expect(logMock).toHaveBeenCalledWith('info', systemSelectionMessage);
+    expect(noteMock).toHaveBeenCalledWith(systemSelectionMessage, 'Next');
+    expect(logMock).not.toHaveBeenCalledWith('warn', expect.anything());
   });
 
   it('clones the WordPress starter into the detected themes directory when WordPress is auto-detected', async () => {
@@ -213,7 +238,7 @@ describe('init', () => {
       emulsifyParentDirectory: wordpressThemesDirectory,
     });
 
-    await init(progress)('My Theme');
+    await init('My Theme');
 
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-wordpress-starter',
@@ -236,31 +261,51 @@ describe('init', () => {
     );
   });
 
-  it('uses the progress obj to display information on the init process', async () => {
-    expect.assertions(5);
-    await init(progress)('cornflake');
-    expect(progress.tick).toHaveBeenNthCalledWith(1, 10, {
-      message:
-        'using starter for none as the selected platform, validating config',
-    });
-    expect(progress.tick).toHaveBeenNthCalledWith(2, 10, {
-      message: 'validation complete, cloning starter',
-    });
-    expect(progress.tick).toHaveBeenNthCalledWith(3, 30, {
-      message:
-        'starter cloned, installing dependencies (this will take a moment)',
-    });
-    expect(progress.tick).toHaveBeenNthCalledWith(4, 40, {
-      message: 'dependencies installed, executing init script',
-    });
-    expect(progress.tick).toHaveBeenNthCalledWith(5, 10, {
-      message: 'init script executed, initialization complete',
-    });
+  it('reports each phase of the init process as it starts', async () => {
+    expect.assertions(4);
+    await init('cornflake');
+
+    expect(spinnerMock.start).toHaveBeenCalledWith(
+      'Cloning https://github.com/emulsify-ds/emulsify-starter',
+    );
+    expect(spinnerMock.message).toHaveBeenNthCalledWith(
+      1,
+      'Installing dependencies',
+    );
+    expect(spinnerMock.message).toHaveBeenNthCalledWith(
+      2,
+      'Running the starter init hook',
+    );
+    expect(spinnerMock.stop).toHaveBeenCalledWith(
+      `Created cornflake in ${defaultTarget}`,
+    );
   });
 
-  it('can clone an Emulsify starter based on CLI input, and log a success message upon completion', async () => {
-    expect.assertions(3);
-    await init(progress)('cornflake', `${root}`, {
+  it('never starts the spinner before the target is reserved', async () => {
+    expect.assertions(2);
+    existsSyncMock.mockReturnValueOnce(true);
+
+    await expect(init('cornflake')).rejects.toThrow(
+      'The intended target is already occupied',
+    );
+    expect(spinnerMock.start).not.toHaveBeenCalled();
+  });
+
+  it('stops the spinner before reporting a failure', async () => {
+    expect.assertions(2);
+    installDependenciesMock.mockRejectedValueOnce(new Error('npm exploded'));
+
+    await expect(init('cornflake')).rejects.toThrow(
+      'Unable to initialize project while installing dependencies',
+    );
+    expect(spinnerMock.error).toHaveBeenCalledWith(
+      'Could not finish installing dependencies',
+    );
+  });
+
+  it('can clone an Emulsify starter based on CLI input, and summarize the result', async () => {
+    expect.assertions(2);
+    await init('cornflake', `${root}`, {
       starter: 'https://github.com/emulsify-ds/emulsify-starter',
       checkout: 'main',
     });
@@ -269,18 +314,15 @@ describe('init', () => {
       defaultTarget,
       { '--branch': 'main' },
     );
-    expect(logMock).toHaveBeenCalledTimes(2);
-    expect(logMock).toHaveBeenNthCalledWith(
-      1,
-      'success',
-      `Created an Emulsify project in ${defaultTarget}.`,
+    expect(spinnerMock.stop).toHaveBeenCalledWith(
+      `Created cornflake in ${defaultTarget}`,
     );
   });
 
   it('can clone an Emulsify starter without a provided checkout', async () => {
     expect.assertions(1);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
-    await init(progress)('cornflake', `${root}`, {
+    await init('cornflake', `${root}`, {
       starter: 'https://github.com/emulsify-ds/emulsify-starter',
       platform: 'wordpress',
     });
@@ -295,7 +337,7 @@ describe('init', () => {
     expect.assertions(1);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
 
-    await init(progress)('cornflake', `${root}`, {
+    await init('cornflake', `${root}`, {
       starter: 'git@github.com:example/custom-starter.git',
       platform: 'drupal',
     });
@@ -311,7 +353,7 @@ describe('init', () => {
     expect.assertions(2);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
 
-    await init(progress)('cornflake', `${root}`, {
+    await init('cornflake', `${root}`, {
       platform: 'wordpress',
     });
 
@@ -336,13 +378,13 @@ describe('init', () => {
     expect.assertions(5);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
 
-    await init(progress)(undefined, root, {
+    await init(undefined, root, {
       machineName: 'cornflake',
       starter: 'https://github.com/emulsify-ds/emulsify-starter',
       platform: 'drupal',
     });
 
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
     expect(selectMock).not.toHaveBeenCalled();
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-starter',
@@ -359,9 +401,9 @@ describe('init', () => {
         repository: 'https://github.com/emulsify-ds/emulsify-starter',
       },
     });
-    expect(logMock).not.toHaveBeenCalledWith(
-      'warn',
+    expect(noteMock).not.toHaveBeenCalledWith(
       expect.stringContaining('composer require drupal/emulsify'),
+      expect.anything(),
     );
   });
 
@@ -371,16 +413,20 @@ describe('init', () => {
     getPlatformInfoMock.mockReturnValueOnce(undefined);
     selectMock.mockResolvedValueOnce('none');
 
-    await init(progress)('cornflake', root, {
+    await init('cornflake', root, {
       starter: 'https://github.com/emulsify-ds/emulsify-starter',
     });
 
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
     expect(selectMock).toHaveBeenCalledTimes(1);
     expect(selectMock).toHaveBeenNthCalledWith(1, {
-      message: 'Platform:',
-      choices: ['drupal', 'wordpress', 'none'],
-      default: 'drupal',
+      message: 'Platform',
+      options: [
+        { value: 'drupal', label: 'Drupal', hint: 'Drupal 10 or 11 theme' },
+        { value: 'wordpress', label: 'WordPress', hint: 'WordPress theme' },
+        { value: 'none', label: 'None', hint: 'standalone front end' },
+      ],
+      initialValue: 'drupal',
     });
     expect(writeJsonFileMock).toHaveBeenCalledWith(defaultConfigPath, {
       project: {
@@ -392,9 +438,9 @@ describe('init', () => {
         repository: 'https://github.com/emulsify-ds/emulsify-starter',
       },
     });
-    expect(logMock).not.toHaveBeenCalledWith(
-      'warn',
+    expect(noteMock).not.toHaveBeenCalledWith(
       expect.stringContaining('composer require drupal/emulsify'),
+      expect.anything(),
     );
   });
 
@@ -402,12 +448,12 @@ describe('init', () => {
     expect.assertions(4);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
 
-    await init(progress)(undefined, undefined, {
+    await init(undefined, undefined, {
       starter: 'https://github.com/emulsify-ds/emulsify-starter',
       yes: true,
     });
 
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
     expect(selectMock).not.toHaveBeenCalled();
     expect(gitCloneMock).toHaveBeenCalledWith(
       'https://github.com/emulsify-ds/emulsify-starter',
@@ -431,21 +477,21 @@ describe('init', () => {
 
   it('installs the project dependencies', async () => {
     expect.assertions(1);
-    await init(progress)('cornflake');
+    await init('cornflake');
     expect(installDependencies).toHaveBeenCalledWith(defaultTarget);
   });
 
   it('executes the init script within the Emulsify starter, if it exists', async () => {
     expect.assertions(1);
     existsSyncMock.mockReturnValueOnce(false).mockReturnValueOnce(true);
-    await init(progress)('cornflake');
+    await init('cornflake');
     expect(executeScript).toHaveBeenCalledWith(defaultInitHookPath);
   });
 
   it('throws if no valid platform name is detectable', async () => {
     expect.assertions(1);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       'Unable to determine which platform you are installing Emulsify within. Please specify a platform (such as "drupal" or "wordpress") by passing a -p or --platform flag with your init command.',
     );
   });
@@ -453,7 +499,7 @@ describe('init', () => {
   it('reports the clone phase and removes a partial target when cloning fails', async () => {
     gitCloneMock.mockRejectedValueOnce(new Error('Does not exist!'));
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `Unable to initialize project while cloning the starter: Error: Does not exist!. Removed the incomplete target "${defaultTarget}".`,
     );
     expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
@@ -467,7 +513,7 @@ describe('init', () => {
       new Error('Invalid JSON in project.emulsify.json'),
     );
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `Unable to initialize project while reading the starter project configuration: Error: Invalid JSON in project.emulsify.json. Removed the incomplete target "${defaultTarget}".`,
     );
     expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
@@ -479,7 +525,7 @@ describe('init', () => {
   it('reports the configuration-write phase and removes the incomplete target', async () => {
     writeJsonFileMock.mockRejectedValueOnce(new Error('config write failed'));
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `Unable to initialize project while writing the project configuration: Error: config write failed. Removed the incomplete target "${defaultTarget}".`,
     );
     expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
@@ -493,7 +539,7 @@ describe('init', () => {
       new Error('npm install failed'),
     );
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `Unable to initialize project while installing dependencies: Error: npm install failed. Removed the incomplete target "${defaultTarget}".`,
     );
     expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
@@ -506,7 +552,7 @@ describe('init', () => {
     existsSyncMock.mockReturnValueOnce(false).mockReturnValueOnce(true);
     executeScriptMock.mockRejectedValueOnce(new Error('hook failed'));
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `Unable to initialize project while executing the starter init hook: Error: hook failed. Removed the incomplete target "${defaultTarget}".`,
     );
     expect(executeScriptMock).toHaveBeenCalledWith(defaultInitHookPath);
@@ -522,7 +568,7 @@ describe('init', () => {
     );
     rmMock.mockRejectedValueOnce(new Error('EACCES'));
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `Unable to initialize project while installing dependencies: Error: npm install failed. Automatic cleanup of the incomplete target "${defaultTarget}" also failed: Error: EACCES. Remove it manually before retrying.`,
     );
     expect(rmMock).toHaveBeenCalledWith(defaultTarget, {
@@ -534,7 +580,7 @@ describe('init', () => {
   it('rolls back the target when removing starter Git metadata fails', async () => {
     rmMock.mockRejectedValueOnce(new Error('Git metadata is locked'));
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `Unable to initialize project while removing the starter Git metadata: Error: Git metadata is locked. Removed the incomplete target "${defaultTarget}".`,
     );
     expect(rmMock).toHaveBeenNthCalledWith(1, defaultGitPath, {
@@ -547,13 +593,11 @@ describe('init', () => {
   });
 
   it('does not roll back a completed project when success logging fails', async () => {
-    logMock.mockImplementationOnce(() => {
+    noteMock.mockImplementationOnce(() => {
       throw new Error('terminal output failed');
     });
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
-      'terminal output failed',
-    );
+    await expect(init('cornflake')).rejects.toThrow('terminal output failed');
     expect(rmMock).toHaveBeenCalledTimes(1);
     expect(rmMock).toHaveBeenCalledWith(defaultGitPath, { recursive: true });
     expect(rmMock).not.toHaveBeenCalledWith(defaultTarget, {
@@ -567,7 +611,7 @@ describe('init', () => {
     getPlatformInfoMock.mockReturnValueOnce({
       name: 'drupal',
     });
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       'Unable to find a directory to put Emulsify in. Please specify a directory using the "path" argument: emulsify init myTheme ./themes',
     );
   });
@@ -577,7 +621,7 @@ describe('init', () => {
     getPlatformInfoMock.mockReturnValueOnce({
       name: 'invalid',
     });
-    await expect(init(progress)('cornflake', root)).rejects.toThrow(
+    await expect(init('cornflake', root)).rejects.toThrow(
       'Unsupported platform "invalid". Supported platforms are "none", "drupal", and "wordpress".',
     );
   });
@@ -585,7 +629,7 @@ describe('init', () => {
   it('throws if the target directory already exists', async () => {
     expect.assertions(4);
     existsSyncMock.mockReturnValueOnce(true);
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `The intended target is already occupied: ${defaultTarget}`,
     );
     expect(mkdirMock).not.toHaveBeenCalled();
@@ -598,7 +642,7 @@ describe('init', () => {
       Object.assign(new Error('already exists'), { code: 'EEXIST' }),
     );
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `The intended target is already occupied: ${defaultTarget}`,
     );
     expect(gitCloneMock).not.toHaveBeenCalled();
@@ -610,7 +654,7 @@ describe('init', () => {
       Object.assign(new Error('permission denied'), { code: 'EACCES' }),
     );
 
-    await expect(init(progress)('cornflake')).rejects.toThrow(
+    await expect(init('cornflake')).rejects.toThrow(
       `Unable to initialize project while creating the target directory "${defaultTarget}": Error: permission denied`,
     );
     expect(gitCloneMock).not.toHaveBeenCalled();
@@ -620,30 +664,36 @@ describe('init', () => {
   it('should prompt for all info if name is missing', async () => {
     setStdinIsTTY(true);
     getPlatformInfoMock.mockReturnValueOnce(undefined);
-    inputMock.mockResolvedValueOnce('new-project').mockResolvedValueOnce(root);
+    textMock.mockResolvedValueOnce('new-project').mockResolvedValueOnce(root);
     selectMock.mockResolvedValueOnce('drupal');
 
-    await init(progress)();
+    await init();
 
-    expect(input).toHaveBeenCalledTimes(2);
-    expect(input).toHaveBeenNthCalledWith(1, {
-      message: 'Project name:',
-      default: 'emulsifyTheme',
+    expect(text).toHaveBeenCalledTimes(2);
+    expect(text).toHaveBeenNthCalledWith(1, {
+      message: 'Project name',
+      placeholder: 'emulsifyTheme',
+      defaultValue: 'emulsifyTheme',
     });
-    expect(input).toHaveBeenNthCalledWith(2, {
-      message: 'Target directory:',
-      default: './',
+    expect(text).toHaveBeenNthCalledWith(2, {
+      message: 'Target directory',
+      placeholder: './',
+      defaultValue: './',
     });
     expect(select).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenNthCalledWith(1, {
-      message: 'Platform:',
-      choices: ['drupal', 'wordpress', 'none'],
-      default: 'drupal',
+      message: 'Platform',
+      options: [
+        { value: 'drupal', label: 'Drupal', hint: 'Drupal 10 or 11 theme' },
+        { value: 'wordpress', label: 'WordPress', hint: 'WordPress theme' },
+        { value: 'none', label: 'None', hint: 'standalone front end' },
+      ],
+      initialValue: 'drupal',
     });
     expect(gitCloneMock).toHaveBeenCalled();
-    expect(logMock).not.toHaveBeenCalledWith(
-      'warn',
+    expect(noteMock).not.toHaveBeenCalledWith(
       expect.stringContaining('composer require drupal/emulsify'),
+      expect.anything(),
     );
   });
 });
