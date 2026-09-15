@@ -58,7 +58,6 @@
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.4.0",
-    "@types/progress": "^2.0.7",
     "husky": "^9.1.7",
     "jest": "^30.5.0",
     "json-schema-to-typescript": "^16.0.0",
@@ -71,15 +70,12 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@inquirer/prompts": "^8.7.0",
+    "@clack/prompts": "^1.8.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "boxen": "^8.0.1",
     "colorette": "^2.0.20",
     "commander": "^15.0.0",
-    "consola": "^3.4.2",
     "fs-extra": "^11.4.0",
-    "progress": "^2.0.3",
     "simple-git": "^3.36.0"
   }
 }
