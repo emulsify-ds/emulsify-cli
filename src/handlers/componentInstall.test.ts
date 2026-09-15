@@ -8,13 +8,27 @@ jest.mock('../util/cache/getJsonFromCachedFile', () => jest.fn());
 jest.mock('../util/cache/cloneIntoCache', () => jest.fn());
 jest.mock('../util/cache/copyItemFromCache', () => jest.fn());
 jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
-jest.mock('@inquirer/prompts');
+jest.mock('../lib/session', () => ({ note: jest.fn() }));
+// The prompt library is ESM-only, so the mock is built from a factory rather
+// than automocked from the real module.
+jest.mock('@clack/prompts', () => {
+  const cancelSymbol = Symbol('clack:cancel');
+
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL: cancelSymbol,
+    isCancel: (value: unknown) => value === cancelSymbol,
+    select: jest.fn(),
+    confirm: jest.fn(),
+  };
+});
 
 import { pathExists } from 'fs-extra';
 import { join, resolve } from 'path';
-import { confirm, select } from '@inquirer/prompts';
+import { confirm, select } from '@clack/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
+import { note } from '../lib/session.js';
 import CliError from '../lib/CliError.js';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
@@ -28,6 +42,7 @@ import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import componentInstall from './componentInstall.js';
 
 const logMock = log as jest.Mock;
+const noteMock = note as jest.Mock;
 const getEmulsifyConfigMock = getEmulsifyConfig as jest.Mock;
 const getJsonFromCachedFileMock = getJsonFromCachedFile as jest.Mock;
 const cloneIntoCacheMock = cloneIntoCache as jest.Mock;
@@ -265,26 +280,26 @@ describe('componentInstall', () => {
     await componentInstall(undefined, { force: true });
 
     expect(selectMock).toHaveBeenCalledWith({
-      message: 'Choose a component to install:',
-      choices: [
+      message: 'Choose a component to install',
+      options: [
         {
-          name: 'button',
           value: 'button',
-          description: undefined,
+          label: 'button',
+          hint: 'base',
         },
         {
-          name: 'icon',
           value: 'icon',
-          description: undefined,
+          label: 'icon',
+          hint: 'base',
         },
         {
-          name: 'card',
           value: 'card',
-          description: undefined,
+          label: 'card',
+          hint: 'base',
         },
         {
-          name: 'Install all available components',
           value: expect.any(Symbol),
+          label: 'Install all available components',
         },
       ],
     });
@@ -305,8 +320,8 @@ describe('componentInstall', () => {
   });
 
   it('installs all components when the interactive all choice is selected', async () => {
-    selectMock.mockImplementationOnce(async ({ choices }) => {
-      return choices.at(-1).value;
+    selectMock.mockImplementationOnce(async ({ options }) => {
+      return options.at(-1).value;
     });
 
     await componentInstall(undefined, {});
@@ -349,7 +364,9 @@ describe('componentInstall', () => {
   });
 
   it('installs a component and its dependencies on the happy path', async () => {
-    await componentInstall('button', { force: true });
+    await expect(componentInstall('button', { force: true })).resolves.toBe(
+      'Installed 2 components',
+    );
 
     expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
       1,
@@ -369,10 +386,8 @@ describe('componentInstall', () => {
       'success',
       'Success! The button component has been added to your project.',
     );
-    expect(logMock).toHaveBeenCalledWith(
-      'info',
-      'The following dependencies were also installed:\n  → icon',
-    );
+    // The dependency list reads as a block rather than a log line.
+    expect(noteMock).toHaveBeenCalledWith('  → icon', 'Also installed');
   });
 
   it('requests a remote freshness check when refresh is enabled', async () => {
@@ -384,7 +399,9 @@ describe('componentInstall', () => {
   });
 
   it('previews a single component install without copying in dry-run mode', async () => {
-    await componentInstall('card', { dryRun: true });
+    await expect(componentInstall('card', { dryRun: true })).resolves.toBe(
+      'Dry run complete',
+    );
 
     expect(confirmMock).not.toHaveBeenCalled();
     expect(copyItemFromCacheMock).not.toHaveBeenCalled();
@@ -443,7 +460,9 @@ describe('componentInstall', () => {
   it('installs a component when no project config path is found for destination checks', async () => {
     findFileInCurrentPathMock.mockReturnValueOnce(undefined);
 
-    await componentInstall('card', {});
+    await expect(componentInstall('card', {})).resolves.toBe(
+      'Installed 1 component',
+    );
 
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
@@ -462,7 +481,7 @@ describe('componentInstall', () => {
     expect(confirmMock).toHaveBeenCalledWith({
       message:
         'The component "button" already exists. Would you like to replace it?',
-      default: false,
+      initialValue: false,
     });
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
@@ -499,7 +518,7 @@ describe('componentInstall', () => {
     expect(confirmMock).toHaveBeenCalledWith({
       message:
         'The component "icon" (required by "button") already exists. Would you like to replace it?',
-      default: false,
+      initialValue: false,
     });
     expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
       2,
@@ -514,7 +533,9 @@ describe('componentInstall', () => {
     pathExistsMock.mockResolvedValue(true);
     confirmMock.mockResolvedValue(false);
 
-    await componentInstall('button', {});
+    await expect(componentInstall('button', {})).resolves.toBe(
+      'No components were installed',
+    );
 
     expect(logMock).toHaveBeenCalledWith(
       'info',

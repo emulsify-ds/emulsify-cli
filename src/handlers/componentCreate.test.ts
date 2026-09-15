@@ -6,9 +6,33 @@ jest.mock('../util/project/getEmulsifyConfig', () => jest.fn());
 jest.mock('../util/cache/getJsonFromCachedFile', () => jest.fn());
 jest.mock('../util/cache/cloneIntoCache', () => jest.fn());
 jest.mock('../util/project/generateComponent', () => jest.fn());
-jest.mock('@inquirer/prompts');
+// The prompt library is ESM-only, so the mock is built from a factory rather
+// than automocked from the real module.
+jest.mock('@clack/prompts', () => {
+  const cancelSymbol = Symbol('clack:cancel');
 
-import { input } from '@inquirer/prompts';
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL: cancelSymbol,
+    isCancel: (value: unknown) => value === cancelSymbol,
+    text: jest.fn(),
+    select: jest.fn(),
+    confirm: jest.fn(),
+    intro: jest.fn(),
+    outro: jest.fn(),
+    cancel: jest.fn(),
+    note: jest.fn(),
+    log: {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      success: jest.fn(),
+      message: jest.fn(),
+    },
+  };
+});
+
+import { text } from '@clack/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import CliError from '../lib/CliError.js';
 import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
@@ -16,6 +40,7 @@ import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
 import generateComponent from '../util/project/generateComponent.js';
+import { PromptCancelledError } from '../util/prompt/index.js';
 import componentCreate from './componentCreate.js';
 
 const getEmulsifyConfigMock = getEmulsifyConfig as jest.Mock;
@@ -23,7 +48,7 @@ const getJsonFromCachedFileMock = getJsonFromCachedFile as jest.Mock;
 const cloneIntoCacheMock = cloneIntoCache as jest.Mock;
 const cloneSystemMock = jest.fn();
 const generateComponentMock = generateComponent as jest.Mock;
-const inputMock = input as jest.Mock;
+const textMock = text as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
 
 function setStdinIsTTY(value: boolean | undefined) {
@@ -89,8 +114,8 @@ describe('componentCreate', () => {
     cloneSystemMock.mockResolvedValue(undefined);
     getEmulsifyConfigMock.mockResolvedValue(projectConfig);
     getJsonFromCachedFileMock.mockResolvedValue(system);
-    generateComponentMock.mockResolvedValue(undefined);
-    inputMock.mockResolvedValue('button');
+    generateComponentMock.mockResolvedValue('Created the button component');
+    textMock.mockResolvedValue('button');
   });
 
   afterAll(() => {
@@ -126,7 +151,7 @@ describe('componentCreate', () => {
       'You must select and install a system before you can create components.',
     );
 
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
     expect(generateComponentMock).not.toHaveBeenCalled();
   });
 
@@ -225,28 +250,29 @@ describe('componentCreate', () => {
       componentCreate('', { refresh: true, type: 'twig' }),
     ).rejects.toThrow('Please specify a name for the new component.');
 
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
     expect(getEmulsifyConfigMock).not.toHaveBeenCalled();
     expect(generateComponentMock).not.toHaveBeenCalled();
   });
 
   it('prompts for a missing component name and validates it before continuing', async () => {
-    inputMock.mockImplementationOnce(async ({ validate }) => {
+    textMock.mockImplementationOnce(async ({ validate }) => {
       expect(validate('promo card')).toBe(
         'Component name may only include letters, numbers, and single hyphens between words.',
       );
       expect(validate('---')).toBe(
         'Component name must include at least one letter or number.',
       );
-      expect(validate('promo-card')).toBe(true);
+      // A valid name returns no validation message.
+      expect(validate('promo-card')).toBeUndefined();
       return 'promo-card';
     });
     const options = { directory: 'base', type: 'twig' };
 
     await componentCreate(undefined, options);
 
-    expect(inputMock).toHaveBeenCalledWith({
-      message: 'Component name:',
+    expect(textMock).toHaveBeenCalledWith({
+      message: 'Component name',
       validate: expect.any(Function),
     });
     expect(generateComponentMock).toHaveBeenCalledWith(
@@ -347,12 +373,40 @@ describe('componentCreate', () => {
   });
 
   it('preserves prompt cancellation for the top-level handler', async () => {
-    const cancellation = new Error('User force closed the prompt');
-    cancellation.name = 'ExitPromptError';
+    const cancellation = new PromptCancelledError();
     generateComponentMock.mockRejectedValueOnce(cancellation);
 
     await expect(componentCreate('button', { directory: 'base' })).rejects.toBe(
       cancellation,
     );
+  });
+
+  it('summarizes the created component for the session', async () => {
+    await expect(
+      componentCreate('button', { directory: 'base', type: 'twig' }),
+    ).resolves.toBe('Created the button component');
+  });
+
+  it('summarizes a dry run without claiming the component was created', async () => {
+    generateComponentMock.mockResolvedValueOnce('Dry run complete');
+
+    await expect(
+      componentCreate('button', {
+        directory: 'base',
+        type: 'twig',
+        dryRun: true,
+      }),
+    ).resolves.toBe('Dry run complete');
+  });
+
+  it('reports the outcome generateComponent actually reached', async () => {
+    // A declined overwrite must not be summarized as a successful creation.
+    generateComponentMock.mockResolvedValueOnce(
+      'Canceled; the existing button component was kept',
+    );
+
+    await expect(
+      componentCreate('button', { directory: 'base', type: 'twig' }),
+    ).resolves.toBe('Canceled; the existing button component was kept');
   });
 });

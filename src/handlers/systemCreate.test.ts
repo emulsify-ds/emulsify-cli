@@ -5,11 +5,44 @@
 jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 jest.mock('../util/system/validateSystemConfig', () => jest.fn());
-jest.mock('@inquirer/prompts');
+jest.mock('@clack/prompts', () => {
+  const CANCEL_SYMBOL = Symbol.for('clack:cancel');
+
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL,
+    isCancel: (value: unknown) => value === CANCEL_SYMBOL,
+    text: jest.fn(),
+    multiselect: jest.fn(),
+    confirm: jest.fn(),
+    note: jest.fn(),
+    intro: jest.fn(),
+    outro: jest.fn(),
+    cancel: jest.fn(),
+    spinner: jest.fn(() => ({
+      start: jest.fn(),
+      stop: jest.fn(),
+      message: jest.fn(),
+      cancel: jest.fn(),
+      error: jest.fn(),
+      clear: jest.fn(),
+      isCancelled: false,
+    })),
+    log: {
+      message: jest.fn(),
+      info: jest.fn(),
+      success: jest.fn(),
+      step: jest.fn(),
+      warn: jest.fn(),
+      warning: jest.fn(),
+      error: jest.fn(),
+    },
+  };
+});
 
 import type { CreateSystemHandlerOptions } from '@emulsify-cli/handlers';
 
-import { checkbox, confirm, input } from '@inquirer/prompts';
+import { confirm, multiselect, text } from '@clack/prompts';
 import { existsSync, promises as fs } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { simpleGit } from 'simple-git';
@@ -24,8 +57,8 @@ import buildSystemScaffold, {
 import validateSystemConfig from '../util/system/validateSystemConfig.js';
 import systemCreate, { normalizeSystemName } from './systemCreate.js';
 
-const inputMock = input as jest.Mock;
-const checkboxMock = checkbox as jest.Mock;
+const textMock = text as jest.Mock;
+const multiselectMock = multiselect as jest.Mock;
 const confirmMock = confirm as jest.Mock;
 const existsSyncMock = existsSync as jest.Mock;
 const mkdirMock = fs.mkdir as jest.Mock;
@@ -121,8 +154,8 @@ describe('systemCreate', () => {
       git: true,
     });
 
-    expect(inputMock).not.toHaveBeenCalled();
-    expect(checkboxMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
+    expect(multiselectMock).not.toHaveBeenCalled();
     expect(confirmMock).not.toHaveBeenCalled();
     expect(existsSyncMock).toHaveBeenCalledTimes(1);
     expect(existsSyncMock).toHaveBeenCalledWith(target);
@@ -162,39 +195,33 @@ describe('systemCreate', () => {
     expect(gitInitMock).toHaveBeenCalledWith(false, {
       '--initial-branch': 'main',
     });
-    expect(logMock).toHaveBeenNthCalledWith(
-      1,
-      'success',
-      `Created the acme-system system in ${target}.`,
-    );
-    expect(logMock).toHaveBeenNthCalledWith(
-      2,
+    expect(logMock).toHaveBeenCalledWith(
       'info',
       'Git was initialized on branch main. Review the generated metadata, then commit the scaffold before installing it.',
     );
-    expect(logMock).toHaveBeenCalledTimes(2);
+    expect(logMock).toHaveBeenCalledTimes(1);
   });
 
   it('prompts for missing values in order and uses the selected values', async () => {
     setStdinIsTTY(true);
-    inputMock
+    textMock
       .mockResolvedValueOnce('Fancy_System')
       .mockResolvedValueOnce('/interactive-systems');
-    checkboxMock.mockResolvedValueOnce(['drupal', 'wordpress']);
+    multiselectMock.mockResolvedValueOnce(['drupal', 'wordpress']);
     confirmMock.mockResolvedValueOnce(true);
 
     await systemCreate(undefined);
 
-    const namePrompt = inputMock.mock.calls[0][0];
-    const directoryPrompt = inputMock.mock.calls[1][0];
-    const platformPrompt = checkboxMock.mock.calls[0][0];
+    const namePrompt = textMock.mock.calls[0][0];
+    const directoryPrompt = textMock.mock.calls[1][0];
+    const platformPrompt = multiselectMock.mock.calls[0][0];
 
-    expect(inputMock).toHaveBeenCalledTimes(2);
+    expect(textMock).toHaveBeenCalledTimes(2);
     expect(namePrompt).toMatchObject({
-      message: 'System name:',
-      default: 'custom-system',
+      message: 'System name',
+      defaultValue: 'custom-system',
     });
-    expect(namePrompt.validate('ValidSystem')).toBe(true);
+    expect(namePrompt.validate('ValidSystem')).toBeUndefined();
     expect(namePrompt.validate('!!')).toBe(
       'System name must contain at least three letters or numbers. Pass the [name] positional argument or use --yes for the default.',
     );
@@ -206,43 +233,36 @@ describe('systemCreate', () => {
       }),
     ).toBe('unexpected validator failure');
     expect(directoryPrompt).toMatchObject({
-      message: 'Target directory:',
-      default: './',
+      message: 'Target directory',
+      defaultValue: './',
     });
-    expect(directoryPrompt.validate('/tmp/systems')).toBe(true);
+    expect(directoryPrompt.validate('/tmp/systems')).toBeUndefined();
     expect(directoryPrompt.validate('  ')).toBe(
       'Target directory cannot be empty.',
     );
-    expect(checkboxMock).toHaveBeenCalledTimes(1);
+    expect(multiselectMock).toHaveBeenCalledTimes(1);
     expect(platformPrompt).toMatchObject({
-      message: 'Platform targets:',
-      choices: [
-        {
-          name: 'Generic / no platform',
-          value: 'none',
-          checked: true,
-        },
-        { name: 'Drupal', value: 'drupal' },
-        { name: 'WordPress', value: 'wordpress' },
+      message: 'Platform targets',
+      options: [
+        { label: 'Generic / no platform', value: 'none' },
+        { label: 'Drupal', value: 'drupal' },
+        { label: 'WordPress', value: 'wordpress' },
       ],
+      initialValues: ['none'],
     });
-    expect(platformPrompt.validate(['drupal'])).toBe(true);
-    expect(platformPrompt.validate([])).toBe(
-      'Select at least one platform target.',
-    );
     expect(confirmMock).toHaveBeenCalledTimes(1);
     expect(confirmMock).toHaveBeenCalledWith({
       message: 'Initialize a Git repository?',
-      default: true,
+      initialValue: true,
     });
 
-    expect(inputMock.mock.invocationCallOrder[0]).toBeLessThan(
-      inputMock.mock.invocationCallOrder[1],
+    expect(textMock.mock.invocationCallOrder[0]).toBeLessThan(
+      textMock.mock.invocationCallOrder[1],
     );
-    expect(inputMock.mock.invocationCallOrder[1]).toBeLessThan(
-      checkboxMock.mock.invocationCallOrder[0],
+    expect(textMock.mock.invocationCallOrder[1]).toBeLessThan(
+      multiselectMock.mock.invocationCallOrder[0],
     );
-    expect(checkboxMock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(multiselectMock.mock.invocationCallOrder[0]).toBeLessThan(
       confirmMock.mock.invocationCallOrder[0],
     );
 
@@ -274,8 +294,8 @@ describe('systemCreate', () => {
 
     await systemCreate(undefined, { yes: true });
 
-    expect(inputMock).not.toHaveBeenCalled();
-    expect(checkboxMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
+    expect(multiselectMock).not.toHaveBeenCalled();
     expect(confirmMock).not.toHaveBeenCalled();
     expect(existsSyncMock).toHaveBeenCalledWith(target);
     expect(writeToJsonFileMock).toHaveBeenCalledWith(
@@ -356,8 +376,8 @@ describe('systemCreate', () => {
         exitCode: 1,
       });
 
-      expect(inputMock).not.toHaveBeenCalled();
-      expect(checkboxMock).not.toHaveBeenCalled();
+      expect(textMock).not.toHaveBeenCalled();
+      expect(multiselectMock).not.toHaveBeenCalled();
       expect(confirmMock).not.toHaveBeenCalled();
       expect(existsSyncMock).not.toHaveBeenCalled();
       expect(validateSystemConfigMock).not.toHaveBeenCalled();
@@ -619,15 +639,13 @@ describe('systemCreate', () => {
   it('skips Git and only logs creation when --no-git is selected', async () => {
     const target = join(parentDirectory, 'acme-system');
 
-    await systemCreate('acme-system', explicitOptions);
+    await expect(systemCreate('acme-system', explicitOptions)).resolves.toBe(
+      `Created the acme-system system in ${target}.`,
+    );
 
     expect(simpleGitMock).not.toHaveBeenCalled();
     expect(gitInitMock).not.toHaveBeenCalled();
-    expect(logMock).toHaveBeenCalledTimes(1);
-    expect(logMock).toHaveBeenCalledWith(
-      'success',
-      `Created the acme-system system in ${target}.`,
-    );
+    expect(logMock).not.toHaveBeenCalled();
   });
 
   it('wraps Git initialization failure and does not log success', async () => {

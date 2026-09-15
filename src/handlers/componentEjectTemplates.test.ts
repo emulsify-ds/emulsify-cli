@@ -1,8 +1,42 @@
-jest.mock('@inquirer/prompts');
+jest.mock('../lib/session', () => ({ note: jest.fn() }));
+
+jest.mock('@clack/prompts', () => {
+  const CANCEL_SYMBOL = Symbol.for('clack:cancel');
+
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL,
+    isCancel: (value: unknown) => value === CANCEL_SYMBOL,
+    multiselect: jest.fn(),
+    note: jest.fn(),
+    intro: jest.fn(),
+    outro: jest.fn(),
+    cancel: jest.fn(),
+    spinner: jest.fn(() => ({
+      start: jest.fn(),
+      stop: jest.fn(),
+      message: jest.fn(),
+      cancel: jest.fn(),
+      error: jest.fn(),
+      clear: jest.fn(),
+      isCancelled: false,
+    })),
+    log: {
+      message: jest.fn(),
+      info: jest.fn(),
+      success: jest.fn(),
+      step: jest.fn(),
+      warn: jest.fn(),
+      warning: jest.fn(),
+      error: jest.fn(),
+    },
+  };
+});
 jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
 
-import { checkbox } from '@inquirer/prompts';
+import { multiselect } from '@clack/prompts';
+import { note } from '../lib/session.js';
 import { constants as fsConstants, promises as fs } from 'fs';
 import { basename, dirname, join, resolve } from 'path';
 import { pathExists } from 'fs-extra';
@@ -19,7 +53,8 @@ import componentEjectTemplates, {
   MISSING_TEMPLATE_TYPE_ERROR,
 } from './componentEjectTemplates.js';
 
-const checkboxMock = checkbox as jest.Mock;
+const multiselectMock = multiselect as jest.Mock;
+const noteMock = note as jest.Mock;
 const copyFileMock = fs.copyFile as jest.Mock;
 const findFileMock = findFileInCurrentPath as jest.Mock;
 const logMock = log as jest.Mock;
@@ -188,7 +223,7 @@ describe('componentEjectTemplates', () => {
     await componentEjectTemplates('twig');
 
     const artifacts = buildEjectableComponentTemplates('twig');
-    expect(checkboxMock).not.toHaveBeenCalled();
+    expect(multiselectMock).not.toHaveBeenCalled();
     expect(pathExistsMock).toHaveBeenCalledTimes(artifacts.length);
     expect(mkdirMock).toHaveBeenCalledTimes(artifacts.length);
     expect(writeFileMock).toHaveBeenCalledTimes(artifacts.length);
@@ -220,13 +255,11 @@ describe('componentEjectTemplates', () => {
       Math.min(...linkMock.mock.invocationCallOrder),
     );
 
-    expect(logMock).toHaveBeenNthCalledWith(
-      1,
-      'success',
+    expect(noteMock).toHaveBeenCalledWith(
       expect.stringContaining(destination('twig', 'component.twig')),
+      'Ejected',
     );
-    expect(logMock).toHaveBeenNthCalledWith(
-      2,
+    expect(logMock).toHaveBeenCalledWith(
       'info',
       'Edit these files to customize component create. Delete an override to restore its built-in template.',
     );
@@ -286,7 +319,7 @@ describe('componentEjectTemplates', () => {
   it('writes all 15 templates without prompting when --all is passed', async () => {
     await componentEjectTemplates(undefined, { all: true });
 
-    expect(checkboxMock).not.toHaveBeenCalled();
+    expect(multiselectMock).not.toHaveBeenCalled();
     expect(pathExistsMock).toHaveBeenCalledTimes(15);
     expect(mkdirMock).toHaveBeenCalledTimes(15);
     expect(writeFileMock).toHaveBeenCalledTimes(15);
@@ -329,20 +362,22 @@ describe('componentEjectTemplates', () => {
 
   it('prompts interactively for one, several, or all component types', async () => {
     setStdinIsTTY(true);
-    checkboxMock.mockResolvedValueOnce(['web-component', 'twig']);
+    multiselectMock.mockResolvedValueOnce(['web-component', 'twig']);
 
     await componentEjectTemplates(undefined);
 
-    expect(checkboxMock).toHaveBeenCalledTimes(1);
-    const prompt = checkboxMock.mock.calls[0][0];
+    expect(multiselectMock).toHaveBeenCalledTimes(1);
+    const prompt = multiselectMock.mock.calls[0][0];
     expect(prompt).toMatchObject({
       message: 'Which component template types should be ejected?',
     });
-    expect(prompt.choices.map(({ value }: { value: string }) => value)).toEqual(
+    expect(prompt.options.map(({ value }: { value: string }) => value)).toEqual(
       ['twig', 'twig-sdc', 'react', 'web-component'],
     );
-    expect(prompt.validate([])).toBe('Select at least one component type.');
-    expect(prompt.validate([{ value: 'twig' }])).toBe(true);
+    // Every option explains what it writes, so the list is readable without docs.
+    expect(
+      prompt.options.every(({ hint }: { hint?: string }) => Boolean(hint)),
+    ).toBe(true);
 
     const expectedCount =
       buildEjectableComponentTemplates('twig').length +
@@ -365,7 +400,7 @@ describe('componentEjectTemplates', () => {
       });
 
       expect(findFileMock).not.toHaveBeenCalled();
-      expect(checkboxMock).not.toHaveBeenCalled();
+      expect(multiselectMock).not.toHaveBeenCalled();
       expect(pathExistsMock).not.toHaveBeenCalled();
       expectNoWrites();
     },
@@ -382,7 +417,7 @@ describe('componentEjectTemplates', () => {
       MISSING_TEMPLATE_TYPE_ERROR,
     );
 
-    expect(checkboxMock).not.toHaveBeenCalled();
+    expect(multiselectMock).not.toHaveBeenCalled();
     expect(pathExistsMock).not.toHaveBeenCalled();
     expectNoWrites();
   });
@@ -397,7 +432,7 @@ describe('componentEjectTemplates', () => {
       exitCode: 1,
     });
 
-    expect(checkboxMock).not.toHaveBeenCalled();
+    expect(multiselectMock).not.toHaveBeenCalled();
     expect(pathExistsMock).not.toHaveBeenCalled();
     expectNoWrites();
   });
@@ -414,7 +449,7 @@ describe('componentEjectTemplates', () => {
 
   it('rejects an empty interactive selection defensively', async () => {
     setStdinIsTTY(true);
-    checkboxMock.mockResolvedValueOnce([]);
+    multiselectMock.mockResolvedValueOnce([]);
 
     await expect(componentEjectTemplates(undefined)).rejects.toMatchObject({
       name: 'CliError',
@@ -859,11 +894,11 @@ describe('componentEjectTemplates', () => {
     await componentEjectTemplates('twig', { dryRun: true });
 
     expectNoWrites();
-    expect(logMock).toHaveBeenCalledWith(
-      'info',
+    expect(noteMock).toHaveBeenCalledWith(
       expect.stringMatching(
         /component\.twig \(would create\)[\s\S]*component\.scss \(conflict; a real run requires --force\)[\s\S]*No files were written or replaced\./,
       ),
+      'Dry run: component eject-templates',
     );
   });
 
@@ -876,9 +911,9 @@ describe('componentEjectTemplates', () => {
     });
 
     expectNoWrites();
-    expect(logMock).toHaveBeenCalledWith(
-      'info',
+    expect(noteMock).toHaveBeenCalledWith(
       expect.stringContaining('(would replace)'),
+      'Dry run: component eject-templates',
     );
   });
 

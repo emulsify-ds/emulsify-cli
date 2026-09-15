@@ -1,6 +1,6 @@
 import type { EjectComponentTemplatesHandlerOptions } from '@emulsify-cli/handlers';
 
-import { checkbox } from '@inquirer/prompts';
+import { multiselect } from '@clack/prompts';
 import { randomUUID } from 'crypto';
 import { constants as fsConstants, promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
@@ -12,6 +12,7 @@ import {
   EMULSIFY_PROJECT_TEMPLATES_FOLDER,
 } from '../lib/constants.js';
 import log from '../lib/log.js';
+import { note } from '../lib/session.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import safeResolveWithin from '../util/fs/safeResolveWithin.js';
 import {
@@ -27,30 +28,30 @@ export const MISSING_TEMPLATE_TYPE_ERROR =
 export const CONFLICTING_TEMPLATE_TYPE_ERROR =
   'Pass either the [type] positional argument or --all, not both.';
 
-const TYPE_CHOICES: {
-  name: string;
+const TYPE_OPTIONS: {
   value: ComponentType;
-  description: string;
+  label: string;
+  hint: string;
 }[] = [
   {
-    name: 'Twig',
     value: 'twig',
-    description: 'Twig markup, SCSS, YAML data, and a Storybook story',
+    label: 'Twig',
+    hint: 'Twig markup, SCSS, YAML data, and a Storybook story',
   },
   {
-    name: 'Twig SDC',
     value: 'twig-sdc',
-    description: 'Drupal Single Directory Component templates',
+    label: 'Twig SDC',
+    hint: 'Drupal Single Directory Component templates',
   },
   {
-    name: 'React',
     value: 'react',
-    description: 'React JSX, SCSS, and a standard Storybook story',
+    label: 'React',
+    hint: 'React JSX, SCSS, and a standard Storybook story',
   },
   {
-    name: 'Web Component',
     value: 'web-component',
-    description: 'Custom element, SCSS, and an Emulsify Core story',
+    label: 'Web Component',
+    hint: 'Custom element, SCSS, and an Emulsify Core story',
   },
 ];
 
@@ -135,7 +136,7 @@ function getDryRunAction(exists: boolean, force: boolean): string {
   return 'conflict; a real run requires --force';
 }
 
-function logDryRun(
+function noteDryRun(
   types: ComponentType[],
   plan: InspectedPlanItem[],
   force: boolean,
@@ -147,15 +148,14 @@ function logDryRun(
     )
     .join('\n');
 
-  log(
-    'info',
+  note(
     [
-      'Dry run: component eject-templates',
       `Types: ${types.join(', ')}`,
       'Template files:',
       destinations,
       'No files were written or replaced.',
     ].join('\n'),
+    'Dry run: component eject-templates',
   );
 }
 
@@ -427,7 +427,11 @@ async function executeTransaction(
   }
 }
 
-/** Handler for `emulsify component eject-templates [type]`. */
+/**
+ * Handler for `emulsify component eject-templates [type]`.
+ *
+ * @returns summary shown on the closing line of the session.
+ */
 export default async function componentEjectTemplates(
   type: string | void,
   {
@@ -435,7 +439,7 @@ export default async function componentEjectTemplates(
     force = false,
     dryRun = false,
   }: EjectComponentTemplatesHandlerOptions = {},
-): Promise<void> {
+): Promise<string> {
   const requestedType = type?.trim();
 
   if (requestedType && all) {
@@ -463,11 +467,10 @@ export default async function componentEjectTemplates(
   } else {
     selectedTypes = await runPrompt<ComponentType[]>({
       prompt: () =>
-        checkbox<ComponentType>({
+        multiselect<ComponentType>({
           message: 'Which component template types should be ejected?',
-          choices: TYPE_CHOICES,
-          validate: (values) =>
-            values.length > 0 || 'Select at least one component type.',
+          options: TYPE_OPTIONS,
+          required: false,
         }),
       nonInteractive: { error: MISSING_TEMPLATE_TYPE_ERROR },
     });
@@ -483,8 +486,8 @@ export default async function componentEjectTemplates(
   const conflicts = inspectedPlan.filter(({ exists }) => exists);
 
   if (dryRun) {
-    logDryRun(canonicalTypes, inspectedPlan, force);
-    return;
+    noteDryRun(canonicalTypes, inspectedPlan, force);
+    return 'Dry run complete';
   }
 
   if (conflicts.length > 0 && !force) {
@@ -496,12 +499,11 @@ export default async function componentEjectTemplates(
   const paths = inspectedPlan
     .map(({ destination }) => `  - ${destination}`)
     .join('\n');
-  log(
-    'success',
-    `Ejected ${inspectedPlan.length} built-in component templates:\n${paths}`,
-  );
+  note(paths, 'Ejected');
   log(
     'info',
     'Edit these files to customize component create. Delete an override to restore its built-in template.',
   );
+
+  return `Ejected ${inspectedPlan.length} built-in component templates`;
 }
