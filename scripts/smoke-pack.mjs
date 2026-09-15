@@ -169,10 +169,11 @@ function smokeTest(tempRoot) {
     'emulsify --help',
   );
 
+  // The version is a value scripts read, so it prints as one plain line.
   const versionResult = runCommand(localBin, ['--version'], commandOptions);
   assertCommandOutput(
     versionResult,
-    `Version: ${packageManifest.version}`,
+    packageManifest.version,
     'emulsify --version',
   );
 
