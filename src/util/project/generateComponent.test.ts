@@ -11,16 +11,31 @@ jest.mock('fs-extra', () => ({
   emptyDir: jest.fn(),
   remove: jest.fn(),
 }));
-jest.mock('@inquirer/prompts');
+// The prompt library is ESM-only, so the mock is built from a factory rather
+// than automocked from the real module.
+jest.mock('@clack/prompts', () => {
+  const cancelSymbol = Symbol('clack:cancel');
+
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL: cancelSymbol,
+    isCancel: (value: unknown) => value === cancelSymbol,
+    text: jest.fn(),
+    select: jest.fn(),
+    confirm: jest.fn(),
+  };
+});
+jest.mock('../../lib/session', () => ({ note: jest.fn() }));
 jest.mock('../../lib/log.js');
 jest.mock('../fs/findFileInCurrentPath.js');
 jest.mock('../fs/loadJsonFile.js');
 
-import { confirm, input, select } from '@inquirer/prompts';
+import { CANCEL_SYMBOL, confirm, select, text } from '@clack/prompts';
 import { promises as fs } from 'fs';
 import { join, normalize, resolve, sep } from 'path';
 import { pathExists, remove } from 'fs-extra';
 import log from '../../lib/log.js';
+import { note } from '../../lib/session.js';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_PROJECT_TEMPLATES_FOLDER,
@@ -32,6 +47,7 @@ import type {
 } from '@emulsify-cli/config';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import loadJsonFile from '../fs/loadJsonFile.js';
+import { PromptCancelledError } from '../prompt/index.js';
 
 const projectRoot = resolve(
   '/home/uname/Projects/cornflake/web/themes/custom/themename',
@@ -83,9 +99,10 @@ const readFileMock = fs.readFile as jest.Mock;
 const writeFileMock = fs.writeFile as jest.Mock;
 const mkdirMock = fs.mkdir as jest.Mock;
 const loadJsonFileMock = loadJsonFile as jest.Mock;
-const inputMock = input as jest.Mock;
+const textMock = text as jest.Mock;
 const selectMock = select as jest.Mock;
 const confirmMock = confirm as jest.Mock;
+const noteMock = note as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
 
 function setStdinIsTTY(value: boolean | undefined) {
@@ -137,7 +154,7 @@ describe('generateComponent', () => {
     loadJsonFileMock.mockResolvedValue({
       dependencies: { '@emulsify/core': '^4.4.0' },
     });
-    inputMock.mockResolvedValue('cornflake-button');
+    textMock.mockResolvedValue('cornflake-button');
   });
 
   afterAll(() => {
@@ -197,25 +214,40 @@ describe('generateComponent', () => {
     expect(selectMock).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        message: expect.stringContaining('Choose the component type:'),
-        choices: expect.arrayContaining([
-          expect.objectContaining({ value: 'twig' }),
-          expect.objectContaining({ value: 'twig-sdc' }),
-          expect.objectContaining({ value: 'react' }),
-          expect.objectContaining({ value: 'web-component' }),
+        message: 'Choose the component type',
+        options: expect.arrayContaining([
+          expect.objectContaining({
+            value: 'twig',
+            label: 'Twig',
+            hint: expect.any(String),
+          }),
+          expect.objectContaining({
+            value: 'twig-sdc',
+            label: 'Twig SDC',
+            hint: expect.any(String),
+          }),
+          expect.objectContaining({
+            value: 'react',
+            label: 'React',
+            hint: expect.any(String),
+          }),
+          expect.objectContaining({
+            value: 'web-component',
+            label: 'Web Component',
+            hint: expect.any(String),
+          }),
         ]),
       }),
     );
-    expect(selectMock.mock.calls[0][0].choices).toHaveLength(4);
+    expect(selectMock.mock.calls[0][0].options).toHaveLength(4);
     expect(selectMock).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        message: expect.stringContaining(
-          'Choose a directory for the new component:',
-        ),
+        message: 'Choose a directory for the new component',
+        options: [{ value: 'base', label: 'base' }],
       }),
     );
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
   });
 
   it('offers Twig and Twig SDC in a Drupal project without Core and explains the omission', async () => {
@@ -228,7 +260,7 @@ describe('generateComponent', () => {
     });
 
     expect(
-      selectMock.mock.calls[0][0].choices.map(
+      selectMock.mock.calls[0][0].options.map(
         ({ value }: { value: string }) => value,
       ),
     ).toEqual(['twig', 'twig-sdc']);
@@ -238,7 +270,7 @@ describe('generateComponent', () => {
         'React and Web Component are not shown because @emulsify/core is not declared',
       ),
     );
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
   });
 
   it('offers Twig, React, and Web Component in a non-Drupal project with Core and explains the omission', async () => {
@@ -254,7 +286,7 @@ describe('generateComponent', () => {
     });
 
     expect(
-      selectMock.mock.calls[0][0].choices.map(
+      selectMock.mock.calls[0][0].options.map(
         ({ value }: { value: string }) => value,
       ),
     ).toEqual(['twig', 'react', 'web-component']);
@@ -369,14 +401,14 @@ describe('generateComponent', () => {
   });
 
   it('previews a Twig component without writing files in dry-run mode', async () => {
-    expect.assertions(6);
+    expect.assertions(7);
     setStdinIsTTY(false);
     pathExistsMock.mockImplementation((path) => {
       const value = String(path);
       return !isTemplatePath(value) && !value.endsWith(componentPath('card'));
     });
 
-    await generateComponent(variant, projectConfig, 'card', {
+    const result = await generateComponent(variant, projectConfig, 'card', {
       directory: 'base',
       type: 'twig',
       dryRun: true,
@@ -386,14 +418,15 @@ describe('generateComponent', () => {
     expect(removeMock).not.toHaveBeenCalled();
     expect(mkdirMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
-    expect(log).toHaveBeenCalledWith(
-      'info',
-      expect.stringContaining('Dry run: component create "card"'),
+    expect(noteMock).toHaveBeenCalledWith(
+      expect.any(String),
+      'Dry run: component create "card"',
     );
-    expect(log).toHaveBeenCalledWith(
-      'info',
+    expect(noteMock).toHaveBeenCalledWith(
       expect.stringContaining(componentPath('card', 'card.stories.js')),
+      expect.any(String),
     );
+    expect(result).toBe('Dry run complete; no files were changed');
   });
 
   it('previews a Twig SDC component without writing files in dry-run mode', async () => {
@@ -413,13 +446,13 @@ describe('generateComponent', () => {
     expect(removeMock).not.toHaveBeenCalled();
     expect(mkdirMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
-    expect(log).toHaveBeenCalledWith(
-      'info',
+    expect(noteMock).toHaveBeenCalledWith(
       expect.stringContaining('Type: twig-sdc'),
+      expect.any(String),
     );
-    expect(log).toHaveBeenCalledWith(
-      'info',
+    expect(noteMock).toHaveBeenCalledWith(
       expect.stringContaining(componentPath('teaser', 'teaser.component.yml')),
+      expect.any(String),
     );
   });
 
@@ -437,15 +470,15 @@ describe('generateComponent', () => {
     expect(confirm).not.toHaveBeenCalled();
     expect(removeMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
-    expect(log).toHaveBeenCalledWith(
-      'info',
+    expect(noteMock).toHaveBeenCalledWith(
       expect.stringContaining('Destination exists: yes'),
+      expect.any(String),
     );
-    expect(log).toHaveBeenCalledWith(
-      'info',
+    expect(noteMock).toHaveBeenCalledWith(
       expect.stringContaining(
         'Real run would: prompt before replacing the existing component directory',
       ),
+      expect.any(String),
     );
   });
 
@@ -558,7 +591,7 @@ describe('generateComponent', () => {
   });
 
   it('should cancel component creation if user declines overwrite', async () => {
-    expect.assertions(2);
+    expect.assertions(3);
     confirmMock.mockResolvedValueOnce(false);
 
     const result = await generateComponent(variant, projectConfig, 'link', {
@@ -568,9 +601,12 @@ describe('generateComponent', () => {
     expect(confirm).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.stringContaining('already exists'),
+        initialValue: false,
       }),
     );
-    expect(result).toBeUndefined(); // Returns early after logging cancellation
+    expect(writeFileMock).not.toHaveBeenCalled();
+    // Returns early after logging cancellation, reporting the declined overwrite.
+    expect(result).toBe('Canceled; the existing link component was kept');
   });
 
   it('skips the overwrite confirm and replaces the component when yes is set', async () => {
@@ -610,10 +646,10 @@ describe('generateComponent', () => {
   });
 
   it('should continue creation if user confirms overwrite', async () => {
-    expect.assertions(2);
+    expect.assertions(3);
     confirmMock.mockResolvedValueOnce(true);
 
-    await generateComponent(variant, projectConfig, 'link', {
+    const result = await generateComponent(variant, projectConfig, 'link', {
       directory: 'base',
       type: 'twig',
     });
@@ -622,6 +658,20 @@ describe('generateComponent', () => {
       'success',
       expect.stringContaining('Success!'),
     );
+    expect(result).toBe('Created the link component in base');
+  });
+
+  it('reports a cancelled type prompt as a prompt cancellation', async () => {
+    expect.assertions(2);
+    selectMock.mockResolvedValueOnce(CANCEL_SYMBOL);
+
+    await expect(
+      generateComponent(variant, projectConfig, 'button', {
+        directory: 'base',
+      }),
+    ).rejects.toThrow(PromptCancelledError);
+
+    expect(writeFileMock).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -698,24 +748,24 @@ describe('generateComponent', () => {
   it('prompts with the derived web component tag and accepts a validated override', async () => {
     expect.assertions(5);
     pathExistsMock.mockResolvedValue(false);
-    inputMock.mockImplementationOnce(
-      async ({ default: defaultValue, validate }) => {
-        expect(defaultValue).toBe('cornflake-button');
-        expect(validate('button')).toContain('contain a hyphen');
-        expect(validate('custom-button')).toBe(true);
-        return ' custom-button ';
-      },
-    );
+    textMock.mockImplementationOnce(async ({ defaultValue, validate }) => {
+      expect(defaultValue).toBe('cornflake-button');
+      expect(validate('button')).toContain('contain a hyphen');
+      // Clack treats an undefined validation result as a valid value.
+      expect(validate('custom-button')).toBeUndefined();
+      return ' custom-button ';
+    });
 
     await generateComponent(variant, projectConfig, 'button', {
       directory: 'base',
       type: 'web-component',
     });
 
-    expect(inputMock).toHaveBeenCalledWith(
+    expect(textMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: expect.stringContaining('Custom element tag name:'),
-        default: 'cornflake-button',
+        message: 'Custom element tag name',
+        placeholder: 'cornflake-button',
+        defaultValue: 'cornflake-button',
         validate: expect.any(Function),
       }),
     );
@@ -737,7 +787,7 @@ describe('generateComponent', () => {
       type: 'web-component',
     });
 
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
     expect(writeFileMock).toHaveBeenCalledWith(
       componentPath('featured-item', 'featured-item.js'),
       expect.stringContaining(
@@ -761,7 +811,7 @@ describe('generateComponent', () => {
       tagName: ' valid-button ',
     });
 
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
     expect(writeFileMock).toHaveBeenCalledWith(
       componentPath('button', 'button.js'),
       expect.stringContaining(
@@ -789,7 +839,7 @@ describe('generateComponent', () => {
       'Invalid custom element tag name "button". Names must start with an ASCII lowercase letter',
     );
 
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
   });
 
@@ -831,7 +881,7 @@ describe('generateComponent', () => {
       'Invalid custom element tag name "123theme-button". Names must start with an ASCII lowercase letter, contain a hyphen, use browser-supported custom-element name characters, and must not be a reserved name. Pass --tag-name <tag-name> to provide a valid custom element name.',
     );
 
-    expect(inputMock).not.toHaveBeenCalled();
+    expect(textMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
   });
 

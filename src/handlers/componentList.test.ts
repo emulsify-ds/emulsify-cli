@@ -3,19 +3,22 @@
  */
 
 jest.mock('../lib/log', () => jest.fn());
+jest.mock('../lib/session', () => ({ note: jest.fn() }));
 jest.mock('../util/project/getEmulsifyConfig', () => jest.fn());
 jest.mock('../util/cache/getJsonFromCachedFile', () => jest.fn());
 jest.mock('../util/cache/cloneIntoCache', () => jest.fn());
 
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
+import { note } from '../lib/session.js';
 import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
-import componentList from './componentList.js';
+import componentList, { formatComponentList } from './componentList.js';
 
 const logMock = log as jest.Mock;
+const noteMock = note as jest.Mock;
 const getEmulsifyConfigMock = getEmulsifyConfig as jest.Mock;
 const getJsonFromCachedFileMock = getJsonFromCachedFile as jest.Mock;
 const cloneIntoCacheMock = cloneIntoCache as jest.Mock;
@@ -190,8 +193,23 @@ describe('componentList', () => {
   it('lists each component from the configured variant on the happy path', async () => {
     await componentList();
 
-    expect(logMock).toHaveBeenCalledWith('info', 'base -> button');
-    expect(logMock).toHaveBeenCalledWith('info', 'base -> card');
+    expect(noteMock).toHaveBeenCalledTimes(1);
+    const [body, title] = noteMock.mock.calls[0];
+    expect(title).toBe('Available components');
+    expect(body).toContain('button');
+    expect(body).toContain('card');
+  });
+
+  it('summarizes what the variant offers', async () => {
+    await expect(componentList()).resolves.toBe(
+      '2 components across 1 structure',
+    );
+  });
+
+  it('does not write one loose line per component', async () => {
+    await componentList();
+
+    expect(logMock).not.toHaveBeenCalled();
   });
 
   it('requests a remote freshness check when refresh is enabled', async () => {
@@ -200,5 +218,42 @@ describe('componentList', () => {
     expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
       refresh: true,
     });
+  });
+});
+
+describe('formatComponentList', () => {
+  it('groups components by structure and counts the required ones', () => {
+    const block = formatComponentList([
+      { name: 'buttons', structure: 'atoms', required: true },
+      { name: 'tooltip', structure: 'atoms' },
+      { name: 'card', structure: 'molecules', dependency: ['buttons', 'text'] },
+    ]);
+
+    expect(block).toBe(
+      [
+        'atoms  \u00b7  2 components  \u00b7  1 required',
+        '  buttons  required',
+        '  tooltip',
+        '',
+        'molecules  \u00b7  1 component',
+        '  card     needs buttons, text',
+      ].join('\n'),
+    );
+  });
+
+  it('surfaces what each component drags in with it', () => {
+    const block = formatComponentList([
+      {
+        name: 'accordion',
+        structure: 'molecules',
+        dependency: ['buttons', 'images', 'text', 'links', 'lists'],
+      },
+    ]);
+
+    expect(block).toContain('needs buttons, images, text, links, lists');
+  });
+
+  it('reports an empty variant plainly', () => {
+    expect(formatComponentList([])).toBe('This variant offers no components.');
   });
 });

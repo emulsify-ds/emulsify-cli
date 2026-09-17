@@ -367,11 +367,8 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
 
     assert.equal(result.status, 0, commandFailure('--version', result));
     assert.equal(result.stderr, '');
-    assert.equal(result.stdout.includes('Emulsify CLI'), true);
-    assert.equal(
-      result.stdout.includes(`Version: ${packageInfo.version}`),
-      true,
-    );
+    // The version is a value scripts read, so it prints as one plain line.
+    assert.equal(result.stdout.trim(), packageInfo.version);
   });
 
   test('fails fast when component create has no name outside a TTY', () => {
@@ -592,7 +589,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     );
     assert.match(
       installResult.stdout,
-      /Successfully installed the round-trip-system system using the drupal \|\| wordpress variant/,
+      /Round Trip System installed\s+·\s+drupal \|\| wordpress component set/,
     );
 
     const installedComponentRoot = join(
@@ -812,7 +809,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
 
     assert.equal(result.status, 0, commandFailure('init', result));
     assert.equal(result.stderr.trim(), '');
-    assert.match(result.stdout, /Created an Emulsify project/);
+    assert.match(result.stdout, /Created fixture-project in /);
     assert.deepEqual(
       JSON.parse(
         readFileSync(join(projectRoot, 'project.emulsify.json'), 'utf8'),
@@ -855,7 +852,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(result.stderr, '');
     assert.match(
       result.stdout,
-      /Successfully installed the fixture-system system using the wordpress variant/,
+      /Fixture System installed\s+·\s+wordpress component set/,
     );
 
     const projectConfig = JSON.parse(

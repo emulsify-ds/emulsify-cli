@@ -2,7 +2,7 @@ import type { Platform, PlatformExpression } from '@emulsify-cli/config';
 import type { CreateSystemHandlerOptions } from '@emulsify-cli/handlers';
 import type { ErrorObject } from 'ajv';
 
-import { checkbox, confirm, input } from '@inquirer/prompts';
+import { confirm, multiselect, text } from '@clack/prompts';
 import { existsSync, promises as fs } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { simpleGit } from 'simple-git';
@@ -22,16 +22,11 @@ const DEFAULT_SYSTEM_NAME = 'custom-system';
 const DEFAULT_TARGET_DIRECTORY = './';
 const DEFAULT_PLATFORM: Platform = 'none';
 
-const PLATFORM_CHOICES: { name: string; value: Platform; checked?: boolean }[] =
-  [
-    {
-      name: 'Generic / no platform',
-      value: 'none',
-      checked: true,
-    },
-    { name: 'Drupal', value: 'drupal' },
-    { name: 'WordPress', value: 'wordpress' },
-  ];
+const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
+  { value: 'none', label: 'Generic / no platform' },
+  { value: 'drupal', label: 'Drupal' },
+  { value: 'wordpress', label: 'WordPress' },
+];
 
 /**
  * Convert a human-readable system name into its repository/config identity.
@@ -51,10 +46,14 @@ export function normalizeSystemName(name: string): string {
   return machineName;
 }
 
-function validatePromptedSystemName(name: string): true | string {
+function validatePromptedSystemName(
+  name: string | undefined,
+): string | undefined {
   try {
-    normalizeSystemName(name);
-    return true;
+    // An empty submission resolves to the prompt's default value, so the
+    // validator judges the same name the prompt will return.
+    normalizeSystemName(name || DEFAULT_SYSTEM_NAME);
+    return undefined;
   } catch (error) {
     return error instanceof Error ? error.message : String(error);
   }
@@ -157,21 +156,24 @@ async function writeExclusiveSystemFile({
 
 /**
  * Handler for `emulsify system create [name]`.
+ *
+ * @returns summary shown on the closing line of the session.
  */
 export default async function systemCreate(
   name: string | void,
   options: CreateSystemHandlerOptions = {},
-): Promise<void> {
+): Promise<string> {
   const acceptDefaults = options.yes === true;
   const dryRun = options.dryRun === true;
 
   let requestedName = name?.trim();
   if (!requestedName) {
-    requestedName = await runPrompt({
+    requestedName = await runPrompt<string>({
       prompt: () =>
-        input({
-          message: 'System name:',
-          default: DEFAULT_SYSTEM_NAME,
+        text({
+          message: 'System name',
+          placeholder: DEFAULT_SYSTEM_NAME,
+          defaultValue: DEFAULT_SYSTEM_NAME,
           validate: validatePromptedSystemName,
         }),
       nonInteractive: {
@@ -185,13 +187,18 @@ export default async function systemCreate(
 
   let targetParent = options.directory?.trim();
   if (!targetParent) {
-    targetParent = await runPrompt({
+    targetParent = await runPrompt<string>({
       prompt: () =>
-        input({
-          message: 'Target directory:',
-          default: DEFAULT_TARGET_DIRECTORY,
+        text({
+          message: 'Target directory',
+          placeholder: DEFAULT_TARGET_DIRECTORY,
+          defaultValue: DEFAULT_TARGET_DIRECTORY,
+          // An empty submission resolves to the default directory, so only a
+          // value the person typed can be rejected as blank.
           validate: (value) =>
-            value.trim().length > 0 || 'Target directory cannot be empty.',
+            !value || value.trim().length > 0
+              ? undefined
+              : 'Target directory cannot be empty.',
         }),
       nonInteractive: {
         error:
@@ -207,11 +214,11 @@ export default async function systemCreate(
   if (!platform) {
     const platforms = await runPrompt<Platform[]>({
       prompt: () =>
-        checkbox({
-          message: 'Platform targets:',
-          choices: PLATFORM_CHOICES,
-          validate: (values) =>
-            values.length > 0 || 'Select at least one platform target.',
+        multiselect<Platform>({
+          message: 'Platform targets',
+          options: PLATFORM_OPTIONS,
+          initialValues: [DEFAULT_PLATFORM],
+          required: false,
         }),
       nonInteractive: {
         error:
@@ -224,11 +231,11 @@ export default async function systemCreate(
 
   let initializeGit = options.git;
   if (initializeGit === undefined) {
-    initializeGit = await runPrompt({
+    initializeGit = await runPrompt<boolean>({
       prompt: () =>
         confirm({
           message: 'Initialize a Git repository?',
-          default: true,
+          initialValue: true,
         }),
       nonInteractive: {
         error:
@@ -281,7 +288,7 @@ export default async function systemCreate(
       initializeGit,
       plannedDestinations,
     );
-    return;
+    return 'Dry run complete';
   }
 
   try {
@@ -318,11 +325,12 @@ export default async function systemCreate(
     );
   }
 
-  log('success', `Created the ${systemName} system in ${target}.`);
   if (initializeGit) {
     log(
       'info',
       'Git was initialized on branch main. Review the generated metadata, then commit the scaffold before installing it.',
     );
   }
+
+  return `Created the ${systemName} system in ${target}.`;
 }

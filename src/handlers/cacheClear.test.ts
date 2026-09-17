@@ -45,28 +45,24 @@ describe('cacheClear', () => {
   it('reports bucket and entry counts before removing the cache', async () => {
     mockPopulatedCache();
 
-    await cacheClear();
+    await expect(cacheClear()).resolves.toBe(
+      'Cleared the Emulsify cache: removed 2 buckets and 3 entries.',
+    );
 
     expect(rmMock).toHaveBeenCalledWith('/home/uname/.emulsify/cache', {
       recursive: true,
       force: true,
     });
-    expect(logMock).toHaveBeenCalledWith(
-      'success',
-      'Cleared the Emulsify cache: removed 2 buckets and 3 entries.',
-    );
   });
 
   it('reports cache contents without removing them during a dry run', async () => {
     mockPopulatedCache();
 
-    await cacheClear({ dryRun: true });
-
-    expect(rmMock).not.toHaveBeenCalled();
-    expect(logMock).toHaveBeenCalledWith(
-      'info',
+    await expect(cacheClear({ dryRun: true })).resolves.toBe(
       'Dry run: the Emulsify cache contains 2 buckets and 3 entries. No files were removed.',
     );
+
+    expect(rmMock).not.toHaveBeenCalled();
   });
 
   it('exits successfully when the cache directory does not exist', async () => {
@@ -74,25 +70,30 @@ describe('cacheClear', () => {
       Object.assign(new Error('missing'), { code: 'ENOENT' }),
     );
 
-    await expect(cacheClear()).resolves.toBeUndefined();
-
-    expect(rmMock).not.toHaveBeenCalled();
-    expect(logMock).toHaveBeenCalledWith(
-      'info',
+    await expect(cacheClear()).resolves.toBe(
       'The Emulsify cache is already empty: 0 buckets and 0 entries.',
     );
+
+    expect(rmMock).not.toHaveBeenCalled();
   });
 
   it('clears an existing cache with no buckets', async () => {
     readdirMock.mockResolvedValueOnce([]);
 
-    await cacheClear();
+    const summary = await cacheClear();
 
     expect(rmMock).toHaveBeenCalledTimes(1);
-    expect(logMock).toHaveBeenCalledWith(
-      'success',
+    expect(summary).toBe(
       'Cleared the Emulsify cache: removed 0 buckets and 0 entries.',
     );
+  });
+
+  it('reports its outcome as the session summary, not as a loose line', async () => {
+    mockPopulatedCache();
+
+    await cacheClear();
+
+    expect(logMock).not.toHaveBeenCalled();
   });
 
   it('wraps cache inspection failures in CliError', async () => {

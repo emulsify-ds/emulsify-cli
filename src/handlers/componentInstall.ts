@@ -1,6 +1,7 @@
 import { pathExists } from 'fs-extra';
-import { confirm, select } from '@inquirer/prompts';
+import { confirm, select } from '@clack/prompts';
 import log from '../lib/log.js';
+import { note } from '../lib/session.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants.js';
 import CliError from '../lib/CliError.js';
 import type { InstallComponentHandlerOptions } from '@emulsify-cli/handlers';
@@ -111,6 +112,8 @@ function logComponentInstallDryRun(
 /**
  * Handler for the `component install` command.
  *
+ * @returns summary shown on the closing line of the session.
+ *
  * @throws {CliError} if a component name is missing and all components were not requested.
  * @throws {CliError} if the current project does not have a usable system and variant configuration.
  * @throws {CliError} if the requested component cannot be found.
@@ -119,7 +122,7 @@ function logComponentInstallDryRun(
 export default async function componentInstall(
   name: string | void,
   { force, all, dryRun, refresh }: InstallComponentHandlerOptions,
-): Promise<void> {
+): Promise<string> {
   let selectedName = name;
   let installAll = all === true;
   const needsSelection = !selectedName?.trim() && !installAll;
@@ -140,16 +143,18 @@ export default async function componentInstall(
     const selection = await runPrompt<ComponentInstallSelection>({
       prompt: () =>
         select<ComponentInstallSelection>({
-          message: 'Choose a component to install:',
-          choices: [
+          message: 'Choose a component to install',
+          options: [
+            // The structure reads as a hint so the list stays scannable when a
+            // system offers many components.
             ...variantConf.components.map((component) => ({
-              name: component.name,
               value: component.name,
-              description: component.description,
+              label: component.name,
+              hint: component.structure,
             })),
             {
-              name: 'Install all available components',
               value: INSTALL_ALL_COMPONENTS,
+              label: 'Install all available components',
             },
           ],
         }),
@@ -177,7 +182,7 @@ export default async function componentInstall(
         true,
       );
       logComponentInstallDryRun('all components', [], plan);
-      return;
+      return 'Dry run complete';
     }
 
     components.push(
@@ -220,7 +225,7 @@ export default async function componentInstall(
         Boolean(force),
       );
       logComponentInstallDryRun(rootComponentName, dependencies, plan);
-      return;
+      return 'Dry run complete';
     }
 
     const projectConfigPath = findFileInCurrentPath(
@@ -239,11 +244,11 @@ export default async function componentInstall(
           ? ` (required by "${rootComponentName}")`
           : '';
         const overwriteMessage = `The component "${componentName}"${dependencyNote} already exists.`;
-        const result = await runPrompt({
+        const result = await runPrompt<boolean>({
           prompt: () =>
             confirm({
               message: `${overwriteMessage} Would you like to replace it?`,
-              default: false,
+              initialValue: false,
             }),
           nonInteractive: {
             error: `${overwriteMessage} Pass --force to replace existing components in non-interactive mode.`,
@@ -273,6 +278,7 @@ export default async function componentInstall(
     }
   }
 
+  const installed: string[] = [];
   const installedDeps: string[] = [];
   const failedDeps: string[] = [];
   const failureMessages: string[] = [];
@@ -280,6 +286,7 @@ export default async function componentInstall(
   for (const [cname, isDependency, promise] of components) {
     try {
       await promise;
+      installed.push(cname);
       if (isDependency) {
         installedDeps.push(cname);
       } else {
@@ -299,7 +306,7 @@ export default async function componentInstall(
 
   if (installedDeps.length > 0) {
     const depList = installedDeps.map((d) => `  → ${d}`).join('\n');
-    log('info', `The following dependencies were also installed:\n${depList}`);
+    note(depList, 'Also installed');
   }
 
   if (failedDeps.length > 0) {
@@ -313,4 +320,12 @@ export default async function componentInstall(
   if (failureMessages.length > 0) {
     throw new CliError(failureMessages.join('\n'));
   }
+
+  if (installed.length === 0) {
+    return 'No components were installed';
+  }
+
+  return `Installed ${installed.length} component${
+    installed.length === 1 ? '' : 's'
+  }`;
 }
