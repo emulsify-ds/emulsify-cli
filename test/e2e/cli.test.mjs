@@ -90,6 +90,7 @@ function createGitRepository(directory, files) {
     writeFileSync(destination, contents);
   }
 
+  writeFileSync(join(directory, '.gitattributes'), '* text eol=lf\n');
   git(directory, ['add', '.']);
   git(directory, [
     '-c',
