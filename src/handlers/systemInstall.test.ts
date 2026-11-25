@@ -13,6 +13,7 @@ jest.mock('../util/project/installComponentFromCache', () => ({
   default: jest.fn(),
 }));
 jest.mock('../util/project/installGeneralAssetsFromCache', () => jest.fn());
+jest.mock('../util/project/installDependencies', () => jest.fn());
 jest.mock('../util/cache/getJsonFromCachedFile', () => jest.fn());
 jest.mock('../util/project/setEmulsifyConfig', () => jest.fn());
 jest.mock('../util/project/getEmulsifyConfig', () => jest.fn());
@@ -21,6 +22,7 @@ jest.mock('../util/fs/executeScript', () => jest.fn());
 jest.mock('../lib/session', () => ({
   __esModule: true,
   note: jest.fn(),
+  spinner: jest.fn(),
 }));
 // The prompt library ships ESM only, so a factory keeps it out of the CommonJS
 // test runtime while still exposing the cancellation helper prompts rely on.
@@ -38,7 +40,7 @@ import { pathToFileURL } from 'url';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
 import { confirm, select, text } from '@clack/prompts';
 import log from '../lib/log.js';
-import { note } from '../lib/session.js';
+import { note, spinner } from '../lib/session.js';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_PROJECT_HOOK_FOLDER,
@@ -50,6 +52,7 @@ import getCachedItemCheckout from '../util/cache/getCachedItemCheckout.js';
 import getRepositoryLatestTag from '../util/getRepositoryLatestTag.js';
 import installComponentFromCache from '../util/project/installComponentFromCache.js';
 import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache.js';
+import installDependencies from '../util/project/installDependencies.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
 import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
@@ -69,19 +72,27 @@ const getRepositoryLatestTagMock = getRepositoryLatestTag as jest.Mock;
 const installComponentFromCacheMock = installComponentFromCache as jest.Mock;
 const installGeneralAssetsFromCacheMock =
   installGeneralAssetsFromCache as jest.Mock;
+const installDependenciesMock = jest.mocked(installDependencies);
 const getJsonFromCachedFileMock = getJsonFromCachedFile as jest.Mock;
 const setEmulsifyConfigMock = setEmulsifyConfig as jest.Mock;
 const getEmulsifyConfigMock = getEmulsifyConfig as jest.Mock;
 const findFileInCurrentPathMock = findFileInCurrentPath as jest.Mock;
 const executeScriptMock = executeScript as jest.Mock;
 const existsSyncMock = fs.existsSync as jest.Mock;
+const readFileMock = jest.mocked(fs.promises.readFile);
+const statMock = jest.mocked(fs.promises.stat);
+const writeFileMock = jest.mocked(fs.promises.writeFile);
+const renameMock = jest.mocked(fs.promises.rename);
 const noteMock = note as jest.Mock;
+const spinnerMock = spinner as jest.Mock;
+const progress = { start: jest.fn(), stop: jest.fn(), error: jest.fn() };
 const confirmMock = confirm as unknown as jest.Mock;
 const textMock = text as unknown as jest.Mock;
 const selectMock = select as unknown as jest.Mock;
 const originalStdinIsTTY = process.stdin.isTTY;
 const projectRoot = resolve('/project');
 const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
+const packagePath = join(projectRoot, 'package.json');
 const systemInstallHookPath = join(
   projectRoot,
   EMULSIFY_PROJECT_HOOK_FOLDER,
@@ -139,6 +150,15 @@ const system = {
   ],
   variants: [variant],
 } as EmulsifySystem;
+
+const variantWithPackages: EmulsifyVariant = {
+  ...variant,
+  components: [
+    { ...variant.components[0], npmDependencies: { swiper: '^11.2.0' } },
+    { ...variant.components[1], npmDependencies: { 'focus-trap': '~7.6.0' } },
+  ],
+};
+const systemWithPackages = { ...system, variants: [variantWithPackages] };
 
 const availableSystems = [
   {
@@ -301,7 +321,8 @@ describe('formatSystemInstallReview', () => {
   Component set  Platform-neutral
   Scope          Essentials only
   Will install   0 components  →  none
-                 2 asset folders  →  assets/fonts/, assets/images/`);
+                 2 asset folders  →  assets/fonts/, assets/images/
+  npm packages   none`);
   });
 
   it('preserves a root destination marker when formatting component directories', () => {
@@ -374,6 +395,10 @@ describe('systemInstall', () => {
     getRepositoryLatestTagMock.mockResolvedValue('v1.0.0');
     installComponentFromCacheMock.mockResolvedValue(undefined);
     installGeneralAssetsFromCacheMock.mockResolvedValue(undefined);
+    installDependenciesMock.mockResolvedValue('npm installed packages');
+    spinnerMock.mockReturnValue(progress);
+    readFileMock.mockResolvedValue('{\n  "name": "fixture"\n}\n');
+    statMock.mockResolvedValue({ mode: 0o100644 } as fs.Stats);
     getJsonFromCachedFileMock.mockResolvedValue(system);
     setEmulsifyConfigMock.mockResolvedValue(undefined);
     getEmulsifyConfigMock.mockResolvedValue(projectConfig);
@@ -453,7 +478,7 @@ describe('systemInstall', () => {
 
   it('walks a built-in system through all four guided steps and reviews Essentials', async () => {
     const guidedVariant = {
-      ...variant,
+      ...variantWithPackages,
       directories: [
         {
           name: 'fonts',
@@ -477,7 +502,7 @@ describe('systemInstall', () => {
     queueBuiltInWizard();
 
     await expect(systemInstall(undefined, {})).resolves.toBe(
-      'Compound installed  \u00b7  drupal component set',
+      'Compound installed  \u00b7  drupal component set  \u00b7  added 1 npm package',
     );
 
     expect(selectMock).toHaveBeenCalledTimes(3);
@@ -540,12 +565,33 @@ describe('systemInstall', () => {
   Scope          Essentials only
   Will install   1 component  →  components/00-base/
                  1 asset folder  →  assets/fonts/
-                 1 asset file  →  styles/tokens.css`,
+                 1 asset file  →  styles/tokens.css
+  npm packages   swiper@^11.2.0`,
       'Review',
+    );
+    expect(readFileMock).toHaveBeenCalledWith(packagePath, 'utf8');
+    expect(readFileMock.mock.invocationCallOrder[0]).toBeLessThan(
+      confirmMock.mock.invocationCallOrder[0],
     );
     expect(confirmMock.mock.invocationCallOrder[0]).toBeLessThan(
       setEmulsifyConfigMock.mock.invocationCallOrder[0],
     );
+    expect(JSON.parse(String(writeFileMock.mock.calls[0][1]))).toEqual({
+      name: 'fixture',
+      dependencies: { swiper: '^11.2.0' },
+    });
+    expect(
+      installGeneralAssetsFromCacheMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(writeFileMock.mock.invocationCallOrder[0]);
+    expect(renameMock.mock.invocationCallOrder[0]).toBeLessThan(
+      installDependenciesMock.mock.invocationCallOrder[0],
+    );
+    expect(installDependenciesMock).toHaveBeenCalledTimes(1);
+    expect(installDependenciesMock).toHaveBeenCalledWith(projectRoot);
+    expect(installDependenciesMock.mock.invocationCallOrder[0]).toBeLessThan(
+      executeScriptMock.mock.invocationCallOrder[0],
+    );
+    expect(executeScriptMock).toHaveBeenCalledWith(systemInstallHookPath);
   });
 
   it('declines the final review without mutating project files', async () => {
@@ -657,7 +703,8 @@ describe('systemInstall', () => {
   Source         github.com/example/custom-system
   Component set  Drupal
   Scope          Everything
-  Will install   2 components  →  components/00-base/`,
+  Will install   2 components  →  components/00-base/
+  npm packages   none`,
       'Review',
     );
   });
@@ -1101,17 +1148,76 @@ describe('systemInstall', () => {
     );
   });
 
-  it('installs all components when the all option is passed', async () => {
-    await systemInstall('compound', { all: true });
+  it('installs all components and their npm packages when the all option is passed', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
+
+    await expect(systemInstall('compound', { all: true })).resolves.toContain(
+      'added 2 npm packages',
+    );
 
     expect(installComponentFromCacheMock).toHaveBeenCalledTimes(2);
     expect(installComponentFromCacheMock).toHaveBeenNthCalledWith(
       2,
-      system,
-      variant,
+      systemWithPackages,
+      variantWithPackages,
       'card',
       true,
     );
+    expect(
+      JSON.parse(String(writeFileMock.mock.calls[0][1])).dependencies,
+    ).toEqual({
+      'focus-trap': '~7.6.0',
+      swiper: '^11.2.0',
+    });
+    expect(installDependenciesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires a project package.json before confirming a guided install', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
+    readFileMock.mockRejectedValueOnce(
+      Object.assign(new Error('missing'), { code: 'ENOENT' }),
+    );
+    setStdinIsTTY(true);
+    queueBuiltInWizard();
+
+    await expect(systemInstall(undefined, {})).rejects.toThrow(
+      `button needs npm packages (swiper@^11.2.0), but ${packagePath} does not exist`,
+    );
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(setEmulsifyConfigMock).not.toHaveBeenCalled();
+    expect(installComponentFromCacheMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+  });
+
+  it('reports a missing manifest but continues system install with --skip-npm', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
+    readFileMock.mockRejectedValueOnce(
+      Object.assign(new Error('missing'), { code: 'ENOENT' }),
+    );
+
+    await expect(systemInstall('compound', { skipNpm: true })).resolves.toBe(
+      'Compound installed  ·  drupal component set',
+    );
+    expect(noteMock).toHaveBeenCalledWith(
+      expect.stringContaining('npm install "swiper@^11.2.0"'),
+      'npm packages',
+    );
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(installDependenciesMock).not.toHaveBeenCalled();
+    expect(executeScriptMock).toHaveBeenCalledWith(systemInstallHookPath);
+  });
+
+  it('reports npm failure and skips the hook after adding dependencies', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
+    installDependenciesMock.mockRejectedValueOnce(
+      new Error('  install failed  '),
+    );
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      `npm install failed:\ninstall failed\nRun npm install in ${projectRoot}`,
+    );
+    expect(renameMock).toHaveBeenCalledWith(expect.any(String), packagePath);
+    expect(executeScriptMock).not.toHaveBeenCalled();
   });
 
   it('uses an explicit variant on the happy path', async () => {
@@ -1530,6 +1636,7 @@ describe('systemInstall', () => {
   });
 
   it('throws when required components or assets cannot be installed', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
     installComponentFromCacheMock.mockRejectedValueOnce(
       new Error('copy failed'),
     );
@@ -1537,9 +1644,12 @@ describe('systemInstall', () => {
     await expect(systemInstall('compound', {})).rejects.toThrow(
       'Unable to install system assets and/or required components: Error: copy failed',
     );
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(installDependenciesMock).not.toHaveBeenCalled();
   });
 
   it('throws when global assets cannot be installed', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
     installGeneralAssetsFromCacheMock.mockRejectedValueOnce(
       new Error('asset failed'),
     );
@@ -1547,6 +1657,8 @@ describe('systemInstall', () => {
     await expect(systemInstall('compound', {})).rejects.toThrow(
       'Unable to install system assets and/or required components: Error: asset failed',
     );
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(installDependenciesMock).not.toHaveBeenCalled();
   });
 
   it('uses explicit repository options when provided', async () => {
