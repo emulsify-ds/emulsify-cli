@@ -156,6 +156,15 @@ export async function applyComponentNpmInstall(
   );
   if (additions.size) {
     await writeComponentNpmManifest(plan.manifest, additions);
+  } else {
+    // Copying a system's general assets can replace the project manifest.
+    // Report classification only while it still describes the file on disk.
+    const current = await readComponentNpmManifest(plan.root);
+    if (current.status !== 'ready' || current.source !== plan.manifest.source) {
+      throw new CliError(
+        `${plan.manifest.path} changed during installation. Run component install to check the packages against the current manifest.`,
+      );
+    }
   }
 
   note(formatComponentNpmInstall(plan, 'install'), 'npm packages');

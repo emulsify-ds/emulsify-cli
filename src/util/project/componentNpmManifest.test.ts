@@ -3,15 +3,14 @@ jest.mock('fs', () => ({
   promises: {
     readFile: jest.fn(),
     stat: jest.fn(),
-    writeFile: jest.fn(),
-    chmod: jest.fn(),
+    open: jest.fn(),
     rename: jest.fn(),
     rm: jest.fn(),
   },
 }));
 
 import { existsSync, promises as fs, type Stats } from 'fs';
-import { basename, dirname, join, resolve } from 'path';
+import { join, resolve } from 'path';
 import CliError from '../../lib/CliError.js';
 import {
   detectComponentPackageManager,
@@ -21,17 +20,28 @@ import {
 
 const projectRoot = resolve('/project');
 const packagePath = join(projectRoot, 'package.json');
+const temporaryPath = join(projectRoot, '.package.json.emulsify.tmp');
 const existsMock = jest.mocked(existsSync);
 const readMock = jest.mocked(fs.readFile);
 const statMock = jest.mocked(fs.stat);
-const writeMock = jest.mocked(fs.writeFile);
-const chmodMock = jest.mocked(fs.chmod);
+const openMock = jest.mocked(fs.open);
+const writeMock = jest.fn();
+const chmodMock = jest.fn();
+const syncMock = jest.fn();
+const closeMock = jest.fn();
+const temporaryFile = {
+  writeFile: writeMock,
+  chmod: chmodMock,
+  sync: syncMock,
+  close: closeMock,
+} as unknown as Awaited<ReturnType<typeof fs.open>>;
 const renameMock = jest.mocked(fs.rename);
 const rmMock = jest.mocked(fs.rm);
 
 beforeEach(() => {
   jest.resetAllMocks();
   statMock.mockResolvedValue({ mode: 0o100664 } as Stats);
+  openMock.mockResolvedValue(temporaryFile);
 });
 
 async function readReadyManifest(source: string) {
@@ -161,13 +171,8 @@ describe('writeComponentNpmManifest', () => {
         ]),
       );
 
-      const [temporaryPath] = writeMock.mock.calls[0];
-      expect(dirname(String(temporaryPath))).toBe(projectRoot);
-      expect(basename(String(temporaryPath))).toMatch(
-        /^\.package\.json\..+\.tmp$/,
-      );
+      expect(openMock).toHaveBeenCalledWith(temporaryPath, 'wx', 0o600);
       expect(writeMock).toHaveBeenCalledWith(
-        temporaryPath,
         format({
           ...json,
           dependencies: {
@@ -177,14 +182,18 @@ describe('writeComponentNpmManifest', () => {
             zebra: '^1.0.0',
           },
         }),
-        { encoding: 'utf8', flag: 'wx', flush: true, mode: 0o664 },
+        'utf8',
       );
-      expect(chmodMock).toHaveBeenCalledWith(temporaryPath, 0o664);
+      expect(chmodMock).toHaveBeenCalledWith(0o664);
+      expect(syncMock).toHaveBeenCalledTimes(1);
       expect(renameMock).toHaveBeenCalledWith(temporaryPath, packagePath);
       expect(writeMock.mock.invocationCallOrder[0]).toBeLessThan(
         chmodMock.mock.invocationCallOrder[0],
       );
-      expect(chmodMock.mock.invocationCallOrder[0]).toBeLessThan(
+      expect(syncMock.mock.invocationCallOrder[0]).toBeLessThan(
+        closeMock.mock.invocationCallOrder[0],
+      );
+      expect(closeMock.mock.invocationCallOrder[0]).toBeLessThan(
         renameMock.mock.invocationCallOrder[0],
       );
       expect(rmMock).not.toHaveBeenCalled();
@@ -197,7 +206,7 @@ describe('writeComponentNpmManifest', () => {
     );
     await writeComponentNpmManifest(manifest, new Map([['swiper', '^11.2.0']]));
 
-    expect(writeMock.mock.calls[0][1]).toBe(
+    expect(writeMock.mock.calls[0][0]).toBe(
       '    {\n  "name": "example",\n  "private": true,\n  "dependencies": {\n    "swiper": "^11.2.0"\n  }\n}\n',
     );
   });
@@ -214,7 +223,7 @@ describe('writeComponentNpmManifest', () => {
       ]),
     );
 
-    expect(writeMock.mock.calls[0][1]).toBe(
+    expect(writeMock.mock.calls[0][0]).toBe(
       String.raw`{"9":true,"1":false,"\u0064ependencies":{"10":"1","2":"1","__proto__":"1","constructor":"1"}}`,
     );
   });
@@ -223,7 +232,7 @@ describe('writeComponentNpmManifest', () => {
     const manifest = await readReadyManifest('{}');
     await writeComponentNpmManifest(manifest, new Map([['swiper', '^11.2.0']]));
 
-    expect(writeMock.mock.calls[0][1]).toBe(
+    expect(writeMock.mock.calls[0][0]).toBe(
       '{"dependencies":{"swiper":"^11.2.0"}}',
     );
   });
@@ -236,6 +245,7 @@ describe('writeComponentNpmManifest', () => {
     await writeComponentNpmManifest(manifest, new Map([['swiper', '^11.2.0']]));
 
     expect(writeMock).not.toHaveBeenCalled();
+    expect(openMock).not.toHaveBeenCalled();
     expect(statMock).not.toHaveBeenCalled();
     expect(renameMock).not.toHaveBeenCalled();
   });
@@ -249,9 +259,62 @@ describe('writeComponentNpmManifest', () => {
     ).rejects.toThrow('changed during installation');
 
     expect(renameMock).not.toHaveBeenCalled();
-    expect(rmMock).toHaveBeenCalledWith(writeMock.mock.calls[0][0], {
+    expect(rmMock).toHaveBeenCalledWith(temporaryPath, {
       force: true,
     });
+  });
+
+  it('keeps an in-progress writer’s staging file when another writer tries to open it', async () => {
+    const manifest = await readReadyManifest('{}');
+    const writing = Promise.withResolvers<void>();
+    const finishWriting = Promise.withResolvers<void>();
+    writeMock.mockImplementationOnce(() => {
+      writing.resolve();
+      return finishWriting.promise;
+    });
+    openMock
+      .mockResolvedValueOnce(temporaryFile)
+      .mockRejectedValueOnce(
+        Object.assign(new Error('file exists'), { code: 'EEXIST' }),
+      );
+
+    const owner = writeComponentNpmManifest(
+      manifest,
+      new Map([['swiper', '^11.2.0']]),
+    );
+    await writing.promise;
+    try {
+      const contender = writeComponentNpmManifest(
+        manifest,
+        new Map([['focus-trap', '~7.6.0']]),
+      );
+      await expect(contender).rejects.toThrow(
+        `A package.json update is already staged at ${temporaryPath}`,
+      );
+      await expect(contender).rejects.toThrow(
+        'If the file remains once they have finished, remove it and retry.',
+      );
+      expect(rmMock).not.toHaveBeenCalled();
+      expect(closeMock).not.toHaveBeenCalled();
+    } finally {
+      finishWriting.resolve();
+      await owner;
+    }
+
+    expect(renameMock).toHaveBeenCalledTimes(1);
+    expect(renameMock).toHaveBeenCalledWith(temporaryPath, packagePath);
+  });
+
+  it('reports an unowned temp file error without attempting cleanup', async () => {
+    const manifest = await readReadyManifest('{}');
+    openMock.mockRejectedValueOnce(new Error('access denied'));
+
+    await expect(
+      writeComponentNpmManifest(manifest, new Map([['swiper', '^11.2.0']])),
+    ).rejects.toThrow(
+      `Unable to create ${temporaryPath}: Error: access denied`,
+    );
+    expect(rmMock).not.toHaveBeenCalled();
   });
 
   it('reports rename and cleanup failures as a CliError', async () => {

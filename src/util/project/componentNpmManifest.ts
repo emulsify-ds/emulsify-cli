@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { existsSync, promises as fs } from 'fs';
 import { dirname, join } from 'path';
 import CliError from '../../lib/CliError.js';
@@ -181,20 +180,34 @@ export async function writeComponentNpmManifest(
     return;
   }
 
-  const temporaryPath = join(
-    dirname(path),
-    `.package.json.${process.pid}.${randomUUID()}.tmp`,
-  );
+  const temporaryPath = join(dirname(path), '.package.json.emulsify.tmp');
+  let temporaryFile;
   try {
-    const mode = (await fs.stat(path)).mode & 0o7777;
-    await fs.writeFile(temporaryPath, updateSource(manifest, dependencies), {
-      encoding: 'utf8',
-      flag: 'wx',
-      flush: true,
-      mode,
-    });
-    // chmod restores any permission bits masked by the current process umask.
-    await fs.chmod(temporaryPath, mode);
+    // The staging file also prevents two CLI writers from both passing the
+    // unchanged-source check before either renames over the manifest.
+    temporaryFile = await fs.open(temporaryPath, 'wx', 0o600);
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'EEXIST') {
+      throw new CliError(
+        `A package.json update is already staged at ${temporaryPath}. Wait for any running Emulsify installs to finish. If the file remains once they have finished, remove it and retry.`,
+      );
+    }
+    throw new CliError(`Unable to create ${temporaryPath}: ${String(error)}.`);
+  }
+
+  try {
+    try {
+      const mode = (await fs.stat(path)).mode & 0o7777;
+      await temporaryFile.writeFile(
+        updateSource(manifest, dependencies),
+        'utf8',
+      );
+      // chmod restores permission bits masked by the current process umask.
+      await temporaryFile.chmod(mode);
+      await temporaryFile.sync();
+    } finally {
+      await temporaryFile.close();
+    }
     if ((await fs.readFile(path, 'utf8')) !== source) {
       throw new CliError(
         `${path} changed during installation. Re-run the command to apply the npm packages.`,

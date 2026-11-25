@@ -40,7 +40,6 @@ jest.mock('fs', () => ({
     open: jest.fn(),
     rename: jest.fn(),
     stat: jest.fn(),
-    chmod: jest.fn(),
     copyFile: jest.fn(),
   },
 }));

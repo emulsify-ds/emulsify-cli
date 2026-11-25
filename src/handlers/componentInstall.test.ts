@@ -57,7 +57,14 @@ const confirmMock = confirm as jest.Mock;
 const selectMock = select as jest.Mock;
 const installDependenciesMock = installDependencies as jest.Mock;
 const readFileMock = fs.readFile as jest.Mock;
-const writeFileMock = fs.writeFile as jest.Mock;
+const openMock = jest.mocked(fs.open);
+const writeFileMock = jest.fn();
+const temporaryFileHandle = {
+  writeFile: writeFileMock,
+  chmod: jest.fn(),
+  sync: jest.fn(),
+  close: jest.fn(),
+} as unknown as Awaited<ReturnType<typeof fs.open>>;
 const renameMock = fs.rename as jest.Mock;
 const progress = { start: jest.fn(), stop: jest.fn(), error: jest.fn() };
 const originalStdinIsTTY = process.stdin.isTTY;
@@ -149,7 +156,8 @@ function declarePackages(packages: Record<string, Record<string, string>>) {
 
 function expectManifestDependencies(dependencies: Record<string, string>) {
   expect(writeFileMock).toHaveBeenCalledTimes(1);
-  const [temporaryFile, manifest] = writeFileMock.mock.calls[0];
+  const [manifest] = writeFileMock.mock.calls[0];
+  const [temporaryFile] = openMock.mock.calls[0];
   expect(JSON.parse(manifest)).toEqual({ name: 'theme', dependencies });
   expect(renameMock).toHaveBeenCalledTimes(1);
   expect(renameMock).toHaveBeenCalledWith(temporaryFile, packageJsonPath);
@@ -171,6 +179,7 @@ describe('componentInstall', () => {
     selectMock.mockResolvedValue('card');
     (existsSync as jest.Mock).mockReturnValue(false);
     (fs.stat as jest.Mock).mockResolvedValue({ mode: 0o644 });
+    openMock.mockResolvedValue(temporaryFileHandle);
     readFileMock.mockResolvedValue('{\n  "name": "theme"\n}\n');
     installDependenciesMock.mockResolvedValue('');
     (spinner as jest.Mock).mockReturnValue(progress);
@@ -946,7 +955,7 @@ describe('componentInstall', () => {
       );
 
       expect(writeFileMock).toHaveBeenCalledTimes(1);
-      expect(JSON.parse(writeFileMock.mock.calls[0][1])).toEqual({
+      expect(JSON.parse(writeFileMock.mock.calls[0][0])).toEqual({
         name: 'theme',
         packageManager: 'pnpm@9.15.0',
         dependencies: { swiper: '^11.2.0' },

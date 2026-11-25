@@ -81,7 +81,14 @@ const executeScriptMock = executeScript as jest.Mock;
 const existsSyncMock = fs.existsSync as jest.Mock;
 const readFileMock = jest.mocked(fs.promises.readFile);
 const statMock = jest.mocked(fs.promises.stat);
-const writeFileMock = jest.mocked(fs.promises.writeFile);
+const openMock = jest.mocked(fs.promises.open);
+const writeFileMock = jest.fn();
+const temporaryFileHandle = {
+  writeFile: writeFileMock,
+  chmod: jest.fn(),
+  sync: jest.fn(),
+  close: jest.fn(),
+} as unknown as Awaited<ReturnType<typeof fs.promises.open>>;
 const renameMock = jest.mocked(fs.promises.rename);
 const noteMock = note as jest.Mock;
 const spinnerMock = spinner as jest.Mock;
@@ -399,6 +406,7 @@ describe('systemInstall', () => {
     spinnerMock.mockReturnValue(progress);
     readFileMock.mockResolvedValue('{\n  "name": "fixture"\n}\n');
     statMock.mockResolvedValue({ mode: 0o100644 } as fs.Stats);
+    openMock.mockResolvedValue(temporaryFileHandle);
     getJsonFromCachedFileMock.mockResolvedValue(system);
     setEmulsifyConfigMock.mockResolvedValue(undefined);
     getEmulsifyConfigMock.mockResolvedValue(projectConfig);
@@ -576,7 +584,7 @@ describe('systemInstall', () => {
     expect(confirmMock.mock.invocationCallOrder[0]).toBeLessThan(
       setEmulsifyConfigMock.mock.invocationCallOrder[0],
     );
-    expect(JSON.parse(String(writeFileMock.mock.calls[0][1]))).toEqual({
+    expect(JSON.parse(String(writeFileMock.mock.calls[0][0]))).toEqual({
       name: 'fixture',
       dependencies: { swiper: '^11.2.0' },
     });
@@ -1164,7 +1172,7 @@ describe('systemInstall', () => {
       true,
     );
     expect(
-      JSON.parse(String(writeFileMock.mock.calls[0][1])).dependencies,
+      JSON.parse(String(writeFileMock.mock.calls[0][0])).dependencies,
     ).toEqual({
       'focus-trap': '~7.6.0',
       swiper: '^11.2.0',
@@ -1217,6 +1225,21 @@ describe('systemInstall', () => {
       `npm install failed:\ninstall failed\nRun npm install in ${projectRoot}`,
     );
     expect(renameMock).toHaveBeenCalledWith(expect.any(String), packagePath);
+    expect(executeScriptMock).not.toHaveBeenCalled();
+  });
+
+  it('checks the manifest before the hook even when no new packages were planned', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
+    readFileMock.mockResolvedValue('{"dependencies":{"swiper":"^11.2.0"}}');
+    installGeneralAssetsFromCacheMock.mockImplementationOnce(async () => {
+      readFileMock.mockResolvedValue('{"dependencies":{}}');
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toThrow(
+      /package.json changed during installation/u,
+    );
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(installDependenciesMock).not.toHaveBeenCalled();
     expect(executeScriptMock).not.toHaveBeenCalled();
   });
 
