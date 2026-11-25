@@ -232,12 +232,12 @@ The scope picker offers:
 - `Essentials only` — install only components marked `required: true`.
 - `Everything` — install every component in the selected component set.
 
-Both choices include their component counts. The review then shows the selected
+Both choices include their component counts. The review shows the selected
 system and checkout, repository source, component set, scope, component and
-asset counts, and their concrete destination paths. The CLI asks
-for confirmation before changing `project.emulsify.json`, copying components or
-assets, or running the project install hook. The selected repository may already
-have been downloaded into the CLI cache so its configuration can be reviewed.
+asset destinations, and npm packages to add. The CLI asks for confirmation
+before writing project configuration, copying components or assets, installing
+packages, or running the project install hook. The selected repository may
+already have been downloaded into the CLI cache for review.
 
 ```text
 Install a component system                                Step 4 of 4
@@ -248,6 +248,7 @@ Install a component system                                Step 4 of 4
   Scope          Essentials only
   Will install   5 components  →  components/
                  2 asset folders  →  assets/, src/vendor/
+  npm packages   none
 
 ? Install now? (Y/n)
 ```
@@ -273,8 +274,9 @@ Options:
 | `-r, --repository <repository>`      | Install from a remote Git repository or a local repository path. Remote URLs must end in `.git`.                                                 |
 | `-c, --checkout <commit/branch/tag>` | Checkout to use. This is required when `--repository` is used.                                                                                   |
 | `--variant <platform-expression>`    | Install the variant whose platform expression exactly matches this value. Quote compound expressions at the shell.                               |
-| `-a, --all`                          | Install every component in the selected variant. Without this flag, only components marked `required: true` are installed during system install. |
+| `-a, --all`                          | Install every component in the selected variant. The default scope is required components and their component dependencies.                     |
 | `-y, --yes`                          | Accept the final guided-install review without prompting. It does not supply any earlier wizard choice.                                          |
+| `--skip-npm`                         | Report the selected components' npm packages and print an install command for later.                                                              |
 
 Prompts are never opened when standard input is not a TTY. A bare command fails
 immediately with this guidance:
@@ -358,7 +360,9 @@ emulsify component ls
 emulsify component list --refresh
 ```
 
-Lists components available from the installed system and selected variant. Output uses the component structure followed by the component name, for example `atoms -> buttons`.
+Lists components available from the installed system and selected variant,
+grouped by structure. Notes show required components, component dependencies,
+and npm package names.
 
 Pass `--refresh` to check the system's remote ref before listing. Without it, the command validates and reuses the local cache without touching the network.
 
@@ -379,7 +383,8 @@ Options:
 | ------------- | --------------------------------------------------------------------------------------------------- |
 | `-f, --force` | Replace an existing component destination without prompting.                                        |
 | `-a, --all`   | Install all available components instead of one named component.                                    |
-| `--dry-run`   | Preview dependencies, destinations, overwrite behavior, and copy operations without changing files. |
+| `--dry-run`   | Preview component copies, overwrites, and npm package statuses without changing project files.       |
+| `--skip-npm`  | Report the components' npm packages and print an install command for later.                           |
 | `--refresh`   | Check the system's remote ref before reusing its local cache entry.                                 |
 
 Examples:

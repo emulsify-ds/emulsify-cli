@@ -47,8 +47,8 @@ The built-in path has four decisions:
    marks the best match for the current project as `Recommended`. Component and
    essential counts appear on every choice.
 3. **Installation scope.** Choose `Essentials only` to install components marked
-   `required: true`, or `Everything` to install every component. Both choices
-   show how many components they install.
+   `required: true` and their component dependencies, or `Everything` to install
+   every component. Both choices show a component count.
 4. **Review.** Check the system and checkout, repository source, component set,
    selected scope, component and asset counts and destinations, and the npm
    packages to add before confirming.
@@ -70,6 +70,7 @@ Install a component system                                Step 4 of 4
   Scope          Essentials only
   Will install   5 components  →  components/
                  2 asset folders  →  assets/, src/vendor/
+  npm packages   none
 
 ? Install now? (Y/n)
 ```

@@ -116,9 +116,12 @@ emulsify system detach --yes
 ```
 
 For component installation, provide either a component name or `--all`, and use
-`--force` when an existing destination should be replaced. For component
-creation, provide the positional name plus `--type` and `--directory`, and use
-`--force` when an existing generated component should be replaced. The existing
+`--force` when an existing destination should be replaced. Use `--skip-npm` with
+`component install` or `system install` to report the
+[npm packages](./docs/components.md#npm-packages) and install them later.
+For component creation, provide the positional name plus `--type` and
+`--directory`, and use `--force` when an existing generated component should be
+replaced. The existing
 `-y, --yes` form remains available as a compatibility alias. Explicit
 `--type` values are honored even when project detection would hide that choice
 from the wizard. The deprecated `--format default` and `--format sdc` forms
