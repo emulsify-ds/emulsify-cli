@@ -49,33 +49,33 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.2",
-    "@commitlint/config-conventional": "^21.2.2",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@semantic-release/commit-analyzer": "^13.0.1",
-    "@semantic-release/github": "^12.0.9",
-    "@semantic-release/npm": "^13.1.5",
+    "@semantic-release/github": "^12.0.11",
+    "@semantic-release/npm": "^13.2.0",
     "@semantic-release/release-notes-generator": "^14.1.1",
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
-    "@types/node": "^26.4.0",
+    "@types/node": "^26.6.10",
     "husky": "^9.1.7",
-    "jest": "^30.5.0",
+    "jest": "^30.5.2",
     "json-schema-to-typescript": "^16.0.0",
-    "lint-staged": "^17.4.1",
+    "lint-staged": "^17.6.2",
     "nodemon": "^3.1.14",
-    "prettier": "^3.9.6",
+    "prettier": "^3.10.1",
     "semantic-release": "^25.0.9",
-    "ts-jest": "^29.4.12",
+    "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@clack/prompts": "^1.8.1",
+    "@clack/prompts": "^1.9.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "colorette": "^2.0.20",
-    "commander": "^15.0.0",
-    "fs-extra": "^11.4.0",
-    "simple-git": "^3.36.0"
+    "commander": "^15.1.0",
+    "fs-extra": "^11.4.1",
+    "simple-git": "^4.1.0"
   }
 }

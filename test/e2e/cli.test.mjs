@@ -90,6 +90,7 @@ function createGitRepository(directory, files) {
     writeFileSync(destination, contents);
   }
 
+  writeFileSync(join(directory, '.gitattributes'), '* text eol=lf\n');
   git(directory, ['add', '.']);
   git(directory, [
     '-c',
@@ -871,6 +872,75 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       'card fixture\n',
     );
     assert.equal(existsSync(join(isolatedHome, '.emulsify', 'cache')), true);
+  });
+
+  test('refreshes a cached system when its remote branch advances', () => {
+    const remotePath = join(tempRoot, 'refresh-system.git');
+    const refreshProjectRoot = join(projectsRoot, 'refresh-project');
+    git(tempRoot, ['clone', systemRepository, remotePath]);
+    mkdirSync(refreshProjectRoot, { recursive: true });
+    writeFileSync(
+      join(refreshProjectRoot, 'project.emulsify.json'),
+      json({
+        project: {
+          platform: 'none',
+          name: 'Refresh Project',
+          machineName: 'refresh-project',
+        },
+        starter: { repository: starterRepository },
+        system: {
+          repository: pathToFileURL(remotePath).href,
+          checkout: 'main',
+        },
+        variant: {
+          platform: 'none',
+          structureImplementations: [
+            { name: 'components', directory: 'components' },
+          ],
+        },
+      }),
+    );
+
+    const initialList = runCli(refreshProjectRoot, ['component', 'list']);
+    assert.equal(
+      initialList.status,
+      0,
+      commandFailure('component list', initialList),
+    );
+    assert.match(initialList.stdout, /button/u);
+
+    const systemConfigPath = join(remotePath, 'system.emulsify.json');
+    const systemConfig = JSON.parse(readFileSync(systemConfigPath, 'utf8'));
+    const variant = systemConfig.variants.find(
+      ({ platform }) => platform === 'none',
+    );
+    variant.components.push({
+      name: 'refresh-fixture',
+      structure: 'components',
+    });
+    writeFileSync(systemConfigPath, json(systemConfig));
+    git(remotePath, ['add', 'system.emulsify.json']);
+    git(remotePath, [
+      '-c',
+      'user.email=e2e@example.test',
+      '-c',
+      'user.name=Emulsify E2E',
+      'commit',
+      '-m',
+      'test: advance the system fixture',
+    ]);
+
+    const refreshedList = runCli(refreshProjectRoot, [
+      'component',
+      'list',
+      '--refresh',
+    ]);
+    assert.equal(
+      refreshedList.status,
+      0,
+      commandFailure('component list --refresh', refreshedList),
+    );
+    assert.match(refreshedList.stdout, /refresh-fixture/u);
   });
 
   test('creates a component through the plural command alias', () => {

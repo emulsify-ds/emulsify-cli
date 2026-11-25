@@ -28,6 +28,8 @@ type CacheReuseOptions = {
 };
 
 const REMOTE_REF_LOOKUP_TIMEOUT_MS = 2_000;
+const GUARDED_GIT_ENVIRONMENT_KEY =
+  /^(?:GIT_|EDITOR$|PAGER$|PREFIX$|SSH_ASKPASS$|VISUAL$)/i;
 const TEMP_DIRECTORY_MARKER = '.tmp-';
 const ABANDONED_TEMP_DIRECTORY_AGE_MS = 24 * 60 * 60 * 1_000;
 const TEMP_DIRECTORY_SUFFIX_PATTERN = /^\d+-[a-z\d]{6}$/i;
@@ -156,13 +158,27 @@ async function getRemoteResolvedRef(
   const remoteRefs = getRemoteRefCandidates(checkout);
 
   try {
+    const { GIT_SSH_COMMAND, GIT_TERMINAL_PROMPT, ...environment } =
+      getNonInteractiveGitEnvironment();
+    // simple-git treats every key passed through .env() as explicit and rejects
+    // guarded keys outside its allowlist. Keep the non-Git environment for Git.
+    const inheritedEnvironment = Object.fromEntries(
+      Object.entries(environment).filter(
+        ([key]) => !GUARDED_GIT_ENVIRONMENT_KEY.test(key.trim()),
+      ),
+    );
     const git = simpleGit({
+      allowEnvironment: ['GIT_SSH_COMMAND', 'GIT_TERMINAL_PROMPT'],
       timeout: {
         block: REMOTE_REF_LOOKUP_TIMEOUT_MS,
         stdOut: false,
         stdErr: false,
       },
-    }).env(getNonInteractiveGitEnvironment());
+    }).env({
+      ...inheritedEnvironment,
+      GIT_SSH_COMMAND,
+      GIT_TERMINAL_PROMPT,
+    });
     const output = await git.listRemote([repository, ...remoteRefs]);
     const resolvedRefs = new Map<string, string>();
 

@@ -308,17 +308,29 @@ describe('cloneIntoCache', () => {
   });
 
   it('bounds remote lookups and disables Git and SSH prompts', async () => {
+    const environment = jest.replaceProperty(process, 'env', {
+      PATH: '/usr/local/bin',
+      SSH_AUTH_SOCK: '/tmp/ssh-agent',
+      GIT_CONFIG_COUNT: '1',
+      GIT_SSH_COMMAND: 'ssh -oBatchMode=yes -oConnectTimeout=4',
+      EDITOR: 'vi',
+    });
     existsSyncMock.mockReturnValueOnce(true);
     readFileMock.mockResolvedValueOnce(metadata());
     listRemoteMock.mockResolvedValueOnce(
       'resolved-ref\trefs/heads/branch-name\n',
     );
 
-    await cloneIntoCache('systems', ['cornflake'], { refresh: true })(
-      cloneOptions,
-    );
+    try {
+      await cloneIntoCache('systems', ['cornflake'], { refresh: true })(
+        cloneOptions,
+      );
+    } finally {
+      environment.restore();
+    }
 
     expect(simpleGitMock).toHaveBeenCalledWith({
+      allowEnvironment: ['GIT_SSH_COMMAND', 'GIT_TERMINAL_PROMPT'],
       timeout: {
         block: 2_000,
         stdOut: false,
@@ -326,9 +338,10 @@ describe('cloneIntoCache', () => {
       },
     });
     expect(envMock).toHaveBeenCalledWith({
-      ...process.env,
+      PATH: '/usr/local/bin',
+      SSH_AUTH_SOCK: '/tmp/ssh-agent',
       GIT_TERMINAL_PROMPT: '0',
-      GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -oBatchMode=yes',
+      GIT_SSH_COMMAND: 'ssh -oBatchMode=yes -oConnectTimeout=4',
     });
   });
 
