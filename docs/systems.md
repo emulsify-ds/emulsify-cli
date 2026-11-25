@@ -50,8 +50,8 @@ The built-in path has four decisions:
    `required: true`, or `Everything` to install every component. Both choices
    show how many components they install.
 4. **Review.** Check the system and checkout, repository source, component set,
-   selected scope, component and asset counts, and their concrete destination
-   paths before confirming.
+   selected scope, component and asset counts and destinations, and the npm
+   packages to add before confirming.
 
 The repository is downloaded and its configuration validated before the
 component-set and review screens can be built. This may populate the isolated
@@ -101,6 +101,8 @@ For a built-in system, the command:
 8. Presents and confirms the review in guided mode.
 9. Writes `system` and `variant` entries into `project.emulsify.json`.
 10. Installs the selected components and variant-level general files and directories.
+11. Handles the selected components' [npm packages](./components.md#npm-packages)
+    before running the project install hook.
 
 If you already know the system name, pass it directly:
 
@@ -429,6 +431,30 @@ Each variant used by the CLI must include:
 | `components`               | Yes      | Installable component definitions.                            |
 | `directories`              | No       | General directories copied during system install.             |
 | `files`                    | No       | General files copied during system install.                   |
+
+Each item in a variant's `components` array supports these fields.
+
+| Field             | Required | Purpose                                                           |
+| ----------------- | -------- | ----------------------------------------------------------------- |
+| `name`            | Yes      | Component name and source folder name.                            |
+| `structure`       | Yes      | Structure that maps the component to a project directory.         |
+| `description`     | No       | Describes the component.                                          |
+| `required`        | No       | Includes the component in the essentials scope of system install. |
+| `dependency`      | No       | Names of other components this component needs.                    |
+| `npmDependencies` | No       | Map of npm package names to semver ranges.                         |
+
+```json
+{
+  "name": "slider",
+  "structure": "components",
+  "dependency": ["button", "icons"],
+  "npmDependencies": { "swiper": "^11.2.0" }
+}
+```
+
+`npmDependencies` requires Emulsify CLI 2.5.0 or later. Older versions reject
+unknown component fields. Publish a system release with this field after CLI
+2.5.0 is available to its users.
 
 ## Variant Platform Compatibility
 
