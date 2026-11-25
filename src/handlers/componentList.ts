@@ -69,12 +69,14 @@ export function formatComponentList(components: Components): string {
 
     lines.push(heading);
 
-    for (const { name, required, dependency } of group) {
+    for (const { name, required, dependency, npmDependencies } of group) {
+      const packageNames = Object.keys(npmDependencies ?? {});
       const notes = [
         ...(required ? ['required'] : []),
         ...(dependency && dependency.length > 0
           ? [`needs ${dependency.join(', ')}`]
           : []),
+        ...(packageNames.length > 0 ? [`npm ${packageNames.join(', ')}`] : []),
       ];
 
       lines.push(

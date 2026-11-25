@@ -222,6 +222,21 @@ describe('componentList', () => {
 });
 
 describe('formatComponentList', () => {
+  it('shows component and npm dependencies in the same notes', () => {
+    const block = formatComponentList([
+      {
+        name: 'slider',
+        structure: 'molecules',
+        dependency: ['button', 'icons'],
+        npmDependencies: { swiper: '^11.2.0', '@fixture/slider': '~1.0.0' },
+      },
+    ]);
+
+    expect(block).toContain(
+      'slider  needs button, icons  ·  npm swiper, @fixture/slider',
+    );
+  });
+
   it('groups components by structure and counts the required ones', () => {
     const block = formatComponentList([
       { name: 'buttons', structure: 'atoms', required: true },

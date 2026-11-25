@@ -25,6 +25,12 @@ import cloneIntoCache from '../util/cache/cloneIntoCache.js';
 import getCachedItemCheckout from '../util/cache/getCachedItemCheckout.js';
 import getRepositoryLatestTag from '../util/getRepositoryLatestTag.js';
 import installComponentFromCache from '../util/project/installComponentFromCache.js';
+import {
+  applyComponentNpmInstall,
+  formatAddedNpmPackages,
+  getNpmPackagesToAdd,
+  prepareComponentNpmInstall,
+} from '../util/project/installComponentNpmDependencies.js';
 import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
 import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
@@ -478,6 +484,7 @@ export function formatSystemInstallReview(
   variant: EmulsifyVariant,
   plan: SystemInstallPlan,
   installAll: boolean,
+  npmPackages: string[] = [],
 ): string {
   const continuationIndent = '                 ';
   const installRows = [
@@ -503,6 +510,7 @@ export function formatSystemInstallReview(
     `  Scope          ${installAll ? 'Everything' : 'Essentials only'}`,
     `  Will install   ${installRows[0]}`,
     ...installRows.slice(1).map((row) => `${continuationIndent}${row}`),
+    `  npm packages   ${formatDestinationList(npmPackages)}`,
   ].join('\n');
 }
 
@@ -715,12 +723,17 @@ export default async function systemInstall(
     guidedInstall && !options.all
       ? await promptForInstallScope(variantConf, ++wizardStep, wizardTotalSteps)
       : options.all === true;
-  let componentsToInstall = selectSystemComponents(variantConf, installAll);
+  const componentsToInstall = selectSystemComponents(variantConf, installAll);
+  const projectConfigPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
+  const skipNpm = options.skipNpm === true;
+  const npmPlan = await prepareComponentNpmInstall(
+    systemConf.name,
+    componentsToInstall,
+    projectConfigPath,
+    skipNpm,
+  );
 
   if (guidedInstall) {
-    const projectConfigPath = findFileInCurrentPath(
-      EMULSIFY_PROJECT_CONFIG_FILE,
-    );
     if (!projectConfigPath) {
       throw new CliError(
         'Unable to find the Emulsify project configuration for the installation review.',
@@ -733,7 +746,6 @@ export default async function systemInstall(
       installAll,
       projectConfigPath,
     );
-    componentsToInstall = plan.components;
     const confirmed = await promptForInstallConfirmation(
       formatSystemInstallReview(
         systemLabel,
@@ -742,6 +754,7 @@ export default async function systemInstall(
         variantConf,
         plan,
         installAll,
+        getNpmPackagesToAdd(npmPlan, skipNpm),
       ),
       ++wizardStep,
       wizardTotalSteps,
@@ -753,6 +766,7 @@ export default async function systemInstall(
   }
 
   // Update emulsify project config.
+  let added = 0;
   try {
     await setEmulsifyConfig({
       system: {
@@ -784,10 +798,9 @@ export default async function systemInstall(
     // Install all global files and folders.
     await installGeneralAssetsFromCache(systemConf, variantConf);
 
+    added = await applyComponentNpmInstall(npmPlan, skipNpm);
+
     // Execute system install hook.
-    const projectConfigPath = findFileInCurrentPath(
-      EMULSIFY_PROJECT_CONFIG_FILE,
-    );
     const hookPath = projectConfigPath
       ? join(
           dirname(projectConfigPath),
@@ -799,6 +812,7 @@ export default async function systemInstall(
       await executeScript(hookPath);
     }
   } catch (e) {
+    if (e instanceof CliError) throw e;
     throw new CliError(
       `Unable to install system assets and/or required components: ${String(e)}`,
     );
@@ -806,5 +820,6 @@ export default async function systemInstall(
 
   // Name the component set that was installed: a system can offer several, and
   // which one landed is the thing a person needs to know afterwards.
-  return `${systemLabel} installed  ·  ${variantConf.platform} component set`;
+  const summary = `${systemLabel} installed  ·  ${variantConf.platform} component set`;
+  return added ? `${summary}  ·  ${formatAddedNpmPackages(added)}` : summary;
 }

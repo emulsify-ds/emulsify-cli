@@ -98,6 +98,11 @@ const sections: HelpSection[] = [
         description: 'Preview without writing files',
       },
       {
+        kind: 'option',
+        label: '--skip-npm',
+        description: 'Report npm packages without installing them',
+      },
+      {
         kind: 'command',
         label: 'component create [name]',
         description: 'Generate a new local component',
@@ -181,6 +186,11 @@ const sections: HelpSection[] = [
         kind: 'option',
         label: '-a, --all',
         description: 'Install every component, not just required',
+      },
+      {
+        kind: 'option',
+        label: '--skip-npm',
+        description: 'Report npm packages without installing them',
       },
       {
         kind: 'command',

@@ -10,11 +10,12 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { after, before, describe, test } from 'node:test';
 
@@ -165,6 +166,61 @@ function commandFailure(label, result) {
   ].join('\n');
 }
 
+function createComponentPackageProject(name, packageContents) {
+  const root = join(projectsRoot, name);
+  mkdirSync(root, { recursive: true });
+  writeFileSync(
+    join(root, 'project.emulsify.json'),
+    json({
+      project: { platform: 'none', name, machineName: name },
+      starter: { repository: starterRepository },
+      system: { repository: systemRepository, checkout: 'main' },
+      variant: {
+        platform: 'none',
+        structureImplementations: [
+          { name: 'components', directory: 'components' },
+        ],
+      },
+    }),
+  );
+  writeFileSync(join(root, 'package.json'), packageContents);
+  return root;
+}
+
+function recordNpmInvocations() {
+  const bin = join(tempRoot, 'fake-npm');
+  const recorder = join(bin, 'record-npm.cjs');
+  const log = join(bin, 'invocations.jsonl');
+  mkdirSync(bin);
+  writeFileSync(
+    recorder,
+    [
+      "const { appendFileSync } = require('node:fs');",
+      'const invocation = { cwd: process.cwd(), args: process.argv.slice(2) };',
+      'appendFileSync(process.env.EMULSIFY_E2E_NPM_LOG, JSON.stringify(invocation) + "\\n");',
+    ].join('\n'),
+  );
+  writeFileSync(
+    join(bin, 'npm'),
+    '#!/bin/sh\nexec "$EMULSIFY_E2E_NODE" "$EMULSIFY_E2E_NPM_RECORDER" "$@"\n',
+    { mode: 0o755 },
+  );
+  writeFileSync(
+    join(bin, 'npm.cmd'),
+    '@echo off\r\n"%EMULSIFY_E2E_NODE%" "%EMULSIFY_E2E_NPM_RECORDER%" %*\r\nexit /b %errorlevel%\r\n',
+  );
+
+  const env = isolatedEnvironment();
+  const pathKey =
+    Object.keys(env).find((key) => key.toLowerCase() === 'path') ?? 'PATH';
+  env[pathKey] = [bin, env[pathKey]].filter(Boolean).join(delimiter);
+  env.EMULSIFY_E2E_NPM_LOG = log;
+  env.EMULSIFY_E2E_NODE = process.execPath;
+  env.EMULSIFY_E2E_NPM_RECORDER = recorder;
+  delete env.NO_COLOR;
+  return { env, log };
+}
+
 describe('built Emulsify CLI', { concurrency: false }, () => {
   before(() => {
     tempRoot = mkdtempSync(join(tmpdir(), 'emulsify-cli-e2e-'));
@@ -260,6 +316,16 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
                 structure: 'components',
                 required: true,
               },
+              {
+                name: 'slider',
+                structure: 'components',
+                npmDependencies: { swiper: '^11.2.0' },
+              },
+              {
+                name: 'slider-story',
+                structure: 'components',
+                dependency: ['slider'],
+              },
             ],
           },
           {
@@ -281,6 +347,8 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       }),
       'components/button/fixture.txt': 'button fixture\n',
       'components/card/fixture.txt': 'card fixture\n',
+      'components/slider/fixture.txt': 'slider fixture\n',
+      'components/slider-story/fixture.txt': 'slider story fixture\n',
     });
     systemRepository = pathToFileURL(systemPath).href;
   });
@@ -941,6 +1009,106 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       commandFailure('component list --refresh', refreshedList),
     );
     assert.match(refreshedList.stdout, /refresh-fixture/u);
+  });
+
+  test('previews npm packages for a named component and --all without writing project files', () => {
+    const root = createComponentPackageProject(
+      'package-dry-run',
+      json({ name: 'package-dry-run', private: true }),
+    );
+    const before = snapshotFiles(root);
+
+    for (const target of ['slider-story', '--all']) {
+      const result = runCli(root, [
+        'component',
+        'install',
+        target,
+        '--dry-run',
+      ]);
+      assert.equal(
+        result.status,
+        0,
+        commandFailure(`component install ${target} --dry-run`, result),
+      );
+      assert.match(result.stdout, /swiper.*\^11\.2\.0/u);
+      assert.match(result.stdout, /would add/u);
+      assert.deepEqual(snapshotFiles(root), before);
+    }
+  });
+
+  test('copies a component with --skip-npm and prints a quoted install command', () => {
+    const packageContents = json({ name: 'skip-package', private: true });
+    const root = createComponentPackageProject('skip-package', packageContents);
+    const result = runCli(root, [
+      'component',
+      'install',
+      'slider',
+      '--skip-npm',
+    ]);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component install slider --skip-npm', result),
+    );
+    assert.match(result.stdout, /npm install "swiper@\^11\.2\.0"/u);
+    assert.equal(
+      readFileSync(join(root, 'package.json'), 'utf8'),
+      packageContents,
+    );
+    assert.equal(
+      readFileSync(join(root, 'components', 'slider', 'fixture.txt'), 'utf8'),
+      'slider fixture\n',
+    );
+  });
+
+  test('adds sorted npm packages and invokes npm once from the project root', () => {
+    const manifest = {
+      private: true,
+      name: 'install-packages',
+      dependencies: { zod: '^4.0.0', ajv: '^8.0.0' },
+      version: '1.0.0',
+    };
+    const serialize = (value) =>
+      JSON.stringify(value, null, 4).replaceAll('\n', '\r\n');
+    const root = createComponentPackageProject(
+      'install-packages',
+      serialize(manifest),
+    );
+    const packagePath = join(root, 'package.json');
+    const childDirectory = join(root, 'child-directory');
+    mkdirSync(childDirectory);
+    const { env, log } = recordNpmInvocations();
+    const args = ['component', 'install', 'slider-story'];
+    const result = runCli(childDirectory, args, env);
+
+    assert.equal(result.status, 0, commandFailure(args.join(' '), result));
+    assert.equal(result.stderr, '');
+    assert.doesNotMatch(result.stdout, /\u001b\[/u);
+    assert.match(result.stdout, /^Installing npm packages$/mu);
+    assert.match(result.stdout, /^Installed 1 npm package with npm$/mu);
+    assert.match(result.stdout, /added 1 npm package/u);
+
+    const expectedContents = serialize({
+      ...manifest,
+      dependencies: { ajv: '^8.0.0', swiper: '^11.2.0', zod: '^4.0.0' },
+    });
+    assert.equal(readFileSync(packagePath, 'utf8'), expectedContents);
+    const invocations = readFileSync(log, 'utf8');
+    const records = invocations.trim().split('\n').map(JSON.parse);
+    assert.equal(records.length, 1);
+    assert.deepEqual(records[0].args, ['install']);
+    assert.equal(realpathSync(records[0].cwd), realpathSync(root));
+
+    const repeat = runCli(childDirectory, [...args, '--force'], env);
+    assert.equal(
+      repeat.status,
+      0,
+      commandFailure('repeat component install', repeat),
+    );
+    assert.match(repeat.stdout, /already in package\.json/u);
+    assert.equal(readFileSync(log, 'utf8'), invocations);
+    assert.equal(readFileSync(packagePath, 'utf8'), expectedContents);
   });
 
   test('creates a component through the plural command alias', () => {

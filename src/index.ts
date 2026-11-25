@@ -160,6 +160,10 @@ system
     '-y, --yes',
     'Accept the final guided-install review without prompting.',
   )
+  .option(
+    '--skip-npm',
+    'Report component npm packages without installing them.',
+  )
   .action(withSession('emulsify system install', systemInstall));
 system
   .command('detach')
@@ -194,6 +198,10 @@ component
   .option(
     '--dry-run',
     'Preview component installs without copying or removing files.',
+  )
+  .option(
+    '--skip-npm',
+    'Report component npm packages without installing them.',
   )
   .option(
     '--refresh',

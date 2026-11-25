@@ -9,18 +9,14 @@ emulsify component list
 emulsify component ls
 ```
 
-The command loads the configured system, finds the selected variant, and prints each component as:
+The command loads the selected variant and groups components by structure.
+Notes show required components and any component or npm dependencies.
 
 ```text
-<structure> -> <component-name>
-```
-
-Example:
-
-```text
-base -> 01-colors
-atoms -> buttons
-molecules -> card
+components  ·  3 components  ·  1 required
+  button        required
+  slider        npm swiper
+  slider-story  needs slider
 ```
 
 ## Install One Component
@@ -88,7 +84,8 @@ emulsify component install card --force
 
 ## Dry Runs
 
-Use `--dry-run` to preview component installation without copying, removing, or overwriting files.
+Use `--dry-run` to preview component and npm package installation without
+making project changes.
 
 ```bash
 emulsify component install card --dry-run
@@ -103,6 +100,46 @@ Dry-run output includes:
 | Destination        | Project path where each component would be copied.                              |
 | Destination exists | Whether the destination currently exists.                                       |
 | Real run would     | Whether the real command would copy, replace, or prompt.                        |
+| npm packages       | Packages that would be added, are already satisfied, or need attention.         |
+
+## npm packages
+
+A system can declare [npm packages for each component](./systems.md#system-repository-shape).
+When you install a component, the CLI checks the packages declared by that
+component and its component dependencies, including any component files you
+choose to keep. An all-components install checks the entire variant.
+`system install` checks the components included in the selected scope.
+
+The CLI reports each package and the components that need it.
+
+| Status                  | What it means                                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Added                   | The CLI added the missing package to `dependencies` in the project's `package.json`.                                                |
+| Already in package.json | An existing spec in `dependencies`, `devDependencies`, `optionalDependencies`, or `peerDependencies` fits the required range.       |
+| Needs attention         | An existing spec falls outside the requirement, or the CLI cannot verify it. The CLI keeps the spec and prints a suggested command. |
+
+For npm projects, the CLI runs `npm install` once when it adds packages. For
+pnpm, Yarn, and Bun projects, it records the dependencies and prints the
+matching install command for you to run. When the project has no
+`packageManager` field, the CLI checks its lockfiles and defaults to npm
+if it finds none.
+
+A component that needs npm packages requires a valid `package.json` in the
+project root. If `npm install` fails, the copied components and new dependency
+entries stay in place. Run `npm install` in the project root to finish.
+
+`--skip-npm` on either install command copies the components while reporting
+their npm packages and printing a command you can run later. On
+`component install`, `--dry-run` previews the package statuses and any missing
+or invalid `package.json` alongside the planned component copies.
+
+```bash
+emulsify component install slider --dry-run
+emulsify component install slider --skip-npm
+```
+
+npm can run the declared packages' lifecycle scripts. Use `--dry-run` or
+`--skip-npm` to review the packages first.
 
 ## Create A Local Component
 
