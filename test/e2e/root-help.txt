@@ -22,6 +22,7 @@ COMPONENTS
       -a, --all                      Install every available component
       -f, --force                    Replace an existing destination
       --dry-run                      Preview without writing files
+      --skip-npm                     Report npm packages without installing them
   component create [name]         Generate a new local component
       -d, --directory <dir>          Variant structure to create it in
       -t, --type <type>              twig | twig-sdc | react | web-component
@@ -40,6 +41,7 @@ SYSTEMS
       -r, --repository <repo>        Install from a git repository
       -c, --checkout <ref>           Commit, branch, or tag
       -a, --all                      Install every component, not just required
+      --skip-npm                     Report npm packages without installing them
   system detach                   Detach the system and keep project components
       -y, --yes                      Skip the confirmation prompt
   system create [name]            Scaffold a system others can install from
