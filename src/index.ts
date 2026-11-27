@@ -158,7 +158,7 @@ system
   )
   .option(
     '-y, --yes',
-    'Accept the final guided-install review without prompting.',
+    'Accept the guided-install review or npm packages without prompting.',
   )
   .option(
     '--skip-npm',
@@ -191,6 +191,10 @@ component
   .command('install [name]')
   .description('Install one component from the installed system and variant')
   .option('-f, --force', 'Replace an existing component destination.')
+  .option(
+    '-y, --yes',
+    'Accept the npm packages a component requires without prompting.',
+  )
   .option(
     '-a, --all',
     'Install all available components instead of one named component.',

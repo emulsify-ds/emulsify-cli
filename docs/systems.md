@@ -51,7 +51,8 @@ The built-in path has four decisions:
    every component. Both choices show a component count.
 4. **Review.** Check the system and checkout, repository source, component set,
    selected scope, component and asset counts and destinations, and the npm
-   packages to add before confirming.
+   packages to add before confirming. The review shows each package's range,
+   the components that require it, and the package manager.
 
 The repository is downloaded and its configuration validated before the
 component-set and review screens can be built. This may populate the isolated
@@ -99,7 +100,7 @@ For a built-in system, the command:
 5. Reads and validates `system.emulsify.json` from the cached system.
 6. Selects the reviewed component set in guided mode, or resolves the best compatible variant for `project.platform` in direct mode. `--variant` selects an exact expression in direct mode.
 7. Selects essential components and their declared dependencies, or all components.
-8. Presents and confirms the review in guided mode.
+8. Confirms the final review in guided mode or asks for consent before adding npm packages in direct mode.
 9. Writes `system` and `variant` entries into `project.emulsify.json`.
 10. Installs the selected components and variant-level general files and directories.
 11. Handles the selected components' [npm packages](./components.md#npm-packages)
@@ -116,6 +117,11 @@ An explicit built-in name bypasses the wizard. This is the form to use in a
 script or CI job. It selects the best compatible component set automatically and
 installs only essential components and their declared dependencies unless flags
 override those choices.
+
+When a direct install would add npm packages, the CLI shows the package plan and
+asks for consent. Declining has the same effect as `--skip-npm`. The command
+installs the system and prints a command to add the packages later. Pass `--yes`
+to accept the packages without prompting.
 
 Use `--all` to install every component in the selected variant during system installation:
 
@@ -170,11 +176,12 @@ emulsify system install \
 ```
 
 Providing `--repository` without `--checkout`, or `--checkout` without
-`--repository`, exits non-zero and identifies the missing flag. Explicit source
-commands do not open the guided review: compatible component-set selection and
-the essentials-only default remain deterministic unless `--variant` or `--all`
-is passed. Because `--yes` only accepts the final guided review, it does not
-supply a missing source or make bare `system install --yes` valid outside a TTY.
+`--repository`, exits non-zero and identifies the missing flag. A direct install
+selects a compatible component set and installs essential components unless you
+pass `--variant` or `--all`. When a direct install would add npm packages, pass
+`--yes` to accept them or `--skip-npm` to continue without them. The guided
+installer requires an interactive terminal for source, component set, and scope
+choices.
 
 ## Detach A System
 
@@ -460,9 +467,10 @@ Each item in a variant's `components` array supports these fields.
 ```
 
 `system install` and `component install` use `npmDependencies` to add packages
-required by the selected components and their component dependencies. Use
-`--skip-npm` to report the packages and install them later. See
-[npm packages](./components.md#npm-packages).
+required by the selected components and their component dependencies. Use a
+semver range that excludes at least some versions. A wildcard such as `*`
+is rejected, and a minimum such as `>=1.0.0` is allowed. For consent and
+installation behavior, see [npm packages](./components.md#npm-packages).
 
 A system that uses `npmDependencies` must also set `"minimumCliVersion": "2.5.0"`
 at the top level of `system.emulsify.json`. Emulsify CLI 2.4.1 and earlier reject

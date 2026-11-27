@@ -188,10 +188,9 @@ function createComponentPackageProject(name, packageContents) {
 }
 
 function recordNpmInvocations() {
-  const bin = join(tempRoot, 'fake-npm');
+  const bin = mkdtempSync(join(tempRoot, 'fake-npm-'));
   const recorder = join(bin, 'record-npm.cjs');
   const log = join(bin, 'invocations.jsonl');
-  mkdirSync(bin);
   writeFileSync(
     recorder,
     [
@@ -563,6 +562,53 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(readFileSync(projectConfigPath, 'utf8'), configBefore);
   });
 
+  test('requires npm consent for an explicit system install outside a TTY', () => {
+    const root = nonInteractiveInstallProjectRoot;
+    const packagePath = join(root, 'package.json');
+    writeFileSync(
+      packagePath,
+      json({ name: 'non-interactive-install-project' }),
+    );
+    const before = snapshotFiles(root);
+    const { env, log } = recordNpmInvocations();
+    const args = [
+      'system',
+      'install',
+      '--repository',
+      systemRepository,
+      '--checkout',
+      'main',
+      '--variant',
+      'none',
+      '--all',
+    ];
+    const withoutConsent = runCli(root, args, env);
+
+    assert.notEqual(withoutConsent.status, 0);
+    assert.match(withoutConsent.stderr, /swiper@\^11\.2\.0/u);
+    assert.match(withoutConsent.stderr, /--yes/u);
+    assert.match(withoutConsent.stderr, /--skip-npm/u);
+    assert.deepEqual(snapshotFiles(root), before);
+    assert.equal(existsSync(log), false);
+
+    const accepted = runCli(root, [...args, '-y'], env);
+    assert.equal(
+      accepted.status,
+      0,
+      commandFailure('system install -y', accepted),
+    );
+    assert.deepEqual(
+      JSON.parse(readFileSync(packagePath, 'utf8')).dependencies,
+      {
+        swiper: '^11.2.0',
+      },
+    );
+    assert.deepEqual(JSON.parse(readFileSync(log, 'utf8')).args, [
+      'install',
+      '--ignore-scripts',
+    ]);
+  });
+
   test('creates a standalone system and installs it from a local path', () => {
     const systemName = 'round-trip-system';
     const generatedSystemRoot = join(tempRoot, systemName);
@@ -861,20 +907,25 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
   });
 
   test('initializes a WordPress project with starter hook metadata', () => {
-    const result = runCli(tempRoot, [
-      'init',
-      'Fixture Project',
-      projectsRoot,
-      '--machineName',
-      'fixture-project',
-      '--starter',
-      starterRepository,
-      '--checkout',
-      'main',
-      '--platform',
-      'wordpress',
-      '--yes',
-    ]);
+    const { env, log } = recordNpmInvocations();
+    const result = runCli(
+      tempRoot,
+      [
+        'init',
+        'Fixture Project',
+        projectsRoot,
+        '--machineName',
+        'fixture-project',
+        '--starter',
+        starterRepository,
+        '--checkout',
+        'main',
+        '--platform',
+        'wordpress',
+        '--yes',
+      ],
+      env,
+    );
 
     assert.equal(result.status, 0, commandFailure('init', result));
     assert.equal(result.stderr.trim(), '');
@@ -903,6 +954,9 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       true,
     );
     assert.equal(existsSync(join(projectRoot, '.git')), false);
+    const invocation = JSON.parse(readFileSync(log, 'utf8'));
+    assert.deepEqual(invocation.args, ['install']);
+    assert.equal(realpathSync(invocation.cwd), realpathSync(projectRoot));
   });
 
   test('loads starter hook metadata when installing a system', () => {
@@ -1036,15 +1090,22 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     }
   });
 
-  test('copies a component with --skip-npm and prints a quoted install command', () => {
+  test('requires npm consent outside a TTY and allows --skip-npm', () => {
     const packageContents = json({ name: 'skip-package', private: true });
     const root = createComponentPackageProject('skip-package', packageContents);
-    const result = runCli(root, [
-      'component',
-      'install',
-      'slider',
-      '--skip-npm',
-    ]);
+    const before = snapshotFiles(root);
+    const { env, log } = recordNpmInvocations();
+    const args = ['component', 'install', 'slider'];
+    const withoutConsent = runCli(root, args, env);
+
+    assert.notEqual(withoutConsent.status, 0);
+    assert.match(withoutConsent.stderr, /swiper@\^11\.2\.0/u);
+    assert.match(withoutConsent.stderr, /--yes/u);
+    assert.match(withoutConsent.stderr, /--skip-npm/u);
+    assert.deepEqual(snapshotFiles(root), before);
+    assert.equal(existsSync(log), false);
+
+    const result = runCli(root, [...args, '--skip-npm'], env);
 
     assert.equal(
       result.status,
@@ -1052,6 +1113,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       commandFailure('component install slider --skip-npm', result),
     );
     assert.match(result.stdout, /npm install "swiper@\^11\.2\.0"/u);
+    assert.equal(existsSync(log), false);
     assert.equal(
       readFileSync(join(root, 'package.json'), 'utf8'),
       packageContents,
@@ -1079,7 +1141,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     const childDirectory = join(root, 'child-directory');
     mkdirSync(childDirectory);
     const { env, log } = recordNpmInvocations();
-    const args = ['component', 'install', 'slider-story'];
+    const args = ['component', 'install', 'slider-story', '--yes'];
     const result = runCli(childDirectory, args, env);
 
     assert.equal(result.status, 0, commandFailure(args.join(' '), result));
@@ -1087,6 +1149,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.doesNotMatch(result.stdout, /\u001b\[/u);
     assert.match(result.stdout, /^Installing npm packages$/mu);
     assert.match(result.stdout, /^Installed 1 npm package with npm$/mu);
+    assert.match(result.stdout, /Lifecycle scripts were not run.*npm rebuild/u);
     assert.match(result.stdout, /added 1 npm package/u);
 
     const expectedContents = serialize({
@@ -1097,7 +1160,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     const invocations = readFileSync(log, 'utf8');
     const records = invocations.trim().split('\n').map(JSON.parse);
     assert.equal(records.length, 1);
-    assert.deepEqual(records[0].args, ['install']);
+    assert.deepEqual(records[0].args, ['install', '--ignore-scripts']);
     assert.equal(realpathSync(records[0].cwd), realpathSync(root));
 
     const repeat = runCli(childDirectory, [...args, '--force'], env);

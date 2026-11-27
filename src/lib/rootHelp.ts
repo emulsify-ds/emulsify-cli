@@ -94,6 +94,11 @@ const sections: HelpSection[] = [
       },
       {
         kind: 'option',
+        label: '-y, --yes',
+        description: 'Accept npm packages without prompting',
+      },
+      {
+        kind: 'option',
         label: '--dry-run',
         description: 'Preview without writing files',
       },
@@ -186,6 +191,11 @@ const sections: HelpSection[] = [
         kind: 'option',
         label: '-a, --all',
         description: 'Install every component, not just required',
+      },
+      {
+        kind: 'option',
+        label: '-y, --yes',
+        description: 'Accept the install review or npm packages',
       },
       {
         kind: 'option',

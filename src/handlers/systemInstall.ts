@@ -27,8 +27,9 @@ import getRepositoryLatestTag from '../util/getRepositoryLatestTag.js';
 import installComponentFromCache from '../util/project/installComponentFromCache.js';
 import {
   applyComponentNpmInstall,
+  confirmComponentNpmInstall,
   formatAddedNpmPackages,
-  getNpmPackagesToAdd,
+  getComponentNpmInstallReview,
   prepareComponentNpmInstall,
 } from '../util/project/installComponentNpmDependencies.js';
 import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache.js';
@@ -510,7 +511,7 @@ export function formatSystemInstallReview(
     `  Scope          ${installAll ? 'Everything' : 'Essentials only'}`,
     `  Will install   ${installRows[0]}`,
     ...installRows.slice(1).map((row) => `${continuationIndent}${row}`),
-    `  npm packages   ${formatDestinationList(npmPackages)}`,
+    `  npm packages   ${npmPackages.join(`\n${continuationIndent}`) || 'none'}`,
   ].join('\n');
 }
 
@@ -735,6 +736,7 @@ export default async function systemInstall(
     skipNpm,
   );
 
+  let acceptedNpm = !skipNpm;
   if (guidedInstall) {
     if (!projectConfigPath) {
       throw new CliError(
@@ -756,7 +758,7 @@ export default async function systemInstall(
         variantConf,
         plan,
         installAll,
-        getNpmPackagesToAdd(npmPlan, skipNpm),
+        getComponentNpmInstallReview(npmPlan, skipNpm)?.lines,
       ),
       ++wizardStep,
       wizardTotalSteps,
@@ -765,6 +767,13 @@ export default async function systemInstall(
     if (!confirmed) {
       return DECLINED_SUMMARY;
     }
+  } else {
+    acceptedNpm = await confirmComponentNpmInstall(
+      npmPlan,
+      skipNpm,
+      options.yes === true,
+      `The ${JSON.stringify(systemConf.name)} system`,
+    );
   }
 
   // Update emulsify project config.
@@ -800,7 +809,7 @@ export default async function systemInstall(
     // Install all global files and folders.
     await installGeneralAssetsFromCache(systemConf, variantConf);
 
-    added = await applyComponentNpmInstall(npmPlan, skipNpm);
+    added = await applyComponentNpmInstall(npmPlan, acceptedNpm);
 
     // Execute system install hook.
     const hookPath = projectConfigPath

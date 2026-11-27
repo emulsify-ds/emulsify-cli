@@ -238,7 +238,8 @@ The scope picker offers:
 
 Both choices include their component counts. The review shows the selected
 system and checkout, repository source, component set, scope, component and
-asset destinations, and npm packages to add. The CLI asks for confirmation
+asset destinations, and npm packages to add with their ranges, requesting
+components, and package manager. The CLI asks for confirmation
 before writing project configuration, copying components or assets, installing
 packages, or running the project install hook. The selected repository may
 already have been downloaded into the CLI cache for review.
@@ -266,10 +267,11 @@ checkout (branch, tag, or commit); the displayed step total expands to include
 them. Selecting `Cancel`, or declining the final review, reports `System install
 cancelled.` and leaves the project configuration and destinations unchanged.
 
-Supplying a built-in name or both custom-repository flags bypasses the guided
-installer and preserves the direct command behavior. Variant compatibility is
-resolved automatically unless `--variant` is supplied, and only essential
-components are installed unless `--all` is supplied.
+Supplying a built-in name or both custom-repository flags starts a direct
+install. The CLI selects a compatible variant unless you supply `--variant`,
+and installs only essential components unless you pass `--all`. If packages
+would be added, the CLI prompts for npm consent. Declining continues the system
+install and prints a command to install the packages later.
 
 Options:
 
@@ -279,7 +281,7 @@ Options:
 | `-c, --checkout <commit/branch/tag>` | Checkout to use. This is required when `--repository` is used.                                                                                   |
 | `--variant <platform-expression>`    | Install the variant whose platform expression exactly matches this value. Quote compound expressions at the shell.                               |
 | `-a, --all`                          | Install every component in the selected variant. The default scope is required components and their component dependencies.                     |
-| `-y, --yes`                          | Accept the final guided-install review without prompting. It does not supply any earlier wizard choice.                                          |
+| `-y, --yes`                          | Accept the final guided review or the npm packages in a direct install without prompting.                                                        |
 | `--skip-npm`                         | Report the selected components' npm packages and print an install command for later.                                                              |
 
 Prompts are never opened when standard input is not a TTY. A bare command fails
@@ -291,8 +293,10 @@ No component system source was provided. Pass a built-in system name as the posi
 
 For scripts and CI, pass a built-in name or pass both `--repository` and
 `--checkout`. Supplying only one custom-repository option also fails immediately
-and names the missing flag. `--yes` does not make a bare command
-non-interactive: the source, component set, and scope still require choices.
+and names the missing flag. The guided installer requires a TTY to choose the
+source, component set, and scope. In direct installs that would add packages,
+pass `--yes` to accept or `--skip-npm` to continue without them. See the
+[npm package installation guide](./components.md#npm-packages).
 
 Examples:
 
@@ -390,6 +394,7 @@ Options:
 | ------------- | --------------------------------------------------------------------------------------------------- |
 | `-f, --force` | Replace an existing component destination without prompting.                                        |
 | `-a, --all`   | Install all available components instead of one named component.                                    |
+| `-y, --yes`   | Accept the npm packages a component requires without prompting.                                    |
 | `--dry-run`   | Preview component copies, overwrites, and npm package statuses without changing project files.       |
 | `--skip-npm`  | Report the components' npm packages and print an install command for later.                           |
 | `--refresh`   | Check the system's remote ref before reusing its local cache entry.                                 |
@@ -408,6 +413,13 @@ When standard input is not a TTY, provide either `[name]` or `--all`; the CLI
 exits with an actionable error instead of opening the picker. If a named
 component destination already exists, the command also exits unless `--force`
 is passed to replace it without an overwrite prompt.
+
+If packages would be added, the CLI shows their ranges, requesting components,
+and package manager before asking for consent. Declining copies the components
+and prints a command to install the packages later. Outside an interactive
+terminal, pass `--yes` or `--skip-npm` when packages would be added. With a
+component name or `--all`, `--dry-run` previews the package plan without a
+confirmation prompt. See the [npm package installation guide](./components.md#npm-packages).
 
 ## `component eject-templates`
 

@@ -12,6 +12,7 @@ import installComponentFromCache, {
 import buildComponentDependencyList from '../util/project/buildComponentDependencyList.js';
 import {
   applyComponentNpmInstall,
+  confirmComponentNpmInstall,
   formatAddedNpmPackages,
   formatComponentNpmInstall,
   prepareComponentNpmInstall,
@@ -136,6 +137,7 @@ export default async function componentInstall(
     dryRun,
     refresh,
     skipNpm = false,
+    yes = false,
   }: InstallComponentHandlerOptions,
 ): Promise<string> {
   let selectedName = name;
@@ -145,6 +147,7 @@ export default async function componentInstall(
   // Preserve the fail-fast non-interactive path before loading or refreshing
   // the cached system. Interactive sessions need that system to build choices.
   if (needsSelection) {
+    if (dryRun) throw new CliError(MISSING_COMPONENT_INSTALL_TARGET_ERROR);
     requireInteractiveTerminal(MISSING_COMPONENT_INSTALL_TARGET_ERROR);
   }
 
@@ -225,6 +228,15 @@ export default async function componentInstall(
     );
     return 'Dry run complete';
   }
+
+  const acceptedNpm = await confirmComponentNpmInstall(
+    npmPlan,
+    skipNpm,
+    yes,
+    rootComponentName
+      ? `The ${JSON.stringify(rootComponentName)} component`
+      : 'This component install',
+  );
 
   const components: [string, boolean, Promise<void>][] = [];
   for (const componentName of componentNames) {
@@ -313,7 +325,7 @@ export default async function componentInstall(
     throw new CliError(failureMessages.join('\n'));
   }
 
-  const added = await applyComponentNpmInstall(npmPlan, skipNpm);
+  const added = await applyComponentNpmInstall(npmPlan, acceptedNpm);
   const summary =
     installed.length === 0
       ? 'No components were installed'

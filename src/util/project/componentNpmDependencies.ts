@@ -52,6 +52,11 @@ export function collectComponentNpmDependencies(
           `${context} must use a valid semver range. Received ${JSON.stringify(range)}.`,
         );
       }
+      if (subset('*', range)) {
+        throw new CliError(
+          `${context} must declare a bounded semver range. Received ${JSON.stringify(range)}, which admits every version.`,
+        );
+      }
 
       const requirement = packages.get(name);
       if (!requirement) {

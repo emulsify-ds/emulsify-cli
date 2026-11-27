@@ -24,7 +24,7 @@ declare module '@emulsify-cli/handlers' {
     all?: boolean;
     /** Report component npm packages without changing the project manifest or running npm. */
     skipNpm?: boolean;
-    /** Accept the guided installation after rendering its final review. */
+    /** Accept the guided installation review or direct install's npm packages. */
     yes?: boolean;
   };
 
@@ -59,6 +59,8 @@ declare module '@emulsify-cli/handlers' {
     force?: boolean;
     all?: boolean;
     dryRun?: boolean;
+    /** Accept the npm packages a component requires without prompting. */
+    yes?: boolean;
     /** Report component npm packages without changing the project manifest or running npm. */
     skipNpm?: boolean;
     /** Check the configured system's remote ref before reusing its local cache entry. */

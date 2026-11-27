@@ -166,6 +166,7 @@ const variantWithPackages: EmulsifyVariant = {
   ],
 };
 const systemWithPackages = { ...system, variants: [variantWithPackages] };
+const explicitSystem = { repository: system.repository, checkout: 'main' };
 
 const availableSystems = [
   {
@@ -534,6 +535,7 @@ describe('systemInstall', () => {
       message: 'Install now?',
       initialValue: true,
     });
+    expect(confirmMock).toHaveBeenCalledTimes(1);
     expect(cloneIntoCacheMock).toHaveBeenCalledWith('systems', ['compound'], {
       refresh: true,
     });
@@ -574,7 +576,8 @@ describe('systemInstall', () => {
   Will install   1 component  →  components/00-base/
                  1 asset folder  →  assets/fonts/
                  1 asset file  →  styles/tokens.css
-  npm packages   swiper@^11.2.0`,
+  npm packages   swiper@^11.2.0 (needed by button)
+                 Package manager: npm install --ignore-scripts`,
       'Review',
     );
     expect(readFileMock).toHaveBeenCalledWith(packagePath, 'utf8');
@@ -595,7 +598,9 @@ describe('systemInstall', () => {
       installDependenciesMock.mock.invocationCallOrder[0],
     );
     expect(installDependenciesMock).toHaveBeenCalledTimes(1);
-    expect(installDependenciesMock).toHaveBeenCalledWith(projectRoot);
+    expect(installDependenciesMock).toHaveBeenCalledWith(projectRoot, {
+      ignoreScripts: true,
+    });
     expect(installDependenciesMock.mock.invocationCallOrder[0]).toBeLessThan(
       executeScriptMock.mock.invocationCallOrder[0],
     );
@@ -1173,13 +1178,14 @@ describe('systemInstall', () => {
     );
   });
 
-  it('installs all components and their npm packages when the all option is passed', async () => {
+  it('uses --yes to install all components and packages without prompting', async () => {
     getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
 
-    await expect(systemInstall('compound', { all: true })).resolves.toContain(
-      'added 2 npm packages',
-    );
+    await expect(
+      systemInstall(undefined, { ...explicitSystem, all: true, yes: true }),
+    ).resolves.toContain('added 2 npm packages');
 
+    expect(confirmMock).not.toHaveBeenCalled();
     expect(installComponentFromCacheMock).toHaveBeenCalledTimes(2);
     expect(installComponentFromCacheMock).toHaveBeenNthCalledWith(
       2,
@@ -1195,6 +1201,93 @@ describe('systemInstall', () => {
       swiper: '^11.2.0',
     });
     expect(installDependenciesMock).toHaveBeenCalledTimes(1);
+    expect(installDependenciesMock).toHaveBeenCalledWith(projectRoot, {
+      ignoreScripts: true,
+    });
+  });
+
+  it('reviews exact packages and their requesting components before confirming a direct install', async () => {
+    setStdinIsTTY(true);
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
+    confirmMock.mockResolvedValueOnce(true);
+
+    await expect(systemInstall(undefined, explicitSystem)).resolves.toContain(
+      'added 1 npm package',
+    );
+
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(confirmMock).toHaveBeenCalledWith({
+      message: 'Add these npm packages?',
+      initialValue: false,
+    });
+    const [confirmationOrder] = confirmMock.mock.invocationCallOrder;
+    const [[review]] = noteMock.mock.calls;
+    expect(review).toContain('swiper@^11.2.0 (needed by button)');
+    expect(review).toContain('Package manager: npm install --ignore-scripts');
+    expect(noteMock.mock.invocationCallOrder[0]).toBeLessThan(
+      confirmationOrder,
+    );
+    expect(confirmationOrder).toBeLessThan(
+      setEmulsifyConfigMock.mock.invocationCallOrder[0],
+    );
+    expect(confirmationOrder).toBeLessThan(
+      installComponentFromCacheMock.mock.invocationCallOrder[0],
+    );
+    expect(confirmationOrder).toBeLessThan(
+      writeFileMock.mock.invocationCallOrder[0],
+    );
+    expect(installDependenciesMock).toHaveBeenCalledWith(projectRoot, {
+      ignoreScripts: true,
+    });
+  });
+
+  it.each([
+    ['declines at the prompt', false],
+    ['passes --skip-npm', true],
+  ])(
+    'continues a direct install without npm packages when the user %s',
+    async (_case, skipNpm) => {
+      setStdinIsTTY(!skipNpm);
+      getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
+      if (!skipNpm) confirmMock.mockResolvedValueOnce(false);
+
+      await expect(
+        systemInstall(undefined, { ...explicitSystem, skipNpm }),
+      ).resolves.toBe('Compound installed  ·  drupal component set');
+
+      expect(confirmMock).toHaveBeenCalledTimes(skipNpm ? 0 : 1);
+      expect(setEmulsifyConfigMock).toHaveBeenCalledTimes(1);
+      expect(installComponentFromCacheMock).toHaveBeenCalledTimes(1);
+      expect(noteMock).toHaveBeenCalledWith(
+        expect.stringMatching(/swiper@\^11\.2\.0[^\n]*skipped/u),
+        'npm packages',
+      );
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+      expect(executeScriptMock).toHaveBeenCalledWith(systemInstallHookPath);
+    },
+  );
+
+  it('requires --yes or --skip-npm before a non-interactive direct install', async () => {
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
+
+    await expect(
+      systemInstall(undefined, explicitSystem),
+    ).rejects.toMatchObject({
+      name: 'CliError',
+      exitCode: 1,
+      message: expect.stringMatching(
+        /swiper@\^11\.2\.0[\s\S]*--yes[\s\S]*--skip-npm/u,
+      ),
+    });
+
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(setEmulsifyConfigMock).not.toHaveBeenCalled();
+    expect(installComponentFromCacheMock).not.toHaveBeenCalled();
+    expect(installGeneralAssetsFromCacheMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(installDependenciesMock).not.toHaveBeenCalled();
+    expect(executeScriptMock).not.toHaveBeenCalled();
   });
 
   it('requires a project package.json before confirming a guided install', async () => {
@@ -1238,8 +1331,8 @@ describe('systemInstall', () => {
       new Error('  install failed  '),
     );
 
-    await expect(systemInstall('compound', {})).rejects.toThrow(
-      `npm install failed:\ninstall failed\nRun npm install in ${projectRoot}`,
+    await expect(systemInstall('compound', { yes: true })).rejects.toThrow(
+      `npm install failed:\ninstall failed\nRun npm install --ignore-scripts in ${projectRoot}`,
     );
     expect(renameMock).toHaveBeenCalledWith(expect.any(String), packagePath);
     expect(executeScriptMock).not.toHaveBeenCalled();
@@ -1681,7 +1774,7 @@ describe('systemInstall', () => {
       new Error('copy failed'),
     );
 
-    await expect(systemInstall('compound', {})).rejects.toThrow(
+    await expect(systemInstall('compound', { yes: true })).rejects.toThrow(
       'Unable to install system assets and/or required components: Error: copy failed',
     );
     expect(writeFileMock).not.toHaveBeenCalled();
@@ -1694,7 +1787,7 @@ describe('systemInstall', () => {
       new Error('asset failed'),
     );
 
-    await expect(systemInstall('compound', {})).rejects.toThrow(
+    await expect(systemInstall('compound', { yes: true })).rejects.toThrow(
       'Unable to install system assets and/or required components: Error: asset failed',
     );
     expect(writeFileMock).not.toHaveBeenCalled();

@@ -48,7 +48,7 @@ describe('collectComponentNpmDependencies', () => {
     );
   });
 
-  it.each(['^11.2.0', '~1.2', '1.x', '>=1 <2', '>=1\n<2'])(
+  it.each(['^1.0.0', '~1.2', '1.x', '>=1.0.0', '>0.0.0', '>=1 <2', '>=1\n<2'])(
     'accepts the semver range %j',
     (range) => {
       expect(
@@ -56,6 +56,21 @@ describe('collectComponentNpmDependencies', () => {
           { name: component, npmDependencies: { swiper: range } },
         ]),
       ).toEqual([{ ...requirements[0], range }]);
+    },
+  );
+
+  it.each(['*', 'x', 'X', '>=0.0.0', '>=0.0.0-0', '', '  '])(
+    'rejects a range that admits every version (%j) with its context',
+    (range) => {
+      const collect = () =>
+        collectComponentNpmDependencies(system, [
+          { name: component, npmDependencies: { swiper: range } },
+        ]);
+
+      expect(collect).toThrow(CliError);
+      expect(collect).toThrow(
+        `System "Example System", component "slider", npm package "swiper" must declare a bounded semver range. Received ${JSON.stringify(range)}, which admits every version.`,
+      );
     },
   );
 

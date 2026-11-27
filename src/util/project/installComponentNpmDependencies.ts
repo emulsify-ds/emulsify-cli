@@ -1,8 +1,10 @@
 import { dirname } from 'path';
+import { confirm } from '@clack/prompts';
 import type { Components } from '@emulsify-cli/config';
 import CliError from '../../lib/CliError.js';
 import log from '../../lib/log.js';
 import { note, spinner } from '../../lib/session.js';
+import { runPrompt } from '../prompt/index.js';
 import {
   classifyComponentNpmDependencies,
   collectComponentNpmDependencies,
@@ -82,14 +84,50 @@ export async function prepareComponentNpmInstall(
   };
 }
 
-export function getNpmPackagesToAdd(
+export function getComponentNpmInstallReview(
   plan: ComponentNpmInstallPlan | undefined,
   skipNpm: boolean,
-): string[] {
-  if (!plan || skipNpm || plan.manifest.status !== 'ready') return [];
-  return plan.packages
-    .filter((pkg) => pkg.status === 'missing')
-    .map(formatSpec);
+) {
+  if (!plan || skipNpm || plan.manifest.status !== 'ready') return;
+  const missing = plan.packages.filter((pkg) => pkg.status === 'missing');
+  if (missing.length === 0) return;
+
+  const manager =
+    plan.manager === 'npm'
+      ? 'npm install --ignore-scripts'
+      : plan.manager === 'unsupported'
+        ? 'use the manager declared in package.json to install manually'
+        : `${plan.manager} (install manually)`;
+  return {
+    specs: missing.map(formatSpec).join(', '),
+    lines: [
+      ...missing.map(
+        (pkg) => `${formatSpec(pkg)} (needed by ${pkg.components.join(', ')})`,
+      ),
+      `Package manager: ${manager}`,
+    ],
+  };
+}
+
+export async function confirmComponentNpmInstall(
+  plan: ComponentNpmInstallPlan | undefined,
+  skipNpm: boolean,
+  yes: boolean,
+  subject: string,
+): Promise<boolean> {
+  if (skipNpm) return false;
+  const review = getComponentNpmInstallReview(plan, skipNpm);
+  if (!review) return true;
+
+  note(review.lines.join('\n'), 'npm package review');
+  return runPrompt<boolean>({
+    prompt: () =>
+      confirm({ message: 'Add these npm packages?', initialValue: false }),
+    nonInteractive: {
+      error: `${subject} requires npm packages (${review.specs}). Pass --yes to install them or --skip-npm to continue without them.`,
+    },
+    accept: { when: yes, value: true },
+  });
 }
 
 export function formatComponentNpmInstall(
@@ -140,11 +178,11 @@ export function formatComponentNpmInstall(
 
 export async function applyComponentNpmInstall(
   plan: ComponentNpmInstallPlan | undefined,
-  skipNpm: boolean,
+  accepted: boolean,
 ): Promise<number> {
   if (!plan) return 0;
 
-  if (skipNpm || plan.manifest.status !== 'ready') {
+  if (!accepted || plan.manifest.status !== 'ready') {
     note(formatComponentNpmInstall(plan, 'skip'), 'npm packages');
     return 0;
   }
@@ -190,18 +228,22 @@ export async function applyComponentNpmInstall(
   const progress = spinner();
   progress.start('Installing npm packages');
   try {
-    await installDependencies(plan.root);
+    await installDependencies(plan.root, { ignoreScripts: true });
   } catch (error) {
     progress.error('Unable to install npm packages');
     const output = (
       error instanceof Error ? error.message : String(error)
     ).trim();
     throw new CliError(
-      `npm install failed:\n${output}\nRun npm install in ${plan.root} to finish installing the packages.`,
+      `npm install failed:\n${output}\nRun npm install --ignore-scripts in ${plan.root} to finish installing the packages.`,
     );
   }
   progress.stop(
     `Installed ${additions.size} npm package${additions.size === 1 ? '' : 's'} with npm`,
+  );
+  log(
+    'info',
+    'Lifecycle scripts were not run. If a package needs them, run: npm rebuild',
   );
   return additions.size;
 }
