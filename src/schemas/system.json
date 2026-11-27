@@ -19,6 +19,10 @@
       "format": "uri",
       "description": "Git URL to the repository containing the system"
     },
+    "minimumCliVersion": {
+      "type": "string",
+      "description": "Minimum Emulsify CLI version required to use this system"
+    },
     "structure": {
       "type": "array",
       "description": "Objects that describe the structure of the system. Each structural item depicts a category within the system, such as a component folder, and MUST be implemented within each of the system's variants",
@@ -62,13 +66,11 @@
                 "$ref": "variant.json#/definitions/files"
               }
             },
-            "additionalProperties": false,
             "required": ["platform", "structureImplementations", "components"]
           }
         ]
       }
     }
   },
-  "additionalProperties": false,
   "required": ["name", "homepage", "repository", "structure"]
 }

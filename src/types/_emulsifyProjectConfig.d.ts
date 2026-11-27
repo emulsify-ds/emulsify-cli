@@ -17,6 +17,7 @@ export type StructureImplementations = {
    * Relative path to the folder that will hold all of the assets, components, and files related to the structure
    */
   directory: string;
+  [k: string]: unknown;
 }[];
 
 export interface EmulsifyProjectConfiguration {

@@ -420,6 +420,13 @@ A system repository must contain `system.emulsify.json` at its root. The schema 
 | `structure`  | Yes      | Named structural groups, such as `base` or `molecules`.                |
 | `variants`   | No       | Platform-specific implementations, components, files, and directories. |
 
+Set the optional `minimumCliVersion` field to a `major.minor.patch` version such
+as `"2.5.0"` when a system depends on newer CLI behavior. The CLI ignores
+prerelease tags and reports how to upgrade when it falls below that minimum.
+Unknown fields at the system and variant levels and in component, structure
+implementation, directory, and file entries produce a warning. The CLI still
+validates required fields and known field types.
+
 Each variant used by the CLI must include:
 
 | Field                      | Required | Purpose                                                       |

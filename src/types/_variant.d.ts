@@ -40,6 +40,7 @@ export type StructureImplementations = {
    * Relative path to the folder that will hold all of the assets, components, and files related to the structure
    */
   directory: string;
+  [k: string]: unknown;
 }[];
 /**
  * Array containing objects that describe each component available within the variant
@@ -65,6 +66,7 @@ export type Components = {
    * Array of all components that are dependencies of the current component
    */
   dependency?: string[];
+  [k: string]: unknown;
 }[];
 /**
  * Array containing objects that define general directories. These directories should contain files and assets that do not belong in a structure folder (such as font files)
@@ -86,6 +88,7 @@ export type Directories = {
    * Text describing the intended purpose of the folder
    */
   description?: string;
+  [k: string]: unknown;
 }[];
 /**
  * Array containing objects that define general files.
@@ -107,6 +110,7 @@ export type Files = {
    * Text describing the intended purpose of the file
    */
   description?: string;
+  [k: string]: unknown;
 }[];
 
 export interface EmulsifyVariant {
@@ -115,4 +119,5 @@ export interface EmulsifyVariant {
   components: Components;
   directories?: Directories;
   files?: Files;
+  [k: string]: unknown;
 }
