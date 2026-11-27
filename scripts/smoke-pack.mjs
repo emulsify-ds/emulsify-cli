@@ -177,6 +177,17 @@ function smokeTest(tempRoot) {
     'emulsify --version',
   );
 
+  const scaffoldResult = runCommand(
+    localBin,
+    ['system', 'create', 'packed-system', '--yes', '--dry-run'],
+    commandOptions,
+  );
+  assertCommandOutput(
+    scaffoldResult,
+    'Dry run: system create',
+    'emulsify system create --dry-run',
+  );
+
   printPackageSummary(packResult, 'Packed install smoke test passed');
 }
 

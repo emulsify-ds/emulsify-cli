@@ -187,6 +187,29 @@ describe('withEmulsifySystem', () => {
     });
   });
 
+  it.each([
+    ['direct validation', [variant]],
+    [
+      'validation after skipping an unsupported variant',
+      [{ ...variant, platform: 'eleventy' }, variant],
+    ],
+  ])('preserves the upgrade error during %s', async (_case, variants) => {
+    const { version }: { version: string } = jest.requireActual(
+      '../../../package.json',
+    );
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants,
+      minimumCliVersion: '999.0.0',
+    });
+
+    await expect(withEmulsifySystem('list components')).rejects.toMatchObject({
+      name: 'CliError',
+      exitCode: 1,
+      message: `The "compound" system requires Emulsify CLI 999.0.0 or newer. You are running ${version}. Upgrade with: npm i -g @emulsify/cli@latest`,
+    });
+  });
+
   it('rejects a cached variant missing components before callers can raise a TypeError', async () => {
     const { components: _components, ...variantWithoutComponents } = variant;
     getJsonFromCachedFileMock.mockResolvedValueOnce({

@@ -51,9 +51,8 @@ import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
 import log from '../lib/log.js';
 import expectToContainInOrder from '../testUtils/expectToContainInOrder.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
-import buildSystemScaffold, {
-  type BuildSystemScaffoldOptions,
-} from '../util/system/buildSystemScaffold.js';
+import type { BuildSystemScaffoldOptions } from '../util/system/buildSystemScaffold.js';
+import * as scaffoldModule from '../util/system/buildSystemScaffold.js';
 import validateSystemConfig from '../util/system/validateSystemConfig.js';
 import systemCreate, { normalizeSystemName } from './systemCreate.js';
 
@@ -65,6 +64,9 @@ const mkdirMock = fs.mkdir as jest.Mock;
 const writeFileMock = fs.writeFile as jest.Mock;
 const writeToJsonFileMock = writeToJsonFile as jest.Mock;
 const validateSystemConfigMock = validateSystemConfig as jest.Mock;
+const { default: validateScaffold } = jest.requireActual<
+  typeof import('../util/system/validateSystemConfig.js')
+>('../util/system/validateSystemConfig.js');
 const logMock = log as jest.Mock;
 const simpleGitMock = simpleGit as jest.Mock;
 const gitInitMock = simpleGit().init as jest.Mock;
@@ -90,7 +92,7 @@ function setStdinIsTTY(value: boolean | undefined): void {
 }
 
 function expectedScaffold(overrides: Partial<BuildSystemScaffoldOptions> = {}) {
-  return buildSystemScaffold({
+  return scaffoldModule.default({
     name: 'acme-system',
     platform: 'drupal || wordpress',
     homepage: explicitHomepage,
@@ -142,6 +144,46 @@ describe('systemCreate', () => {
 
   afterAll(() => {
     setStdinIsTTY(originalStdinIsTTY);
+  });
+
+  it('writes a generated scaffold without a minimum CLI version after shared validation', async () => {
+    validateSystemConfigMock.mockImplementationOnce(validateScaffold);
+
+    await systemCreate('acme-system', explicitOptions);
+
+    expect(writeToJsonFileMock).toHaveBeenCalledTimes(1);
+    expect(writeToJsonFileMock.mock.calls[0][1]).not.toHaveProperty(
+      'minimumCliVersion',
+    );
+  });
+
+  it('preserves the upgrade error when the scaffold requires a newer CLI', async () => {
+    const { version }: { version: string } =
+      jest.requireActual('../../package.json');
+    validateSystemConfigMock.mockImplementationOnce(validateScaffold);
+    const scaffold = expectedScaffold();
+    const scaffoldMock = jest
+      .spyOn(scaffoldModule, 'default')
+      .mockReturnValueOnce({
+        ...scaffold,
+        systemConfig: {
+          ...scaffold.systemConfig,
+          minimumCliVersion: '999.0.0',
+        },
+      });
+
+    try {
+      await expect(
+        systemCreate('acme-system', explicitOptions),
+      ).rejects.toMatchObject({
+        name: 'CliError',
+        exitCode: 1,
+        message: `The "acme-system" system requires Emulsify CLI 999.0.0 or newer. You are running ${version}. Upgrade with: npm i -g @emulsify/cli@latest`,
+      });
+      expectNoWrites();
+    } finally {
+      scaffoldMock.mockRestore();
+    }
   });
 
   it('creates the exact explicit scaffold without prompting and initializes Git', async () => {

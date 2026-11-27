@@ -654,6 +654,8 @@ export default async function systemInstall(
       throw validation.errors;
     }
   } catch (e) {
+    if (e instanceof CliError) throw e;
+
     // We're logging to the console here instead of our normal logging mechanism
     // in order to have more readable output from the AJV validation.
     console.error('System configuration errors:', e);

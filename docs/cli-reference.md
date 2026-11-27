@@ -182,6 +182,10 @@ The generated `example-card` is marked as required, so installing the system
 also proves that its component source layout is usable. `--git` additionally
 creates the `.git/` metadata directory with `main` as the initial branch.
 
+If your system requires a particular CLI version or newer, set
+`minimumCliVersion` in the generated `system.emulsify.json`. See the
+[system configuration guide](./systems.md#system-repository-shape).
+
 Use `--dry-run` to inspect the normalized target, every generated file, and
 whether Git would be initialized. If the target already exists, the preview
 reports that a real run would refuse it; no directories, files, or Git metadata
@@ -304,7 +308,10 @@ emulsify system install --repository https://github.com/example/example-system.g
 emulsify system install --repository /absolute/path/to/local-system --checkout v1.0.0
 ```
 
-System variant compatibility is selected from each variant's `platform` expression. Examples:
+Before selecting a variant, the CLI checks the system's optional
+`minimumCliVersion` and reports how to upgrade if the running CLI is older.
+
+The CLI selects compatible variants using each variant's `platform` expression.
 
 - `"platform": "wordpress"` matches WordPress projects.
 - `"platform": "drupal || wordpress"` matches Drupal and WordPress projects.

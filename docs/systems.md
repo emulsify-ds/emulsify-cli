@@ -413,15 +413,21 @@ The exact checkout, selected variant `platform` string, and structure mappings c
 
 ## System Repository Shape
 
-A system repository must contain `system.emulsify.json` at its root. The schema requires:
+A system repository must contain `system.emulsify.json` at its root. Its
+top-level fields include the following.
 
-| Field        | Required | Purpose                                                                |
-| ------------ | -------- | ---------------------------------------------------------------------- |
-| `name`       | Yes      | System machine name.                                                   |
-| `homepage`   | Yes      | Documentation, styleguide, or example URL.                             |
-| `repository` | Yes      | System repository URL.                                                 |
-| `structure`  | Yes      | Named structural groups, such as `base` or `molecules`.                |
-| `variants`   | No       | Platform-specific implementations, components, files, and directories. |
+| Field               | Required | Purpose                                                                |
+| ------------------- | -------- | ---------------------------------------------------------------------- |
+| `name`              | Yes      | System machine name.                                                   |
+| `homepage`          | Yes      | Documentation, styleguide, or example URL.                             |
+| `repository`        | Yes      | System repository URL.                                                 |
+| `minimumCliVersion` | No       | Earliest supported Emulsify CLI version, such as `"2.5.0"`.             |
+| `structure`         | Yes      | Named structural groups, such as `base` or `molecules`.                |
+| `variants`          | No       | Platform-specific implementations, components, files, and directories. |
+
+Use a single semver version for `minimumCliVersion`. The CLI ignores prerelease
+tags when comparing versions. If the running version is below the minimum,
+`system install` and the component commands report how to upgrade.
 
 Each variant used by the CLI must include:
 
@@ -453,9 +459,17 @@ Each item in a variant's `components` array supports these fields.
 }
 ```
 
-`npmDependencies` requires Emulsify CLI 2.5.0 or later. Older versions reject
-unknown component fields. Publish a system release with this field after CLI
-2.5.0 is available to its users.
+`system install` and `component install` use `npmDependencies` to add packages
+required by the selected components and their component dependencies. Use
+`--skip-npm` to report the packages and install them later. See
+[npm packages](./components.md#npm-packages).
+
+A system that uses `npmDependencies` must also set `"minimumCliVersion": "2.5.0"`
+at the top level of `system.emulsify.json`. Emulsify CLI 2.4.1 and earlier reject
+unknown component properties on every command that loads a system, including
+`system install`, `component list`, `component install`, and `component create`.
+Do not publish a system using `npmDependencies` until the forward-compatible
+2.4.x patch has been released and your users have had time to upgrade.
 
 ## Variant Platform Compatibility
 

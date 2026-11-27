@@ -1035,6 +1035,23 @@ describe('systemInstall', () => {
     consoleErrorMock.mockRestore();
   });
 
+  it('reports the upgrade error before installing an incompatible system', async () => {
+    const { version }: { version: string } =
+      jest.requireActual('../../package.json');
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      minimumCliVersion: '999.0.0',
+    });
+
+    await expect(systemInstall('compound', {})).rejects.toMatchObject({
+      name: 'CliError',
+      exitCode: 1,
+      message: `The "compound" system requires Emulsify CLI 999.0.0 or newer. You are running ${version}. Upgrade with: npm i -g @emulsify/cli@latest`,
+    });
+    expect(installComponentFromCacheMock).not.toHaveBeenCalled();
+    expect(setEmulsifyConfigMock).not.toHaveBeenCalled();
+  });
+
   it('throws validation errors from invalid system variant platform expressions', async () => {
     const consoleErrorMock = jest
       .spyOn(console, 'error')

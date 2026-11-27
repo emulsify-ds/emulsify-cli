@@ -106,6 +106,10 @@ export interface EmulsifySystem {
    */
   repository: string;
   /**
+   * Minimum Emulsify CLI version required to use this system
+   */
+  minimumCliVersion?: string;
+  /**
    * Objects that describe the structure of the system. Each structural item depicts a category within the system, such as a component folder, and MUST be implemented within each of the system's variants
    */
   structure: {
