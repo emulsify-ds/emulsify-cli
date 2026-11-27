@@ -111,6 +111,20 @@ describe('systemCreate', () => {
     setStdinIsTTY(originalStdinIsTTY);
   });
 
+  it('writes the generated scaffold after shared validation without a minimum CLI version', async () => {
+    const { default: validateScaffold } = jest.requireActual<
+      typeof import('../util/system/validateSystemConfig.js')
+    >('../util/system/validateSystemConfig.js');
+    validateSystemConfigMock.mockImplementationOnce(validateScaffold);
+
+    await systemCreate('acme-system', explicitOptions);
+
+    expect(writeToJsonFileMock).toHaveBeenCalledTimes(1);
+    expect(writeToJsonFileMock.mock.calls[0][1]).not.toHaveProperty(
+      'minimumCliVersion',
+    );
+  });
+
   it('creates the exact explicit scaffold without prompting and initializes Git', async () => {
     const target = join(parentDirectory, 'acme-system');
     const scaffold = expectedScaffold();
