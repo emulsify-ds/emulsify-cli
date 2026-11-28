@@ -1,26 +1,32 @@
-# Validates and publishes the exact commit that lands on main.
-name: Publish
+# One-time recovery of the original, previously validated 2.4.2 release.
+# This workflow exists only on the recovery branch. Its filename matches npm's
+# trusted publisher configuration.
+name: Recover CLI 2.4.2
 on:
   push:
-    branches: [main]
+    branches: [codex/recover-cli-2.4.2]
 
 permissions:
   contents: read
 
 concurrency:
-  group: publish-${{ github.ref }}
-  cancel-in-progress: true
+  group: publish-refs/heads/main
+  cancel-in-progress: false
+
+env:
+  PATCH_SHA: b76e1b51901f8a043f1958c8b4213bee531dd5c1
+  MINOR_SHA: 59ab66cb84095ea5d2fc6a5b9c268008bf172736
 
 jobs:
   validate:
-    name: Validate Main Commit
+    name: Validate original 2.4.2 commit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-          ref: ${{ github.sha }}
+          ref: ${{ env.PATCH_SHA }}
       - name: Install Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -29,61 +35,44 @@ jobs:
       - name: Install
         run: npm ci
       - name: Verify release readiness
+        env:
+          RELEASE_FROM: ${{ env.PATCH_SHA }}
+          RELEASE_TO: ${{ env.PATCH_SHA }}
         run: npm run release:verify
 
   release:
-    name: Publish Package
+    name: Publish CLI 2.4.2
+    if: github.repository == 'emulsify-ds/emulsify-cli'
     needs: validate
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      issues: write
-      pull-requests: write
+      contents: read
       id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-          ref: ${{ github.sha }}
+          ref: ${{ env.PATCH_SHA }}
       - name: Install Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: '.nvmrc'
-          cache: 'npm'
+          registry-url: https://registry.npmjs.org
       - name: Install
         run: npm ci
       - name: Build
         run: npm run build
-      - name: Confirm validated commit is current main
-        env:
-          VALIDATED_SHA: ${{ github.sha }}
+      - name: Confirm the approved patch and publish it before 2.5.0
         run: |
           git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
-          CURRENT_MAIN="$(git rev-parse refs/remotes/origin/main)"
-          if [ "${CURRENT_MAIN}" != "${VALIDATED_SHA}" ]; then
-            echo "Refusing to publish stale commit ${VALIDATED_SHA}; origin/main is ${CURRENT_MAIN}."
+          test "$(git rev-parse HEAD)" = "$PATCH_SHA"
+          test "$(git rev-parse origin/main)" = "$MINOR_SHA"
+          git merge-base --is-ancestor "$PATCH_SHA" origin/main
+          node -e 'const p = require("./package.json"); if (p.name !== "@emulsify/cli" || p.version !== "2.4.2") process.exit(1);'
+          latest="$(npm view @emulsify/cli dist-tags.latest --prefer-online)"
+          if [ "$latest" != '2.4.1' ]; then
+            echo "Expected npm latest to be 2.4.1 before patch recovery, but found $latest."
             exit 1
           fi
-      - name: Verify semantic-release calculation
-        # Dry-run mode verifies the trusted main history without publishing.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm run semantic-release -- --dry-run
-      - name: Reconfirm validated commit is current main
-        env:
-          VALIDATED_SHA: ${{ github.sha }}
-        run: |
-          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
-          CURRENT_MAIN="$(git rev-parse refs/remotes/origin/main)"
-          if [ "${CURRENT_MAIN}" != "${VALIDATED_SHA}" ]; then
-            echo "Refusing to publish stale commit ${VALIDATED_SHA}; origin/main is ${CURRENT_MAIN}."
-            exit 1
-          fi
-      - name: Publish
-        # Semantic Release reads commit history and publishing tokens from CI.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm run semantic-release
+          npm publish --access public --provenance
