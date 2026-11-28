@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { CACHE_DIR } from '../lib/constants.js';
 import CliError from '../lib/CliError.js';
+import { markSessionMayHaveChanges } from '../lib/session.js';
 
 type CacheStats = {
   exists: boolean;
@@ -81,6 +82,7 @@ export default async function cacheClear({
   }
 
   try {
+    markSessionMayHaveChanges();
     await fs.rm(CACHE_DIR, { recursive: true, force: true });
   } catch (error) {
     throw new CliError(

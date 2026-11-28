@@ -106,9 +106,10 @@ Dry-run output includes:
 ## npm packages
 
 A system can declare [npm packages for each component](./systems.md#system-repository-shape).
-When you install a component, the CLI checks the packages declared by that
-component and its component dependencies, including any component files you
-choose to keep. An all-components install checks the entire variant.
+The CLI resolves all overwrite choices before copying components. It checks the
+packages declared by the components selected for copying, including their
+selected component dependencies. An all-components install checks the entire
+variant, and a dry run previews all potential copies and their packages.
 `system install` checks the components included in the selected scope.
 
 Before adding packages, the CLI shows the packages, exact ranges, requesting

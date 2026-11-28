@@ -11,7 +11,9 @@ import {
   cancelSession,
   finishSession,
   getDiagnosticOutput,
+  getSessionFailureSummary,
   isSessionOpen,
+  markSessionMayHaveChanges,
   note,
   onAbort,
   resetSessionForTesting,
@@ -77,6 +79,21 @@ describe('session framing', () => {
 
   afterAll(() => {
     setStdoutIsTTY(originalStdoutIsTTY);
+  });
+
+  it('only promises a clean failure before writes can begin', () => {
+    const cancellation = 'Cancelled. Nothing was changed.';
+    startSession('emulsify component install');
+    expect(getSessionFailureSummary()).toBe('No changes were made.');
+    expect(getSessionFailureSummary(cancellation)).toBe(cancellation);
+
+    markSessionMayHaveChanges();
+    expect(getSessionFailureSummary()).toBe('Command failed.');
+    expect(getSessionFailureSummary(cancellation)).toBe('Cancelled.');
+
+    cancelSession(getSessionFailureSummary());
+    startSession('emulsify component list');
+    expect(getSessionFailureSummary()).toBe('No changes were made.');
   });
 
   it('opens and closes exactly once', () => {

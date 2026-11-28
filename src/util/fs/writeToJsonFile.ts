@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { basename, dirname, join } from 'path';
+import { markSessionMayHaveChanges } from '../../lib/session.js';
 
 function createTemporaryPath(path: string): string {
   return join(
@@ -24,7 +25,9 @@ export default async function writeToJsonFile<Json>(
   const temporaryPath = createTemporaryPath(path);
 
   try {
-    await fs.writeFile(temporaryPath, JSON.stringify(json, null, 2), {
+    const contents = JSON.stringify(json, null, 2);
+    markSessionMayHaveChanges();
+    await fs.writeFile(temporaryPath, contents, {
       encoding: 'utf-8',
       flag: 'wx',
       flush: true,

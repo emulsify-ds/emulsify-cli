@@ -16,7 +16,12 @@ import CliError from './lib/CliError.js';
 import log from './lib/log.js';
 import getRootHelp from './lib/rootHelp.js';
 import getTerminalColors from './lib/terminalColors.js';
-import { cancelSession, isSessionOpen, startSession } from './lib/session.js';
+import {
+  cancelSession,
+  getSessionFailureSummary,
+  isSessionOpen,
+  startSession,
+} from './lib/session.js';
 import { isPromptCancelledError } from './util/prompt/index.js';
 import { createRequire } from 'module';
 
@@ -304,19 +309,19 @@ try {
   // Ctrl-C is an expected prompt cancellation, not a command failure. It closes
   // the session on its own line rather than being reported as an error.
   if (isPromptCancelledError(err)) {
-    closeFailedSession(err.message);
+    closeFailedSession(getSessionFailureSummary(err.message));
     process.exitCode = err.exitCode;
   }
   // Expected CliError failures map their message and exitCode to the process;
   // unexpected failures still produce a message and a default non-zero exit.
   else if (err instanceof CliError) {
     log('error', err.message);
-    closeFailedSession('No changes were made.');
+    closeFailedSession(getSessionFailureSummary());
     process.exitCode = err.exitCode;
   } else {
     const message = err instanceof Error ? err.message : String(err);
     log('error', message);
-    closeFailedSession('No changes were made.');
+    closeFailedSession(getSessionFailureSummary());
     process.exitCode = 1;
   }
 }

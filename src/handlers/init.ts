@@ -23,7 +23,12 @@ import executeScript from '../util/fs/executeScript.js';
 import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform.js';
 import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
-import { note, onAbort, spinner } from '../lib/session.js';
+import {
+  markSessionMayHaveChanges,
+  note,
+  onAbort,
+  spinner,
+} from '../lib/session.js';
 import { isPlatform } from '../util/platform/platformCompatibility.js';
 import { runPrompt } from '../util/prompt/index.js';
 
@@ -228,6 +233,7 @@ export default async function init(
     );
   }
 
+  markSessionMayHaveChanges();
   let phase: InitializationPhase = 'cloning the starter';
 
   // The spinner only runs once every value is validated and the target is

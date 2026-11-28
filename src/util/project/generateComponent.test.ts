@@ -25,7 +25,10 @@ jest.mock('@clack/prompts', () => {
     confirm: jest.fn(),
   };
 });
-jest.mock('../../lib/session', () => ({ note: jest.fn() }));
+jest.mock('../../lib/session', () => ({
+  markSessionMayHaveChanges: jest.fn(),
+  note: jest.fn(),
+}));
 jest.mock('../../lib/log.js');
 jest.mock('../fs/findFileInCurrentPath.js');
 jest.mock('../fs/loadJsonFile.js');

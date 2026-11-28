@@ -9,6 +9,7 @@ import { simpleGit } from 'simple-git';
 
 import CliError from '../lib/CliError.js';
 import log from '../lib/log.js';
+import { markSessionMayHaveChanges } from '../lib/session.js';
 import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
 import strToMachineName from '../util/strToMachineName.js';
 import safeResolveWithin from '../util/fs/safeResolveWithin.js';
@@ -292,6 +293,7 @@ export default async function systemCreate(
   }
 
   try {
+    markSessionMayHaveChanges();
     await fs.mkdir(dirname(target), { recursive: true });
     try {
       // A non-recursive mkdir fails with EEXIST if the target appears after

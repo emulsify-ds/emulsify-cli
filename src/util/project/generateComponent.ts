@@ -10,7 +10,7 @@ import { dirname } from 'path';
 import { pathExists, remove } from 'fs-extra';
 
 import log from '../../lib/log.js';
-import { note } from '../../lib/session.js';
+import { markSessionMayHaveChanges, note } from '../../lib/session.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import safeResolveWithin from '../fs/safeResolveWithin.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
@@ -322,11 +322,6 @@ export default async function generateComponent(
     return 'Dry run complete; no files were changed';
   }
 
-  if (!parentExists) {
-    // Create the component's parent directory.
-    await fs.mkdir(parentPath, { recursive: true });
-  }
-
   if (componentExists) {
     const shouldReplace = await runPrompt<boolean>({
       prompt: () =>
@@ -343,7 +338,14 @@ export default async function generateComponent(
 
       return `Canceled; the existing ${componentName} component was kept`;
     }
+  }
 
+  markSessionMayHaveChanges();
+  if (!parentExists) {
+    await fs.mkdir(parentPath, { recursive: true });
+  }
+
+  if (componentExists) {
     // Remove the existing component directory to ensure a clean start.
     await remove(destination);
   }

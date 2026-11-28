@@ -1,4 +1,7 @@
-jest.mock('../lib/session', () => ({ note: jest.fn() }));
+jest.mock('../lib/session', () => ({
+  markSessionMayHaveChanges: jest.fn(),
+  note: jest.fn(),
+}));
 
 jest.mock('@clack/prompts', () => {
   const CANCEL_SYMBOL = Symbol.for('clack:cancel');

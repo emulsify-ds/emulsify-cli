@@ -12,7 +12,7 @@ import {
   EMULSIFY_PROJECT_TEMPLATES_FOLDER,
 } from '../lib/constants.js';
 import log from '../lib/log.js';
-import { note } from '../lib/session.js';
+import { markSessionMayHaveChanges, note } from '../lib/session.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import safeResolveWithin from '../util/fs/safeResolveWithin.js';
 import {
@@ -386,6 +386,7 @@ async function executeTransaction(
   force: boolean,
 ): Promise<void> {
   const transactionPlan = buildTransactionPlan(plan);
+  markSessionMayHaveChanges();
   await stageTransaction(transactionPlan);
 
   for (const item of transactionPlan) {

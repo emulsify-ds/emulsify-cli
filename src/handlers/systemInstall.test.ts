@@ -1333,7 +1333,7 @@ describe('systemInstall', () => {
     );
 
     await expect(systemInstall('compound', { yes: true })).rejects.toThrow(
-      `npm install failed:\ninstall failed\nRun npm install --ignore-scripts in ${projectRoot}`,
+      `npm install failed:\ninstall failed\nThe new dependencies remain in package.json.\nRun npm install --ignore-scripts in ${projectRoot}`,
     );
     expect(renameMock).toHaveBeenCalledWith(expect.any(String), packagePath);
     expect(executeScriptMock).not.toHaveBeenCalled();

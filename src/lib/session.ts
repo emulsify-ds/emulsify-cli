@@ -30,6 +30,7 @@ const ANSI_PATTERN = new RegExp(
 );
 
 let sessionIsOpen = false;
+let sessionMayHaveChanges = false;
 const abortCleanups = new Set<() => void>();
 
 /** Register synchronous work to run if Ctrl-C aborts an active spinner. */
@@ -105,6 +106,19 @@ export function isSessionOpen(): boolean {
   return sessionIsOpen;
 }
 
+/** Record that a write may leave changes even if it throws. */
+export function markSessionMayHaveChanges(): void {
+  sessionMayHaveChanges = true;
+}
+
+/** Describe the outcome of a failed session. */
+export function getSessionFailureSummary(cancellation?: string): string {
+  if (cancellation !== undefined) {
+    return sessionMayHaveChanges ? 'Cancelled.' : cancellation;
+  }
+  return sessionMayHaveChanges ? 'Command failed.' : 'No changes were made.';
+}
+
 /**
  * Open a session frame.
  *
@@ -116,6 +130,7 @@ export function startSession(title: string): void {
   }
 
   sessionIsOpen = true;
+  sessionMayHaveChanges = false;
 
   if (isInteractiveOutput()) {
     renderIntro(title);
@@ -271,5 +286,6 @@ export function spinner(runtime: SpinnerProcess = process): SpinnerResult {
  */
 export function resetSessionForTesting(): void {
   sessionIsOpen = false;
+  sessionMayHaveChanges = false;
   abortCleanups.clear();
 }

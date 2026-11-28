@@ -1,7 +1,7 @@
 import { pathExists } from 'fs-extra';
 import { confirm, select } from '@clack/prompts';
 import log from '../lib/log.js';
-import { note } from '../lib/session.js';
+import { markSessionMayHaveChanges, note } from '../lib/session.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants.js';
 import CliError from '../lib/CliError.js';
 import type { InstallComponentHandlerOptions } from '@emulsify-cli/handlers';
@@ -197,53 +197,16 @@ export default async function componentInstall(
   }
 
   const projectConfigPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
-  const selectedComponents = installAll
-    ? variantConf.components
-    : componentNames.map((name) =>
-        variantConf.components.find((component) => component.name === name)!,
-      );
-  const npmPlan = await prepareComponentNpmInstall(
-    systemConf.name,
-    selectedComponents,
-    projectConfigPath,
-    Boolean(dryRun || skipNpm),
-  );
-
-  if (dryRun) {
-    const dependencies = installAll
-      ? []
-      : componentNames.filter((dependency) => dependency !== rootComponentName);
-    const plan = await buildComponentInstallPlan(
-      variantConf,
-      componentNames,
-      rootComponentName,
-      Boolean(installAll || force),
-      projectConfigPath,
-    );
-    logComponentInstallDryRun(
-      rootComponentName ?? 'all components',
-      dependencies,
-      plan,
-      formatComponentNpmInstall(npmPlan, skipNpm ? 'skip' : 'preview'),
-    );
-    return 'Dry run complete';
-  }
-
-  const acceptedNpm = await confirmComponentNpmInstall(
-    npmPlan,
-    skipNpm,
-    yes,
-    rootComponentName
-      ? `The ${JSON.stringify(rootComponentName)} component`
-      : 'This component install',
-  );
-
-  const components: [string, boolean, Promise<void>][] = [];
+  const plan: {
+    componentName: string;
+    isDependency: boolean;
+    force: boolean;
+  }[] = [];
   for (const componentName of componentNames) {
     const isDependency = !installAll && componentName !== rootComponentName;
     let currentForce = installAll || Boolean(force);
     const destination =
-      !installAll && projectConfigPath
+      !dryRun && !installAll && projectConfigPath
         ? getComponentDestination(variantConf, componentName, projectConfigPath)
         : undefined;
 
@@ -268,21 +231,70 @@ export default async function componentInstall(
       }
     }
 
-    components.push([
-      componentName,
-      isDependency,
-      catchLater(
-        installComponentFromCache(
-          systemConf,
-          variantConf,
-          componentName,
-          currentForce,
-        ),
-      ),
-    ]);
+    plan.push({ componentName, isDependency, force: currentForce });
   }
 
-  const installed: string[] = [];
+  const selectedComponents = installAll
+    ? variantConf.components
+    : plan.map(({ componentName }) =>
+        variantConf.components.find(({ name }) => name === componentName)!,
+      );
+  const npmPlan = await prepareComponentNpmInstall(
+    systemConf.name,
+    selectedComponents,
+    projectConfigPath,
+    Boolean(dryRun || skipNpm),
+  );
+
+  if (dryRun) {
+    const dependencies = installAll
+      ? []
+      : componentNames.filter((dependency) => dependency !== rootComponentName);
+    const preview = await buildComponentInstallPlan(
+      variantConf,
+      componentNames,
+      rootComponentName,
+      Boolean(installAll || force),
+      projectConfigPath,
+    );
+    logComponentInstallDryRun(
+      rootComponentName ?? 'all components',
+      dependencies,
+      preview,
+      formatComponentNpmInstall(npmPlan, skipNpm ? 'skip' : 'preview'),
+    );
+    return 'Dry run complete';
+  }
+
+  if (plan.length === 0) return 'No components were installed';
+
+  const acceptedNpm = await confirmComponentNpmInstall(
+    npmPlan,
+    skipNpm,
+    yes,
+    plan.some(({ componentName }) => componentName === rootComponentName)
+      ? `The ${JSON.stringify(rootComponentName)} component`
+      : 'This component install',
+  );
+
+  // All decisions are final before the first copy can remove a destination.
+  markSessionMayHaveChanges();
+  const components = plan.map(
+    ({ componentName, isDependency, force }) =>
+      [
+        componentName,
+        isDependency,
+        catchLater(
+          installComponentFromCache(
+            systemConf,
+            variantConf,
+            componentName,
+            force,
+          ),
+        ),
+      ] as const,
+  );
+
   const installedDeps: string[] = [];
   const failedDeps: string[] = [];
   const failureMessages: string[] = [];
@@ -290,7 +302,6 @@ export default async function componentInstall(
   for (const [cname, isDependency, promise] of components) {
     try {
       await promise;
-      installed.push(cname);
       if (isDependency) {
         installedDeps.push(cname);
       } else {
@@ -326,9 +337,6 @@ export default async function componentInstall(
   }
 
   const added = await applyComponentNpmInstall(npmPlan, acceptedNpm);
-  const summary =
-    installed.length === 0
-      ? 'No components were installed'
-      : `Installed ${installed.length} component${installed.length === 1 ? '' : 's'}`;
+  const summary = `Installed ${plan.length} component${plan.length === 1 ? '' : 's'}`;
   return added ? `${summary} · ${formatAddedNpmPackages(added)}` : summary;
 }

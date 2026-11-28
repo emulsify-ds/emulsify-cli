@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { after, before, describe, test } from 'node:test';
+import { hasPty, runPtyPrompt } from './pty-prompt.mjs';
 
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 const cliPath = join(repositoryRoot, 'dist', 'index.js');
@@ -187,7 +188,7 @@ function createComponentPackageProject(name, packageContents) {
   return root;
 }
 
-function recordNpmInvocations() {
+function recordNpmInvocations(exitCode = 0) {
   const bin = mkdtempSync(join(tempRoot, 'fake-npm-'));
   const recorder = join(bin, 'record-npm.cjs');
   const log = join(bin, 'invocations.jsonl');
@@ -197,6 +198,7 @@ function recordNpmInvocations() {
       "const { appendFileSync } = require('node:fs');",
       'const invocation = { cwd: process.cwd(), args: process.argv.slice(2) };',
       'appendFileSync(process.env.EMULSIFY_E2E_NPM_LOG, JSON.stringify(invocation) + "\\n");',
+      `process.exitCode = ${exitCode};`,
     ].join('\n'),
   );
   writeFileSync(
@@ -490,6 +492,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       result.stderr,
       /Please specify a component to install, or pass --all to install all available components\./,
     );
+    assert.match(result.stderr, /^No changes were made\.$/mu);
   });
 
   test('fails fast when system create has no values outside a TTY', () => {
@@ -1102,6 +1105,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.match(withoutConsent.stderr, /swiper@\^11\.2\.0/u);
     assert.match(withoutConsent.stderr, /--yes/u);
     assert.match(withoutConsent.stderr, /--skip-npm/u);
+    assert.match(withoutConsent.stderr, /^No changes were made\.$/mu);
     assert.deepEqual(snapshotFiles(root), before);
     assert.equal(existsSync(log), false);
 
@@ -1122,6 +1126,127 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       readFileSync(join(root, 'components', 'slider', 'fixture.txt'), 'utf8'),
       'slider fixture\n',
     );
+  });
+
+  test(
+    'preserves both component directories when the second overwrite is cancelled',
+    { skip: hasPty ? false : 'Requires python3 and a POSIX PTY' },
+    () => {
+      const root = createComponentPackageProject(
+        'cancel-overwrites',
+        json({ name: 'cancel-overwrites' }),
+      );
+      for (const [index, component] of ['slider-story', 'slider'].entries()) {
+        const destination = join(root, 'components', component);
+        mkdirSync(destination, { recursive: true });
+        writeFileSync(
+          join(destination, 'local.bin'),
+          Buffer.from([0, index, 255]),
+        );
+      }
+      const before = snapshotFiles(root);
+      const result = runPtyPrompt(
+        [
+          process.execPath,
+          cliPath,
+          'component',
+          'install',
+          'slider-story',
+          '--skip-npm',
+        ],
+        [
+          ['The component "slider-story"', 'y\r'],
+          ['The component "slider"', '\u0003'],
+        ],
+        { cwd: root, env: isolatedEnvironment() },
+      );
+
+      assert.equal(
+        result.status,
+        130,
+        commandFailure('cancel overwrite', result),
+      );
+      assert.match(result.stdout, /Cancelled\. Nothing was changed\./u);
+      assert.deepEqual(snapshotFiles(root), before);
+    },
+  );
+
+  test(
+    'declining the only component requiring npm leaves its files and manifest intact',
+    { skip: hasPty ? false : 'Requires python3 and a POSIX PTY' },
+    () => {
+      const packageContents = json({ name: 'decline-npm-component' });
+      const root = createComponentPackageProject(
+        'decline-npm-component',
+        packageContents,
+      );
+      const slider = join(root, 'components', 'slider');
+      mkdirSync(slider, { recursive: true });
+      writeFileSync(join(slider, 'local.txt'), 'local edits\n');
+      const sliderBefore = snapshotFiles(slider);
+      const { env, log } = recordNpmInvocations();
+      const result = runPtyPrompt(
+        [
+          process.execPath,
+          cliPath,
+          'component',
+          'install',
+          'slider-story',
+          '--yes',
+        ],
+        [['The component "slider"', 'n\r']],
+        { cwd: root, env },
+      );
+
+      assert.equal(result.status, 0, commandFailure('decline slider', result));
+      assert.deepEqual(snapshotFiles(slider), sliderBefore);
+      assert.equal(existsSync(log), false);
+      assert.equal(
+        readFileSync(join(root, 'package.json'), 'utf8'),
+        packageContents,
+      );
+      assert.equal(
+        readFileSync(
+          join(root, 'components', 'slider-story', 'fixture.txt'),
+          'utf8',
+        ),
+        'slider story fixture\n',
+      );
+    },
+  );
+
+  test('reports retained dependencies after npm install fails', () => {
+    const root = createComponentPackageProject(
+      'failed-npm',
+      json({ name: 'failed-npm' }),
+    );
+    const { env, log } = recordNpmInvocations(1);
+    const result = runCli(
+      root,
+      ['component', 'install', 'slider', '--yes'],
+      env,
+    );
+
+    assert.equal(
+      result.status,
+      1,
+      commandFailure('npm install failure', result),
+    );
+    assert.match(
+      result.stderr,
+      /The new dependencies remain in package\.json\./u,
+    );
+    assert.match(
+      result.stderr,
+      /Run npm install --ignore-scripts in .* to finish installing the packages\./u,
+    );
+    assert.match(result.stderr, /^Command failed\.$/mu);
+    assert.doesNotMatch(result.stderr, /No changes were made\./u);
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies,
+      { swiper: '^11.2.0' },
+    );
+    assert.equal(existsSync(log), true);
   });
 
   test('adds sorted npm packages and invokes npm once from the project root', () => {
@@ -1502,6 +1627,28 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       result.status,
       0,
       'component install must fail when its requested component is not copied',
+    );
+  });
+
+  test('reports failure after a partial component install --all', () => {
+    const root = createComponentPackageProject(
+      'partial-component-install',
+      json({ name: 'partial-component-install' }),
+    );
+    const configPath = join(root, 'project.emulsify.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.project.platform = 'wordpress';
+    config.variant.platform = 'wordpress';
+    writeFileSync(configPath, json(config));
+    const result = runCli(root, ['component', 'install', '--all']);
+
+    assert.equal(result.status, 1, commandFailure('partial install', result));
+    assert.match(result.stderr, /Unable to install missing:/u);
+    assert.match(result.stderr, /^Command failed\.$/mu);
+    assert.doesNotMatch(result.stderr, /No changes were made\./u);
+    assert.equal(
+      readFileSync(join(root, 'components', 'card', 'fixture.txt'), 'utf8'),
+      'card fixture\n',
     );
   });
 });

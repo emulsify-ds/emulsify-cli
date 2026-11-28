@@ -239,7 +239,9 @@ export async function applyComponentNpmInstall(
     const output = (
       error instanceof Error ? error.message : String(error)
     ).trim();
-    throw new CliError(`npm install failed:\n${output}\n${retry}`);
+    throw new CliError(
+      `npm install failed:\n${output}\nThe new dependencies remain in package.json.\n${retry}`,
+    );
   } finally {
     unregisterAbort();
   }

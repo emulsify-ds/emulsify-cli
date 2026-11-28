@@ -5,6 +5,7 @@ jest.mock('../util/fs/writeToJsonFile', () => jest.fn());
 jest.mock('../util/fs/executeScript', () => jest.fn());
 jest.mock('../util/project/installDependencies', () => jest.fn());
 jest.mock('../lib/session', () => ({
+  markSessionMayHaveChanges: jest.fn(),
   note: jest.fn(),
   onAbort: jest.fn(),
   spinner: jest.fn(),
