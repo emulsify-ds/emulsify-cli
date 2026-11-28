@@ -289,7 +289,7 @@ describe('getSystemRepoInfo', () => {
   it('returns nothing when an explicit repository has no parseable name', async () => {
     await expect(
       getSystemRepoInfo(undefined, {
-        repository: 'https://github.com/example/.git',
+        repository: 'file://%',
         checkout: 'v1.0.0',
       }),
     ).resolves.toBeUndefined();
@@ -702,8 +702,13 @@ describe('systemInstall', () => {
     ).toBeUndefined();
     expect(
       repositoryValidator('https://github.com/example/custom-system'),
-    ).toBe('The repository URL must end in .git.');
-    expect(repositoryValidator('https://github.com/example/.git')).toBe(
+    ).toBe(
+      'The repository URL must end in .git. Received "https://github.com/example/custom-system".',
+    );
+    expect(repositoryValidator('https://github.com/example/...git')).toBe(
+      'Invalid repository name in "https://github.com/example/...git".',
+    );
+    expect(repositoryValidator('file://%')).toBe(
       'Enter a Git repository with a recognizable name.',
     );
     const checkoutValidator = textMock.mock.calls[1][0].validate;
@@ -1777,7 +1782,7 @@ describe('systemInstall', () => {
   it('throws when an explicit repository has no parseable system name', async () => {
     await expect(
       systemInstall(undefined, {
-        repository: 'https://github.com/example/.git',
+        repository: 'file://%',
         checkout: 'main',
       }),
     ).rejects.toThrow(

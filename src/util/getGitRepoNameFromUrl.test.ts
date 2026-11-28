@@ -2,13 +2,17 @@ import getGitRepoNameFromUrl from './getGitRepoNameFromUrl.js';
 import fs from 'fs';
 import { resolve } from 'path';
 import { pathToFileURL } from 'url';
+import CliError from '../lib/CliError.js';
 
 describe('getGitRepoNameFromUrl', () => {
-  it('can convert an ssl git url into a repo name', () => {
-    expect.assertions(1);
+  it('can convert SCP-style Git URLs into repository names', () => {
+    expect.assertions(2);
     expect(
       getGitRepoNameFromUrl('git@github.com:emulsify-ds/emulsify-cli.git'),
     ).toBe('emulsify-cli');
+    expect(getGitRepoNameFromUrl('git@example.test:example.git')).toBe(
+      'example',
+    );
   });
 
   it('can convert an https git url into a repo name', () => {
@@ -55,12 +59,25 @@ describe('getGitRepoNameFromUrl', () => {
   });
 
   it('strips a terminal .git suffix from local repository paths', () => {
-    expect.assertions(2);
+    expect.assertions(1);
 
     expect(getGitRepoNameFromUrl('/tmp/example-system.git')).toBe(
       'example-system',
     );
-    expect(getGitRepoNameFromUrl('/tmp/.git')).toBeUndefined();
+  });
+
+  it.each([
+    'https://example.test/org/...git',
+    'https://example.test/org/..git',
+    'https://example.test/org/.git',
+    'git@example.test:org/...git',
+    'https://example.test/org/..\\other.git',
+    'https://example.test/org/example.git/',
+    '/tmp/...git',
+    '/tmp/.git',
+  ])('rejects an invalid repository name or suffix in %s', (repository) => {
+    expect(() => getGitRepoNameFromUrl(repository)).toThrow(CliError);
+    expect(() => getGitRepoNameFromUrl(repository)).toThrow(repository);
   });
 
   it('returns nothing when a local file url cannot be parsed', () => {

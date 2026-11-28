@@ -200,6 +200,7 @@ describe('systemDetach', () => {
   it.each([
     'https://github.com/example/.git',
     'https://github.com/example/fixture-system',
+    'https://github.com/example/...git',
   ])(
     'uses a safe label when the configured repository name cannot be parsed: %s',
     async (repository) => {
@@ -214,6 +215,7 @@ describe('systemDetach', () => {
       await expect(systemDetach({ yes: true })).resolves.toBe(
         'Detached the configured component system at main. All component files were left in place.',
       );
+      expect(unsetEmulsifyConfigMock).toHaveBeenCalledWith('system', 'variant');
     },
   );
 });

@@ -123,7 +123,7 @@ describe('withEmulsifySystem', () => {
     getEmulsifyConfigMock.mockResolvedValueOnce({
       ...projectConfig,
       system: {
-        repository: 'https://github.com/example/.git',
+        repository: 'file://%',
         checkout: 'main',
       },
     });
