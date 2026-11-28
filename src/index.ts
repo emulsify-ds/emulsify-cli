@@ -240,11 +240,11 @@ component
     'Custom element tag name for a Web Component.',
   )
   .option(
-    '-f, --format <default|sdc>',
+    '--format <default|sdc>',
     'Deprecated alias: default maps to twig and sdc maps to twig-sdc.',
   )
   .option(
-    '--force',
+    '-f, --force',
     'Replace an existing generated component without prompting.',
   )
   .option(

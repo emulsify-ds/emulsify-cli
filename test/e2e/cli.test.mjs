@@ -459,9 +459,9 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       result.stdout,
       /--type <twig\|twig-sdc\|react\|web-component>/u,
     );
-    assert.match(result.stdout, /--format <default\|sdc>/u);
+    assert.match(result.stdout, /^ +--format <default\|sdc>/mu);
     assert.match(result.stdout, /Deprecated alias/u);
-    assert.match(result.stdout, /--force/u);
+    assert.match(result.stdout, /^ +-f, --force\b/mu);
     assert.match(result.stdout, /-y, --yes/u);
     assert.match(result.stdout, /Compatibility alias for --force/u);
     assert.match(result.stdout, /--tag-name <tag-name>/u);
@@ -546,7 +546,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.match(result.stderr, /Pass --directory <directory>/u);
   });
 
-  test('requires --force to replace an existing component outside a TTY', () => {
+  test('requires an explicit overwrite flag to replace an existing component outside a TTY', () => {
     const name = 'component-overwrite-project';
     const root = createComponentPackageProject(name, json({ name }));
     const destination = join(root, 'components', 'card');
@@ -557,17 +557,10 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     writeFileSync(template, originalTemplate);
     writeFileSync(notes, 'Project-specific notes\n');
     const before = snapshotFiles(destination);
-    const args = [
-      'component',
-      'create',
-      'card',
-      '--directory',
-      'components',
-      '--type',
-      'twig',
-    ];
+    const command = ['component', 'create', 'card'];
+    const options = ['--directory', 'components', '--type', 'twig'];
 
-    const declined = runCli(root, args);
+    const declined = runCli(root, [...command, ...options]);
     assert.equal(
       declined.status,
       1,
@@ -579,14 +572,48 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     );
     assert.deepEqual(snapshotFiles(destination), before);
 
-    const forced = runCli(root, [...args, '--force']);
+    for (const flag of ['-f', '--force', '-y']) {
+      writeFileSync(template, originalTemplate);
+      writeFileSync(notes, 'Project-specific notes\n');
+      const forced = runCli(root, [...command, flag, ...options]);
+      assert.equal(
+        forced.status,
+        0,
+        commandFailure(`component create ${flag}`, forced),
+      );
+      assert.notEqual(readFileSync(template, 'utf8'), originalTemplate);
+      assert.equal(existsSync(notes), false);
+    }
+  });
+
+  test('accepts --format default as Twig and prints a deprecation warning', () => {
+    const name = 'component-format-project';
+    const root = createComponentPackageProject(name, json({ name }));
+    const result = runCli(root, [
+      'component',
+      'create',
+      'card',
+      '--directory',
+      'components',
+      '--format',
+      'default',
+    ]);
+
     assert.equal(
-      forced.status,
+      result.status,
       0,
-      commandFailure('component create --force', forced),
+      commandFailure('component create --format default', result),
     );
-    assert.notEqual(readFileSync(template, 'utf8'), originalTemplate);
-    assert.equal(existsSync(notes), false);
+    assert.match(
+      result.stderr,
+      /The --format option is deprecated; use --type twig instead\./u,
+    );
+    assert.deepEqual(readdirSync(join(root, 'components', 'card')).sort(), [
+      'card.scss',
+      'card.stories.js',
+      'card.twig',
+      'card.yml',
+    ]);
   });
 
   test('fails fast when component install has no target outside a TTY', () => {

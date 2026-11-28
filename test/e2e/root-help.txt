@@ -28,9 +28,10 @@ COMPONENTS
       -d, --directory <dir>          Variant structure to create it in
       -t, --type <type>              twig | twig-sdc | react | web-component
       --tag-name <name>              Set the Web Component custom element tag
-      -f, --format <default|sdc>     Deprecated Twig type alias
-      --force                        Replace an existing generated component
+      -f, --force                    Replace an existing generated component
+      -y, --yes                      Compatibility alias for --force
       --dry-run                      Preview without writing files
+      --refresh                      Check the system remote before reuse
   component eject-templates [type]  Write editable built-in templates
       -a, --all                      Eject every component template type
       -f, --force                    Replace existing template files
@@ -56,5 +57,5 @@ MAINTENANCE
   cache clear                     Remove cached system repositories
       --dry-run                      Preview cache removal
 
-  --refresh works on list, install, and create.   -V, --version   -h, --help
+  --refresh: component list, install, create.   -V, --version   -h, --help
   emulsify <command> --help for the full option list.

@@ -6,6 +6,8 @@ const description =
 const plainColors = createColors({ useColor: false });
 const coloredColors = createColors({ useColor: true });
 const ansiPattern = /\u001b\[[0-?]*[ -/]*[@-~]/gu;
+const refreshSummary = '  --refresh: component list, install, create.';
+const switches = '  -V, --version   -h, --help';
 
 function render(columns?: number, colors = plainColors): string {
   return getRootHelp({
@@ -42,10 +44,13 @@ describe('getRootHelp', () => {
     expect(help).toContain('Write editable built-in templates');
     expect(help).toContain('Eject every component template type');
     expect(help).toContain(
-      '      --force                        Replace an existing generated component',
+      '      -f, --force                    Replace an existing generated component',
     );
+    expect(help).toContain('Compatibility alias for --force');
+    expect(help).toContain('Check the system remote before reuse');
     expect(help).toContain('Set the Web Component custom element tag');
-    expect(help).toContain('--refresh works on list, install, and create.');
+    expect(help).not.toContain('--format');
+    expect(visibleLines(help).at(-2)).toBe(`${refreshSummary} ${switches}`);
     expect(help).not.toContain('component ls');
     expect(
       Math.max(...visibleLines(help).map((line) => line.length)),
@@ -69,7 +74,7 @@ describe('getRootHelp', () => {
       '      -t, --type <type>\n        twig | twig-sdc | react | web-component',
     );
     expect(help).toContain(
-      '      -f, --format <default|sdc>\n        Deprecated Twig type alias',
+      '      -f, --force\n        Replace an existing generated component',
     );
     expect(help).toContain(
       '      --tag-name <name>\n        Set the Web Component custom element tag',
@@ -77,6 +82,7 @@ describe('getRootHelp', () => {
     expect(help).toContain(
       '  component eject-templates [type]\n    Write editable built-in templates',
     );
+    expect(help).toContain(`${refreshSummary}\n${switches}\n`);
     expect(
       Math.max(...visibleLines(help).map((line) => line.length)),
     ).toBeLessThanOrEqual(60);
@@ -85,6 +91,9 @@ describe('getRootHelp', () => {
   it('hard-wraps indivisible values in extremely narrow terminals', () => {
     const help = render(12);
 
+    expect(help).toContain(
+      '  --refresh:\n  component\n  list,\n  install,\n  create.\n',
+    );
     expect(
       Math.max(...visibleLines(help).map((line) => line.length)),
     ).toBeLessThanOrEqual(12);
