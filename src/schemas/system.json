@@ -67,13 +67,11 @@
                 "$ref": "variant.json#/definitions/files"
               }
             },
-            "additionalProperties": false,
             "required": ["platform", "structureImplementations", "components"]
           }
         ]
       }
     }
   },
-  "additionalProperties": false,
   "required": ["name", "homepage", "repository", "structure"]
 }

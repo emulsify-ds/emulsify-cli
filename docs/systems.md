@@ -436,6 +436,10 @@ Use a single semver version for `minimumCliVersion`. The CLI ignores prerelease
 tags when comparing versions. If the running version is below the minimum,
 `system install` and the component commands report how to upgrade.
 
+Unknown fields at the system and variant levels and in component, structure
+implementation, directory, and file entries produce a warning. The CLI still
+validates required fields and known field types.
+
 Each variant used by the CLI must include:
 
 | Field                      | Required | Purpose                                                       |

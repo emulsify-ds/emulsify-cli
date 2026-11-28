@@ -49,7 +49,6 @@
             "description": "Relative path to the folder that will hold all of the assets, components, and files related to the structure"
           }
         },
-        "additionalProperties": false,
         "required": ["name", "directory"]
       }
     },
@@ -91,7 +90,6 @@
             }
           }
         },
-        "additionalProperties": false,
         "required": ["name", "structure"]
       }
     },
@@ -118,7 +116,6 @@
             "description": "Text describing the intended purpose of the folder"
           }
         },
-        "additionalProperties": false,
         "required": ["name", "path", "destinationPath"]
       }
     },
@@ -145,7 +142,6 @@
             "description": "Text describing the intended purpose of the file"
           }
         },
-        "additionalProperties": false,
         "required": ["name", "path", "destinationPath"]
       }
     }
@@ -167,7 +163,6 @@
       "$ref": "#/definitions/files"
     }
   },
-  "additionalProperties": false,
   "required": [
     "platform",
     "structureImplementations",
