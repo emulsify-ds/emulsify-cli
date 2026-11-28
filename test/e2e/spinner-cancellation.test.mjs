@@ -88,6 +88,7 @@ test(
         PATH: [bin, process.env.PATH].filter(Boolean).join(delimiter),
         EMULSIFY_E2E_NPM_READY: ready,
       };
+      delete env.CI;
       const git = (...args) =>
         execFileSync('git', args, { cwd: starter, env, stdio: 'pipe' });
       git('init', '--initial-branch=main');

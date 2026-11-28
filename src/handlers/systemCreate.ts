@@ -219,7 +219,7 @@ export default async function systemCreate(
           message: 'Platform targets',
           options: PLATFORM_OPTIONS,
           initialValues: [DEFAULT_PLATFORM],
-          required: false,
+          required: true,
         }),
       nonInteractive: {
         error:
@@ -227,6 +227,9 @@ export default async function systemCreate(
       },
       accept: { when: acceptDefaults, value: [DEFAULT_PLATFORM] },
     });
+    if (platforms.length === 0) {
+      throw new CliError('Select at least one platform target.');
+    }
     platform = normalizeRequestedPlatform(platforms.join(' || '));
   }
 

@@ -27,6 +27,13 @@ import { createRequire } from 'module';
 
 const packageInfo = createRequire(import.meta.url)('../package.json');
 
+// Let an active command finish even if a pipe consumer has stopped reading.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code !== 'EPIPE') throw error;
+  });
+}
+
 /**
  * Render a Commander failure as a session so it matches every other message.
  *

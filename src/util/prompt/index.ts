@@ -38,11 +38,12 @@ export type RunPromptOptions<T> = {
   };
 };
 
-/**
- * Whether stdin belongs to an interactive terminal that can safely show a prompt.
- */
-export function isInteractiveTerminal(): boolean {
-  return process.stdin.isTTY === true;
+/** Whether stdin can show prompts outside a CI job. */
+export function isInteractiveTerminal(
+  input: { isTTY?: boolean } = process.stdin,
+  environment: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return input.isTTY === true && !environment.CI;
 }
 
 /**

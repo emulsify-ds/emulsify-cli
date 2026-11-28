@@ -7,7 +7,6 @@
  * by one renderer so prompts, logs, and spinners share a visual language.
  */
 
-import { Writable } from 'node:stream';
 import {
   cancel as renderCancel,
   intro as renderIntro,
@@ -51,35 +50,20 @@ export function stripAnsi(value: string): string {
   return value.replace(ANSI_PATTERN, '');
 }
 
-/**
- * Wrap a stream so anything written to it is stripped of ANSI escapes first.
- *
- * @param target stream that should only ever receive plain text.
- * @returns a writable that forwards plain text to the target.
- */
-function createPlainTextStream(target: NodeJS.WritableStream): Writable {
-  return new Writable({
-    write(chunk, _encoding, callback) {
-      target.write(stripAnsi(String(chunk)));
-      callback();
-    },
-  });
-}
-
-/**
- * Resolve the stream diagnostics should be written to.
- *
- * @remarks Color is chosen from stdout by the renderer, but warnings and errors
- * are written to stderr. When stderr is redirected to a file, escape sequences
- * are removed so the file holds plain text even while stdout stays a terminal.
- *
- * @param stream stderr stream to write to.
- * @returns stderr itself when it is a terminal, otherwise a plain-text wrapper.
- */
-export function getDiagnosticOutput(
-  stream: NodeJS.WriteStream = process.stderr,
-): Writable {
-  return stream.isTTY === true ? stream : createPlainTextStream(stream);
+/** Use Clack's standard width when a TTY reports unusable dimensions. */
+export function getRendererOutput(
+  stream: NodeJS.WriteStream = process.stdout,
+): NodeJS.WriteStream {
+  const { columns } = stream;
+  if (
+    typeof columns === 'number' &&
+    (!Number.isFinite(columns) || columns < 40)
+  ) {
+    // Keep the actual stream so Clack still receives its terminal events.
+    // Prompts also read these dimensions from stdout in an active session.
+    stream.columns = 80;
+  }
+  return stream;
 }
 
 /**
@@ -133,7 +117,7 @@ export function startSession(title: string): void {
   sessionMayHaveChanges = false;
 
   if (isInteractiveOutput()) {
-    renderIntro(title);
+    renderIntro(title, { output: getRendererOutput() });
   }
 }
 
@@ -150,7 +134,7 @@ export function finishSession(message?: string): void {
   sessionIsOpen = false;
 
   if (isInteractiveOutput()) {
-    renderOutro(message);
+    renderOutro(message, { output: getRendererOutput() });
     return;
   }
 
@@ -172,7 +156,7 @@ export function cancelSession(message: string): void {
   sessionIsOpen = false;
 
   if (isInteractiveOutput()) {
-    renderCancel(message);
+    renderCancel(message, { output: getRendererOutput() });
     return;
   }
 
@@ -187,7 +171,7 @@ export function cancelSession(message: string): void {
  */
 export function note(message: string, title?: string): void {
   if (isInteractiveOutput()) {
-    renderNote(message, title);
+    renderNote(message, title, { output: getRendererOutput() });
     return;
   }
 
@@ -225,7 +209,7 @@ export function spinner(runtime: SpinnerProcess = process): SpinnerResult {
   if (isInteractiveOutput(runtime.stdout)) {
     const progress = createSpinner({
       indicator: 'timer',
-      output: runtime.stdout,
+      output: getRendererOutput(runtime.stdout),
     });
     const abortOnExit = (code: number) => {
       runtime.off('exit', abortOnExit);

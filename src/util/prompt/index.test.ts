@@ -11,6 +11,7 @@ import {
 } from './index.js';
 
 const originalStdinIsTTY = process.stdin.isTTY;
+const originalCI = process.env.CI;
 
 function setStdinIsTTY(value: boolean | undefined): void {
   Object.defineProperty(process.stdin, 'isTTY', {
@@ -22,18 +23,26 @@ function setStdinIsTTY(value: boolean | undefined): void {
 describe('prompt utilities', () => {
   afterEach(() => {
     setStdinIsTTY(originalStdinIsTTY);
+    if (originalCI === undefined) delete process.env.CI;
+    else process.env.CI = originalCI;
   });
 
   describe('isInteractiveTerminal', () => {
     it('returns true only when stdin is explicitly a TTY', () => {
-      setStdinIsTTY(true);
-      expect(isInteractiveTerminal()).toBe(true);
+      expect(isInteractiveTerminal({ isTTY: true }, {})).toBe(true);
+      expect(isInteractiveTerminal({ isTTY: false }, {})).toBe(false);
+      expect(isInteractiveTerminal({}, {})).toBe(false);
+    });
 
-      setStdinIsTTY(false);
-      expect(isInteractiveTerminal()).toBe(false);
+    it.each(['true', '1', 'false'])(
+      'disables prompts in a TTY when CI=%s',
+      (CI) => {
+        expect(isInteractiveTerminal({ isTTY: true }, { CI })).toBe(false);
+      },
+    );
 
-      setStdinIsTTY(undefined);
-      expect(isInteractiveTerminal()).toBe(false);
+    it('allows a TTY to prompt when CI is empty', () => {
+      expect(isInteractiveTerminal({ isTTY: true }, { CI: '' })).toBe(true);
     });
   });
 
@@ -102,7 +111,8 @@ describe('prompt utilities', () => {
 
   describe('runPrompt', () => {
     it('returns an explicitly accepted value before checking terminal state', async () => {
-      setStdinIsTTY(false);
+      setStdinIsTTY(true);
+      process.env.CI = 'true';
       const prompt = jest.fn<Promise<string>, []>();
 
       await expect(
@@ -143,6 +153,17 @@ describe('prompt utilities', () => {
         message: 'Pass --value.',
         exitCode: 1,
       });
+      expect(prompt).not.toHaveBeenCalled();
+    });
+
+    it('uses the actionable non-interactive error instead of prompting in a CI terminal', async () => {
+      setStdinIsTTY(true);
+      process.env.CI = '1';
+      const prompt = jest.fn<Promise<string>, []>();
+
+      await expect(
+        runPrompt({ prompt, nonInteractive: { error: 'Pass --value.' } }),
+      ).rejects.toMatchObject({ name: 'CliError', message: 'Pass --value.' });
       expect(prompt).not.toHaveBeenCalled();
     });
 

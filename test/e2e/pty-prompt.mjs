@@ -51,10 +51,13 @@ finally:
 `;
 
 export function runPtyPrompt(command, actions, { cwd, env }) {
+  const terminalEnv = { ...env, NO_COLOR: '1' };
+  // These fixtures explicitly exercise the interactive path, including in CI.
+  delete terminalEnv.CI;
   const result = spawnSync(
     'python3',
     ['-c', interact, JSON.stringify(actions), ...command],
-    { cwd, env: { ...env, NO_COLOR: '1' }, encoding: 'utf8', timeout: 15_000 },
+    { cwd, env: terminalEnv, encoding: 'utf8', timeout: 15_000 },
   );
   if (result.error) throw result.error;
   return result;

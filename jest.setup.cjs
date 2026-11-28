@@ -1,3 +1,6 @@
+// Test suites control terminal behavior with doubles and opt into CI explicitly.
+delete process.env.CI;
+
 jest.mock('simple-git', () => {
   const mockGit = {
     clone: jest.fn(),

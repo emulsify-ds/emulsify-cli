@@ -18,22 +18,33 @@ const exitMock = jest
   .mockImplementation(identity as () => never);
 
 const originalStdoutIsTTY = process.stdout.isTTY;
+const originalStderrIsTTY = process.stderr.isTTY;
 
-function setStdoutIsTTY(value: boolean | undefined): void {
-  Object.defineProperty(process.stdout, 'isTTY', {
+function setIsTTY(
+  stream: NodeJS.WriteStream,
+  value: boolean | undefined,
+): void {
+  Object.defineProperty(stream, 'isTTY', {
     value,
     configurable: true,
   });
 }
 
+function output(isTTY: boolean) {
+  return { isTTY, write: jest.fn() } as unknown as NodeJS.WriteStream;
+}
+
 describe('log', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    setStdoutIsTTY(true);
+    setIsTTY(process.stdout, true);
+    setIsTTY(process.stderr, true);
   });
 
   afterAll(() => {
-    setStdoutIsTTY(originalStdoutIsTTY);
+    setIsTTY(process.stdout, originalStdoutIsTTY);
+    setIsTTY(process.stderr, originalStderrIsTTY);
+    exitMock.mockRestore();
   });
 
   it('can log info messages', () => {
@@ -91,9 +102,35 @@ describe('log', () => {
     });
   });
 
+  it.each(['error', 'warn'] as const)(
+    'writes plain %s to redirected stderr while stdout is a terminal',
+    (method) => {
+      const stdout = output(true);
+      const stderr = output(false);
+
+      log(method, '\u001b[31mfailed\u001b[39m', { stdout, stderr });
+
+      expect(stderr.write).toHaveBeenCalledWith('failed\n');
+      expect(stdout.write).not.toHaveBeenCalled();
+      expect(renderMock[method]).not.toHaveBeenCalled();
+    },
+  );
+
+  it('frames diagnostics when only stderr is a terminal', () => {
+    const stdout = output(false);
+    const stderr = output(true);
+
+    log('warn', 'deprecated flag', { stdout, stderr });
+
+    expect(renderMock.warn).toHaveBeenCalledWith('deprecated flag', {
+      output: stderr,
+    });
+  });
+
   describe('outside a terminal', () => {
     beforeEach(() => {
-      setStdoutIsTTY(false);
+      setIsTTY(process.stdout, false);
+      setIsTTY(process.stderr, false);
     });
 
     it('writes plain lines with no gutter, symbols, or color', () => {

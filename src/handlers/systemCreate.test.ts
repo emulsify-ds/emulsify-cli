@@ -291,6 +291,7 @@ describe('systemCreate', () => {
         { label: 'WordPress', value: 'wordpress' },
       ],
       initialValues: ['none'],
+      required: true,
     });
     expect(confirmMock).toHaveBeenCalledTimes(1);
     expect(confirmMock).toHaveBeenCalledWith({
@@ -322,6 +323,21 @@ describe('systemCreate', () => {
       scaffold.systemConfig,
     );
     expect(simpleGitMock).toHaveBeenCalledWith(target);
+  });
+
+  it('requires at least one platform target before creating the scaffold', async () => {
+    setStdinIsTTY(true);
+    multiselectMock.mockResolvedValueOnce([]);
+
+    await expect(
+      systemCreate('acme-system', { directory: parentDirectory }),
+    ).rejects.toMatchObject({
+      name: 'CliError',
+      exitCode: 1,
+      message: 'Select at least one platform target.',
+    });
+    expect(confirmMock).not.toHaveBeenCalled();
+    expectNoWrites();
   });
 
   it('uses every default with --yes without consulting terminal state', async () => {

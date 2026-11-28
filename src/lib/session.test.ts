@@ -10,7 +10,7 @@ import {
 import {
   cancelSession,
   finishSession,
-  getDiagnosticOutput,
+  getRendererOutput,
   getSessionFailureSummary,
   isSessionOpen,
   markSessionMayHaveChanges,
@@ -39,25 +39,18 @@ describe('stripAnsi', () => {
   });
 });
 
-describe('getDiagnosticOutput', () => {
-  it('writes straight to an interactive stream', () => {
-    const stream = { isTTY: true, write: jest.fn() };
+describe('getRendererOutput', () => {
+  it.each([
+    [0, 80],
+    [39, 80],
+    [40, 40],
+    [120, 120],
+    [undefined, undefined],
+  ])('maps a reported width of %s to %s', (columns, expected) => {
+    const stream = { isTTY: true, columns } as NodeJS.WriteStream;
 
-    expect(getDiagnosticOutput(stream as unknown as NodeJS.WriteStream)).toBe(
-      stream,
-    );
-  });
-
-  it('strips color when the stream is redirected to a file', () => {
-    const write = jest.fn();
-    const stream = { isTTY: false, write };
-
-    const output = getDiagnosticOutput(stream as unknown as NodeJS.WriteStream);
-    output.write('[31mfailed[39m');
-
-    // Redirecting stderr must not leave escape sequences in the file, even
-    // while stdout is still a terminal.
-    expect(write).toHaveBeenCalledWith('failed');
+    expect(getRendererOutput(stream)).toBe(stream);
+    expect(stream.columns).toBe(expected);
   });
 });
 
@@ -101,14 +94,16 @@ describe('session framing', () => {
 
     startSession('emulsify init');
     expect(isSessionOpen()).toBe(true);
-    expect(introMock).toHaveBeenCalledWith('emulsify init');
+    expect(introMock).toHaveBeenCalledWith('emulsify init', {
+      output: process.stdout,
+    });
 
     startSession('emulsify init');
     expect(introMock).toHaveBeenCalledTimes(1);
 
     finishSession('done');
     expect(isSessionOpen()).toBe(false);
-    expect(outroMock).toHaveBeenCalledWith('done');
+    expect(outroMock).toHaveBeenCalledWith('done', { output: process.stdout });
 
     finishSession('done again');
     expect(outroMock).toHaveBeenCalledTimes(1);
@@ -118,7 +113,9 @@ describe('session framing', () => {
     startSession('emulsify system detach');
     cancelSession('Nothing was changed.');
 
-    expect(cancelMock).toHaveBeenCalledWith('Nothing was changed.');
+    expect(cancelMock).toHaveBeenCalledWith('Nothing was changed.', {
+      output: process.stdout,
+    });
     expect(isSessionOpen()).toBe(false);
   });
 
@@ -131,7 +128,9 @@ describe('session framing', () => {
   it('renders a titled block', () => {
     note('a\nb', 'Next');
 
-    expect(noteMock).toHaveBeenCalledWith('a\nb', 'Next');
+    expect(noteMock).toHaveBeenCalledWith('a\nb', 'Next', {
+      output: process.stdout,
+    });
   });
 
   it('creates a spinner that reports elapsed time rather than a fake total', () => {
