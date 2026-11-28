@@ -383,6 +383,69 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.doesNotMatch(result.stdout, /\u001b\[/u);
   });
 
+  for (const [command, prompt] of [
+    ['init', 'Project name'],
+    ['system create', 'Platform targets'],
+    ['system install', 'Add these npm packages?'],
+    ['system detach', 'Detach the'],
+    ['component create', 'Component name'],
+    [
+      'component eject-templates',
+      'Which component template types should be ejected?',
+    ],
+  ]) {
+    test(
+      `returns exit 130 without project changes when ${command} is cancelled`,
+      { skip: hasPty ? false : 'Requires python3 and a POSIX PTY' },
+      () => {
+        const name = `cancel-${command.replaceAll(' ', '-')}`;
+        const root = join(projectsRoot, name);
+        const args = command.split(' ');
+        if (command === 'init' || command === 'system create') {
+          mkdirSync(root);
+        } else {
+          createComponentPackageProject(name, json({ name }));
+        }
+        if (command === 'init') {
+          args.push('--starter', starterRepository);
+        } else if (command === 'system create') {
+          args.push('Example', '--directory', '.');
+        } else if (command === 'system install') {
+          const configPath = join(root, 'project.emulsify.json');
+          const config = JSON.parse(readFileSync(configPath, 'utf8'));
+          delete config.system;
+          delete config.variant;
+          writeFileSync(configPath, json(config));
+          args.push(
+            '--repository',
+            systemRepository,
+            '--checkout',
+            'main',
+            '--all',
+          );
+        }
+
+        const before = snapshotFiles(root);
+        const entries = readdirSync(root, { recursive: true }).sort();
+        const { env, log } = recordNpmInvocations();
+        const result = runPtyPrompt(
+          [process.execPath, cliPath, ...args],
+          [[prompt, '\u0003']],
+          { cwd: root, env },
+        );
+
+        assert.equal(result.status, 130, commandFailure(command, result));
+        assert.match(result.stdout, /Cancelled\. Nothing was changed\./u);
+        assert.deepEqual(snapshotFiles(root), before);
+        assert.deepEqual(
+          readdirSync(root, { recursive: true }).sort(),
+          entries,
+        );
+        assert.equal(existsSync(log), false);
+      },
+    );
+  }
+
   test('uses canonical type values and marks format as deprecated in detailed component create help', () => {
     const result = runCli(tempRoot, ['component', 'create', '--help']);
 
@@ -1145,6 +1208,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
         );
       }
       const before = snapshotFiles(root);
+      const entries = readdirSync(root, { recursive: true }).sort();
       const result = runPtyPrompt(
         [
           process.execPath,
@@ -1168,6 +1232,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       );
       assert.match(result.stdout, /Cancelled\. Nothing was changed\./u);
       assert.deepEqual(snapshotFiles(root), before);
+      assert.deepEqual(readdirSync(root, { recursive: true }).sort(), entries);
     },
   );
 

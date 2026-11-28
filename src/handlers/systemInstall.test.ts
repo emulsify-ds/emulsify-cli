@@ -27,19 +27,24 @@ jest.mock('../lib/session', () => ({
 }));
 // The prompt library ships ESM only, so a factory keeps it out of the CommonJS
 // test runtime while still exposing the cancellation helper prompts rely on.
-jest.mock('@clack/prompts', () => ({
-  __esModule: true,
-  confirm: jest.fn(),
-  select: jest.fn(),
-  text: jest.fn(),
-  isCancel: (value: unknown) => typeof value === 'symbol',
-}));
+jest.mock('@clack/prompts', () => {
+  const CANCEL_SYMBOL = Symbol.for('clack:cancel');
+
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL,
+    confirm: jest.fn(),
+    select: jest.fn(),
+    text: jest.fn(),
+    isCancel: (value: unknown) => value === CANCEL_SYMBOL,
+  };
+});
 
 import fs from 'fs';
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import type { EmulsifySystem, EmulsifyVariant } from '@emulsify-cli/config';
-import { confirm, select, text } from '@clack/prompts';
+import { CANCEL_SYMBOL, confirm, select, text } from '@clack/prompts';
 import log from '../lib/log.js';
 import { note, spinner } from '../lib/session.js';
 import {
@@ -59,6 +64,7 @@ import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import executeScript from '../util/fs/executeScript.js';
+import { PromptCancelledError } from '../util/prompt/index.js';
 import systemInstall, {
   formatSystemInstallReview,
   getSystemRepoInfo,
@@ -204,7 +210,7 @@ function queueBuiltInWizard({
 }: {
   variantIndex?: number;
   installAll?: boolean;
-  confirmed?: boolean;
+  confirmed?: boolean | typeof CANCEL_SYMBOL;
 } = {}): void {
   selectMock
     .mockResolvedValueOnce(builtInSource)
@@ -621,6 +627,24 @@ describe('systemInstall', () => {
     expect(setEmulsifyConfigMock).not.toHaveBeenCalled();
     expect(installComponentFromCacheMock).not.toHaveBeenCalled();
     expect(installGeneralAssetsFromCacheMock).not.toHaveBeenCalled();
+    expect(executeScriptMock).not.toHaveBeenCalled();
+  });
+
+  it('propagates final review cancellation without installing system files or packages', async () => {
+    setStdinIsTTY(true);
+    getJsonFromCachedFileMock.mockResolvedValueOnce(systemWithPackages);
+    queueBuiltInWizard({ confirmed: CANCEL_SYMBOL });
+
+    const installation = systemInstall(undefined, {});
+
+    await expect(installation).rejects.toBeInstanceOf(PromptCancelledError);
+    await expect(installation).rejects.toHaveProperty('exitCode', 130);
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(setEmulsifyConfigMock).not.toHaveBeenCalled();
+    expect(installComponentFromCacheMock).not.toHaveBeenCalled();
+    expect(installGeneralAssetsFromCacheMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(installDependenciesMock).not.toHaveBeenCalled();
     expect(executeScriptMock).not.toHaveBeenCalled();
   });
 

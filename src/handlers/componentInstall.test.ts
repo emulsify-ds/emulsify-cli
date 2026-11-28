@@ -34,6 +34,7 @@ import { pathExists, remove } from 'fs-extra';
 import { join, resolve } from 'path';
 import { CANCEL_SYMBOL, confirm, select } from '@clack/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
+import { PromptCancelledError } from '../util/prompt/index.js';
 import log from '../lib/log.js';
 import {
   markSessionMayHaveChanges,
@@ -562,10 +563,10 @@ describe('componentInstall', () => {
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(CANCEL_SYMBOL);
 
-    await expect(componentInstall('button', {})).rejects.toMatchObject({
-      name: 'PromptCancelledError',
-      exitCode: 130,
-    });
+    const installation = componentInstall('button', {});
+
+    await expect(installation).rejects.toBeInstanceOf(PromptCancelledError);
+    await expect(installation).rejects.toHaveProperty('exitCode', 130);
 
     expect(confirmMock).toHaveBeenCalledTimes(2);
     expect(copyItemFromCacheMock).not.toHaveBeenCalled();

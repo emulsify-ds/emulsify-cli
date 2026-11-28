@@ -11,19 +11,28 @@ describe('installDependencies', () => {
     execFileMock.mockClear();
   });
 
-  it('runs npm directly on Unix and resolves stdout', async () => {
-    Object.defineProperty(process, 'platform', { value: 'linux' });
-    execFileMock.mockImplementationOnce((_command, _args, _options, callback) =>
-      callback(null, 'done', 'warning'),
-    );
-    await expect(installDependencies(directory)).resolves.toBe('done');
-    expect(execFileMock).toHaveBeenCalledWith(
-      'npm',
-      ['install'],
-      { cwd: directory, maxBuffer: Infinity, timeout: 600_000, shell: false },
-      expect.any(Function),
-    );
-  });
+  it.each([
+    [false, ['install']],
+    [true, ['install', '--ignore-scripts']],
+  ])(
+    'runs npm directly on Unix with ignoreScripts=%s and resolves stdout',
+    async (ignoreScripts, args) => {
+      Object.defineProperty(process, 'platform', { value: 'linux' });
+      execFileMock.mockImplementationOnce(
+        (_command, _args, _options, callback) =>
+          callback(null, 'done', 'warning'),
+      );
+      await expect(
+        installDependencies(directory, { ignoreScripts }),
+      ).resolves.toBe('done');
+      expect(execFileMock).toHaveBeenCalledWith(
+        'npm',
+        args,
+        { cwd: directory, maxBuffer: Infinity, timeout: 600_000, shell: false },
+        expect.any(Function),
+      );
+    },
+  );
 
   it('uses the Windows shell to resolve npm.cmd', async () => {
     Object.defineProperty(process, 'platform', { value: 'win32' });

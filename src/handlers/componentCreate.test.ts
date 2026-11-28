@@ -32,7 +32,7 @@ jest.mock('@clack/prompts', () => {
   };
 });
 
-import { text } from '@clack/prompts';
+import { CANCEL_SYMBOL, text } from '@clack/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import CliError from '../lib/CliError.js';
 import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
@@ -379,6 +379,16 @@ describe('componentCreate', () => {
     await expect(componentCreate('button', { directory: 'base' })).rejects.toBe(
       cancellation,
     );
+  });
+
+  it('propagates component name cancellation before generating files', async () => {
+    textMock.mockResolvedValueOnce(CANCEL_SYMBOL);
+
+    const creation = componentCreate(undefined, { directory: 'base' });
+
+    await expect(creation).rejects.toBeInstanceOf(PromptCancelledError);
+    await expect(creation).rejects.toHaveProperty('exitCode', 130);
+    expect(generateComponentMock).not.toHaveBeenCalled();
   });
 
   it('summarizes the created component for the session', async () => {

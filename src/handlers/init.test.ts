@@ -26,13 +26,14 @@ import fs from 'fs';
 import { join, resolve } from 'path';
 import { simpleGit as git } from 'simple-git';
 import log from '../lib/log.js';
-import { select, text } from '@clack/prompts';
+import { CANCEL_SYMBOL, select, text } from '@clack/prompts';
 import { note, onAbort, spinner } from '../lib/session.js';
 import installDependencies from '../util/project/installDependencies.js';
 import getPlatformInfo from '../util/platform/getPlatformInfo.js';
 import loadJsonFile from '../util/fs/loadJsonFile.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
 import executeScript from '../util/fs/executeScript.js';
+import { PromptCancelledError } from '../util/prompt/index.js';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_PROJECT_HOOK_FOLDER,
@@ -149,6 +150,23 @@ describe('init', () => {
       placeholder: 'emulsifyTheme',
       defaultValue: 'emulsifyTheme',
     });
+  });
+
+  it('propagates project name cancellation before creating any files', async () => {
+    setStdinIsTTY(true);
+    textMock.mockResolvedValueOnce(CANCEL_SYMBOL);
+
+    const initialization = init();
+
+    await expect(initialization).rejects.toBeInstanceOf(PromptCancelledError);
+    await expect(initialization).rejects.toHaveProperty('exitCode', 130);
+    expect(mkdirMock).not.toHaveBeenCalled();
+    expect(gitCloneMock).not.toHaveBeenCalled();
+    expect(writeJsonFileMock).not.toHaveBeenCalled();
+    expect(installDependenciesMock).not.toHaveBeenCalled();
+    expect(executeScriptMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalled();
+    expect(rmSyncMock).not.toHaveBeenCalled();
   });
 
   it('can detect the platform, and use information about the platform to autodetect the target directory and Emulsify starter', async () => {

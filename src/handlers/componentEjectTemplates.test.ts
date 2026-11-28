@@ -38,7 +38,7 @@ jest.mock('@clack/prompts', () => {
 jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
 
-import { multiselect } from '@clack/prompts';
+import { CANCEL_SYMBOL, multiselect } from '@clack/prompts';
 import { note } from '../lib/session.js';
 import { constants as fsConstants, promises as fs } from 'fs';
 import { basename, dirname, join, resolve } from 'path';
@@ -48,6 +48,7 @@ import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants.js';
 import log from '../lib/log.js';
 import expectToContainInOrder from '../testUtils/expectToContainInOrder.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
+import { PromptCancelledError } from '../util/prompt/index.js';
 import type { ComponentType } from '../util/project/componentTypes.js';
 import { buildEjectableComponentTemplates } from '../util/project/componentTemplates/index.js';
 import componentEjectTemplates, {
@@ -459,6 +460,18 @@ describe('componentEjectTemplates', () => {
       message: 'Select at least one component type.',
     });
 
+    expect(pathExistsMock).not.toHaveBeenCalled();
+    expectNoWrites();
+  });
+
+  it('propagates template selection cancellation before touching files', async () => {
+    setStdinIsTTY(true);
+    multiselectMock.mockResolvedValueOnce(CANCEL_SYMBOL);
+
+    const ejection = componentEjectTemplates(undefined);
+
+    await expect(ejection).rejects.toBeInstanceOf(PromptCancelledError);
+    await expect(ejection).rejects.toHaveProperty('exitCode', 130);
     expect(pathExistsMock).not.toHaveBeenCalled();
     expectNoWrites();
   });

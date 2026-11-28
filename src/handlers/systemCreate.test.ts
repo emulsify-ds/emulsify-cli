@@ -42,7 +42,7 @@ jest.mock('@clack/prompts', () => {
 
 import type { CreateSystemHandlerOptions } from '@emulsify-cli/handlers';
 
-import { confirm, multiselect, text } from '@clack/prompts';
+import { CANCEL_SYMBOL, confirm, multiselect, text } from '@clack/prompts';
 import { existsSync, promises as fs } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { simpleGit } from 'simple-git';
@@ -51,6 +51,7 @@ import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../lib/constants.js';
 import log from '../lib/log.js';
 import expectToContainInOrder from '../testUtils/expectToContainInOrder.js';
 import writeToJsonFile from '../util/fs/writeToJsonFile.js';
+import { PromptCancelledError } from '../util/prompt/index.js';
 import type { BuildSystemScaffoldOptions } from '../util/system/buildSystemScaffold.js';
 import * as scaffoldModule from '../util/system/buildSystemScaffold.js';
 import validateSystemConfig from '../util/system/validateSystemConfig.js';
@@ -144,6 +145,22 @@ describe('systemCreate', () => {
 
   afterAll(() => {
     setStdinIsTTY(originalStdinIsTTY);
+  });
+
+  it('propagates platform selection cancellation before writing the scaffold', async () => {
+    setStdinIsTTY(true);
+    multiselectMock.mockResolvedValueOnce(CANCEL_SYMBOL);
+
+    const creation = systemCreate('acme-system', {
+      ...explicitOptions,
+      platform: undefined,
+      git: undefined,
+    });
+
+    await expect(creation).rejects.toBeInstanceOf(PromptCancelledError);
+    await expect(creation).rejects.toHaveProperty('exitCode', 130);
+    expect(confirmMock).not.toHaveBeenCalled();
+    expectNoWrites();
   });
 
   it('writes a generated scaffold without a minimum CLI version after shared validation', async () => {

@@ -94,12 +94,8 @@ describe('log', () => {
     log('error', 'error message');
     log('warn', 'warn message');
 
-    expect(renderMock.error).toHaveBeenCalledWith('error message', {
-      output: expect.anything(),
-    });
-    expect(renderMock.warn).toHaveBeenCalledWith('warn message', {
-      output: expect.anything(),
-    });
+    expect(renderMock.error.mock.calls[0]?.[1]?.output).toBe(process.stderr);
+    expect(renderMock.warn.mock.calls[0]?.[1]?.output).toBe(process.stderr);
   });
 
   it.each(['error', 'warn'] as const)(

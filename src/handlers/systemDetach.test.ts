@@ -18,9 +18,10 @@ jest.mock('@clack/prompts', () => {
   };
 });
 
-import { confirm } from '@clack/prompts';
+import { CANCEL_SYMBOL, confirm } from '@clack/prompts';
 
 import log from '../lib/log.js';
+import { PromptCancelledError } from '../util/prompt/index.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import unsetEmulsifyConfig from '../util/project/unsetEmulsifyConfig.js';
 import systemDetach from './systemDetach.js';
@@ -153,6 +154,17 @@ describe('systemDetach', () => {
     );
 
     expect(confirmMock).toHaveBeenCalledTimes(1);
+    expectNoConfigMutation();
+  });
+
+  it('propagates confirmation cancellation without writing configuration', async () => {
+    setStdinIsTTY(true);
+    confirmMock.mockResolvedValueOnce(CANCEL_SYMBOL);
+
+    const detachment = systemDetach();
+
+    await expect(detachment).rejects.toBeInstanceOf(PromptCancelledError);
+    await expect(detachment).rejects.toHaveProperty('exitCode', 130);
     expectNoConfigMutation();
   });
 
