@@ -1089,7 +1089,7 @@ describe('componentInstall', () => {
       pathExistsMock.mockResolvedValue(true);
       confirmMock.mockResolvedValue(true);
 
-      const install = componentInstall('button', { skipNpm: true });
+      const install = componentInstall('button', {});
 
       await expect(install).rejects.toBeInstanceOf(CliError);
       await expect(install).rejects.toThrow(
@@ -1101,6 +1101,47 @@ describe('componentInstall', () => {
       expect(writeFileMock).not.toHaveBeenCalled();
       expect(installDependenciesMock).not.toHaveBeenCalled();
     });
+
+    it.each(['skipNpm', 'dryRun'] as const)(
+      'warns about invalid entries and keeps valid ones with %s',
+      async (mode) => {
+        declarePackages({
+          button: { '../evil': '^1.0.0', safe: '^2.0.0' },
+          icon: { swiper: 'latest' },
+        });
+
+        await expect(
+          componentInstall('', { all: true, [mode]: true }),
+        ).resolves.toBe(
+          mode === 'dryRun' ? 'Dry run complete' : 'Installed 3 components',
+        );
+
+        expect(logMock).toHaveBeenCalledWith(
+          'warn',
+          expect.stringContaining('"../evil" has an invalid npm package name.'),
+        );
+        expect(logMock).toHaveBeenCalledWith(
+          'warn',
+          expect.stringContaining('"swiper" must use a valid semver range.'),
+        );
+        if (mode === 'dryRun') {
+          expect(logMock).toHaveBeenCalledWith(
+            'info',
+            expect.stringContaining('safe@^2.0.0'),
+          );
+          expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+        } else {
+          expect(noteMock).toHaveBeenCalledWith(
+            expect.stringContaining('safe@^2.0.0'),
+            'npm packages',
+          );
+          expect(copyItemFromCacheMock).toHaveBeenCalledTimes(3);
+        }
+        expect(confirmMock).not.toHaveBeenCalled();
+        expect(writeFileMock).not.toHaveBeenCalled();
+        expect(installDependenciesMock).not.toHaveBeenCalled();
+      },
+    );
 
     it.each(['missing', 'invalid'])(
       'rejects a %s package.json before changing files',
@@ -1146,6 +1187,51 @@ describe('componentInstall', () => {
       expect(logMock).toHaveBeenCalledWith(
         'warn',
         expect.stringContaining('npm install "swiper@^11.2.0"'),
+      );
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
+
+    it('warns about a peer-only entry and adds a direct dependency', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      readFileMock.mockResolvedValue(
+        '{"peerDependencies":{"swiper":"^11.2.0"}}',
+      );
+
+      await expect(componentInstall('card', { yes: true })).resolves.toBe(
+        'Installed 1 component · added 1 npm package',
+      );
+
+      expect(logMock).toHaveBeenCalledWith(
+        'warn',
+        expect.stringContaining('swiper is declared in peerDependencies'),
+      );
+      expect(JSON.parse(writeFileMock.mock.calls[0][0])).toEqual({
+        peerDependencies: { swiper: '^11.2.0' },
+        dependencies: { swiper: '^11.2.0' },
+      });
+      expect(installDependenciesMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('warns that an optional entry needs attention before it can become required', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      readFileMock.mockResolvedValue(
+        '{"optionalDependencies":{"swiper":"^11.2.0"}}',
+      );
+
+      await expect(componentInstall('card', {})).resolves.toBe(
+        'Installed 1 component',
+      );
+
+      expect(logMock).toHaveBeenCalledWith(
+        'warn',
+        expect.stringContaining('swiper is declared in optionalDependencies'),
+      );
+      expect(noteMock).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'needs attention (declared in optionalDependencies)',
+        ),
+        'npm packages',
       );
       expect(writeFileMock).not.toHaveBeenCalled();
       expect(installDependenciesMock).not.toHaveBeenCalled();

@@ -108,6 +108,13 @@ describe('collectComponentNpmDependencies', () => {
     ['^11.2.0', '^11.2.0', '^11.2.0'],
     ['^11.2.0', '^11.3.0', '^11.3.0'],
     ['^11.3.0', '^11.2.0', '^11.3.0'],
+    ['>=11 <13', '>=12 <14', '>=12.0.0 <13.0.0'],
+    ['>=11.0.0 <12.0.0', '>=11.2.0 <13.0.0', '>=11.2.0 <12.0.0'],
+    ['^11.0.0', '>=11.1.0', '>=11.1.0 <12.0.0'],
+    ['^10 || ^12', '^10 || ^13', '>=10.0.0 <11.0.0-0'],
+    ['>=1.0.0-beta <2.0.0', '>=0.5.0 <1.1.0', '>=1.0.0 <1.1.0'],
+    ['>1.0.0 <1.0.1-beta', '>1.0.0 <1.0.1-alpha', '>1.0.0 <1.0.1-alpha'],
+    ['>1.2.9007199254740991', '<1.3.1', '>1.2.9007199254740991 <1.3.1'],
   ])('merges %s and %s as %s', (first, second, range) => {
     expect(
       collectComponentNpmDependencies(system, [
@@ -119,7 +126,9 @@ describe('collectComponentNpmDependencies', () => {
 
   it.each([
     ['^11.2.0', '^12.0.0'],
-    ['>=11 <13', '>=12 <14'],
+    ['>1.0.0', '<1.0.1'],
+    ['>1.2.9007199254740991', '<1.3.0'],
+    ['1.2.3-alpha', '>=1.2.0 <1.3.0'],
   ])('reports both components and ranges when %s conflicts with %s', (a, b) => {
     const collect = () =>
       collectComponentNpmDependencies(system, [
@@ -133,16 +142,52 @@ describe('collectComponentNpmDependencies', () => {
     );
   });
 
-  it('does not let a narrower range hide a conflict between other components', () => {
+  it('reports all components when pairwise intersections have no shared version', () => {
     expect(() =>
       collectComponentNpmDependencies(system, [
         { name: component, npmDependencies: { swiper: '^10 || ^11' } },
-        { name: 'carousel', npmDependencies: { swiper: '^11' } },
-        { name: 'gallery', npmDependencies: { swiper: '^11 || ^12' } },
+        { name: 'carousel', npmDependencies: { swiper: '^11 || ^12' } },
+        { name: 'gallery', npmDependencies: { swiper: '^10 || ^12' } },
       ]),
     ).toThrow(
-      'component "gallery", npm package "swiper" requires "^11 || ^12", which conflicts with "^10 || ^11" required by component "slider".',
+      'component "gallery", npm package "swiper" requires "^10 || ^12", which conflicts with the combined range ">=11.0.0 <12.0.0-0" required by components "slider", "carousel".',
     );
+  });
+
+  it('reports individual invalid entries while retaining other declarations', () => {
+    const report = jest.fn<void, [CliError]>();
+
+    expect(
+      collectComponentNpmDependencies(
+        system,
+        [
+          {
+            name: component,
+            npmDependencies: { '../evil': '^1.0.0', swiper: '^11.0.0' },
+          },
+          {
+            name: 'carousel',
+            npmDependencies: {
+              swiper: '^12.0.0',
+              classnames: '^3.0.0',
+              chalk: 'latest',
+            },
+          },
+          { name: 'gallery', npmDependencies: { swiper: '^11.4.0' } },
+        ],
+        report,
+      ),
+    ).toEqual([
+      { name: 'swiper', range: '^11.4.0', components: [component, 'gallery'] },
+      { name: 'classnames', range: '^3.0.0', components: ['carousel'] },
+    ]);
+    expect(report.mock.calls.map(([error]) => error.message)).toEqual([
+      expect.stringContaining('"../evil" has an invalid npm package name'),
+      expect.stringContaining(
+        'requires "^12.0.0", which conflicts with "^11.0.0"',
+      ),
+      expect.stringContaining('"chalk" must use a valid semver range'),
+    ]);
   });
 });
 
@@ -163,8 +208,6 @@ describe('classifyComponentNpmDependencies', () => {
     ['dependencies', '11.2.6'],
     ['dependencies', '^11.3.0'],
     ['devDependencies', '^11.2.0'],
-    ['optionalDependencies', '~11.4.0'],
-    ['peerDependencies', '11.2.x'],
   ])('accepts satisfying range %s with value %s', (section, declaredRange) => {
     expect(
       classifyComponentNpmDependencies(requirements, {
@@ -190,11 +233,11 @@ describe('classifyComponentNpmDependencies', () => {
     ]);
   });
 
-  it('flags an incompatible declaration even when another section satisfies the requirement', () => {
+  it('flags an incompatible direct declaration even when another direct section satisfies it', () => {
     expect(
       classifyComponentNpmDependencies(requirements, {
         dependencies: { swiper: '11.2.6' },
-        optionalDependencies: { swiper: '^10.3.0' },
+        devDependencies: { swiper: '^10.3.0' },
       }),
     ).toEqual([
       {
@@ -204,6 +247,54 @@ describe('classifyComponentNpmDependencies', () => {
       },
     ]);
   });
+
+  it('treats a peer dependency as missing and names its manifest section', () => {
+    expect(
+      classifyComponentNpmDependencies(requirements, {
+        peerDependencies: { swiper: '^11.2.0' },
+      }),
+    ).toEqual([
+      {
+        ...requirements[0],
+        status: 'missing',
+        nonSatisfyingSections: ['peerDependencies'],
+      },
+    ]);
+  });
+
+  it('allows a direct dependency to satisfy a requirement even with a peer declaration', () => {
+    expect(
+      classifyComponentNpmDependencies(requirements, {
+        dependencies: { swiper: '^11.2.0' },
+        peerDependencies: { swiper: '^11.2.0' },
+      }),
+    ).toEqual([
+      {
+        ...requirements[0],
+        status: 'satisfied',
+        nonSatisfyingSections: ['peerDependencies'],
+      },
+    ]);
+  });
+
+  it.each([{}, { dependencies: { swiper: '^11.2.0' } }])(
+    'flags optional dependencies for attention with direct declarations %j',
+    (direct) => {
+      expect(
+        classifyComponentNpmDependencies(requirements, {
+          ...direct,
+          optionalDependencies: { swiper: '~11.4.0' },
+        }),
+      ).toEqual([
+        {
+          ...requirements[0],
+          status: 'needs-attention',
+          declaredRange: '~11.4.0',
+          nonSatisfyingSections: ['optionalDependencies'],
+        },
+      ]);
+    },
+  );
 
   it('ignores manifest sections that are not dependency maps', () => {
     const requirement = { ...requirements[0], name: '0' };

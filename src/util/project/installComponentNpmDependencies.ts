@@ -52,7 +52,14 @@ export async function prepareComponentNpmInstall(
   projectConfigPath: string | void,
   reportOnly: boolean,
 ): Promise<ComponentNpmInstallPlan | undefined> {
-  const requirements = collectComponentNpmDependencies(system, components);
+  const requirements = collectComponentNpmDependencies(
+    system,
+    components,
+    reportOnly
+      ? (error) =>
+          log('warn', `${error.message} Ignoring this npm declaration.`)
+      : undefined,
+  );
   if (requirements.length === 0) return;
 
   if (!projectConfigPath) {
@@ -76,11 +83,27 @@ export async function prepareComponentNpmInstall(
     if (!reportOnly) throw new CliError(manifestProblem);
   }
 
+  const packages = classifyComponentNpmDependencies(requirements, json);
+  for (const pkg of packages) {
+    if (pkg.nonSatisfyingSections?.includes('peerDependencies')) {
+      log(
+        'warn',
+        `${pkg.name} is declared in peerDependencies. Only dependencies or devDependencies satisfy ${formatSpec(pkg)}.`,
+      );
+    }
+    if (pkg.nonSatisfyingSections?.includes('optionalDependencies')) {
+      log(
+        'warn',
+        `${pkg.name} is declared in optionalDependencies, which can override dependencies. Move the entry to dependencies or devDependencies with a range that satisfies ${formatSpec(pkg)}.`,
+      );
+    }
+  }
+
   return {
     root,
     manifest,
     manager: detectComponentPackageManager(root, json.packageManager),
-    packages: classifyComponentNpmDependencies(requirements, json),
+    packages,
     manifestProblem,
   };
 }
@@ -146,7 +169,9 @@ export function formatComponentNpmInstall(
           mode === 'preview' ? 'already satisfied' : 'already in package.json';
         break;
       case 'needs-attention':
-        status = `needs attention (package.json has ${JSON.stringify(pkg.declaredRange)})`;
+        status = pkg.nonSatisfyingSections?.includes('optionalDependencies')
+          ? 'needs attention (declared in optionalDependencies)'
+          : `needs attention (package.json has ${JSON.stringify(pkg.declaredRange)})`;
         break;
       case 'missing':
         status =
@@ -208,7 +233,12 @@ export async function applyComponentNpmInstall(
 
   note(formatComponentNpmInstall(plan, 'install'), 'npm packages');
   for (const pkg of plan.packages) {
-    if (pkg.status !== 'needs-attention') continue;
+    if (
+      pkg.status !== 'needs-attention' ||
+      pkg.nonSatisfyingSections?.includes('optionalDependencies')
+    ) {
+      continue;
+    }
     const command = formatAddCommand(plan.manager, [pkg]);
     log(
       'warn',

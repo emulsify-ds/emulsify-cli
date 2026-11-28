@@ -135,12 +135,28 @@ describe('detectComponentPackageManager', () => {
 
   it('uses the first matching lockfile in the prescribed order', () => {
     existsMock.mockReturnValue(true);
-    expect(detectComponentPackageManager(projectRoot)).toBe('npm');
+    expect(detectComponentPackageManager(projectRoot)).toBe('pnpm');
     expect(existsMock).toHaveBeenCalledTimes(1);
     expect(existsMock).toHaveBeenCalledWith(
-      join(projectRoot, 'package-lock.json'),
+      join(projectRoot, 'pnpm-lock.yaml'),
     );
   });
+
+  it.each([
+    ['pnpm-lock.yaml', 'pnpm'],
+    ['yarn.lock', 'yarn'],
+    ['bun.lock', 'bun'],
+  ])(
+    'prefers %s when npm lockfiles remain in the project',
+    (lockfile, manager) => {
+      const available = [lockfile, 'package-lock.json', 'npm-shrinkwrap.json'];
+      existsMock.mockImplementation((path) =>
+        available.some((file) => path === join(projectRoot, file)),
+      );
+
+      expect(detectComponentPackageManager(projectRoot)).toBe(manager);
+    },
+  );
 });
 
 describe('writeComponentNpmManifest', () => {

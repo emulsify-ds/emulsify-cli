@@ -414,7 +414,7 @@ describe('systemInstall', () => {
     getEmulsifyConfigMock.mockResolvedValue(projectConfig);
     // A found project config plus an existing hook covers the optional hook branch.
     findFileInCurrentPathMock.mockReturnValue(projectConfigPath);
-    existsSyncMock.mockReturnValue(true);
+    existsSyncMock.mockImplementation((path) => path === systemInstallHookPath);
     executeScriptMock.mockResolvedValue(undefined);
   });
 

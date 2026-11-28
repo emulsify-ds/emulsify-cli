@@ -21,12 +21,12 @@ export type ComponentPackageManager =
   'npm' | 'pnpm' | 'yarn' | 'bun' | 'unsupported';
 
 const lockfiles = [
-  ['package-lock.json', 'npm'],
-  ['npm-shrinkwrap.json', 'npm'],
   ['pnpm-lock.yaml', 'pnpm'],
   ['yarn.lock', 'yarn'],
   ['bun.lock', 'bun'],
   ['bun.lockb', 'bun'],
+  ['package-lock.json', 'npm'],
+  ['npm-shrinkwrap.json', 'npm'],
 ] as const;
 
 function isObject(value: unknown): value is Record<string, unknown> {

@@ -124,23 +124,30 @@ The install summary shows the status of each package.
 | Status                  | What it means                                                                                                                        |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Added                   | The CLI added the missing package to `dependencies` in the project's `package.json`.                                                |
-| Already in package.json | An existing spec in `dependencies`, `devDependencies`, `optionalDependencies`, or `peerDependencies` fits the required range.       |
-| Needs attention         | An existing spec falls outside the requirement, or the CLI cannot verify it. The CLI keeps the spec and prints a suggested command. |
+| Already in package.json | An existing spec in `dependencies` or `devDependencies` fits the required range.                                                   |
+| Needs attention         | A declaration cannot satisfy the requirement. The CLI keeps it and explains how to update it.                                     |
+
+When several components require the same package, the CLI uses the range they
+have in common. An entry in `peerDependencies` produces a warning. If a package
+is listed in `optionalDependencies`, move it to `dependencies` or
+`devDependencies` to make it required. An optional entry can override a direct
+dependency with the same name. See [npm’s package.json reference](https://docs.npmjs.com/cli/configuring-npm/package-json/#optionaldependencies).
 
 For npm projects, the CLI runs `npm install --ignore-scripts` once when it adds
 packages. If a package needs its lifecycle scripts, run `npm rebuild` from
 the project root. For pnpm, Yarn, and Bun projects, the CLI records the
 dependencies and prints the matching install command for you to run. When the
-project has no `packageManager` field, the CLI checks its lockfiles and defaults
-to npm if it finds none.
+project has no `packageManager` field, the CLI checks for pnpm, Yarn, and Bun
+lockfiles before npm lockfiles and defaults to npm if it finds none.
 
 A component that needs npm packages requires a valid `package.json` in the
 project root. If the npm install fails, the copied components and new dependency
 entries stay in place. Run `npm install --ignore-scripts` in the project root to
 finish.
 
-On `component install`, `--dry-run` previews the package statuses and any
-missing or invalid `package.json` alongside the planned component copies.
+`--skip-npm` and `--dry-run` warn about invalid npm declarations and report any
+valid declarations that remain. On `component install`, `--dry-run` also previews
+any missing or invalid `package.json` alongside the planned component copies.
 
 ```bash
 emulsify component install slider --dry-run
