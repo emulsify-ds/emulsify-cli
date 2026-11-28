@@ -6,9 +6,10 @@ import type { CreateComponentHandlerOptions } from '@emulsify-cli/handlers';
 
 import { confirm, select, text } from '@clack/prompts';
 import { promises as fs } from 'fs';
-import { dirname } from 'path';
-import { pathExists, remove } from 'fs-extra';
+import { dirname, join } from 'path';
+import { pathExists } from 'fs-extra';
 
+import CliError from '../../lib/CliError.js';
 import log from '../../lib/log.js';
 import { markSessionMayHaveChanges, note } from '../../lib/session.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
@@ -37,7 +38,10 @@ import {
 } from './componentTypes.js';
 import resolveComponentTemplate from './resolveComponentTemplate.js';
 import type { ComponentTemplateVars } from './renderTemplate.js';
-import { buildComponentArtifacts } from './componentTemplates/index.js';
+import {
+  buildComponentArtifacts,
+  type ComponentArtifact,
+} from './componentTemplates/index.js';
 
 const TYPE_LABELS: Record<ComponentType, string> = {
   twig: 'Twig',
@@ -117,6 +121,60 @@ function validateCustomElementTagName(
     return undefined;
   } catch (error) {
     return (error as Error).message;
+  }
+}
+
+async function writeComponentFiles(
+  directory: string,
+  artifacts: ComponentArtifact[],
+): Promise<void> {
+  for (const { destinationName, contents } of artifacts) {
+    await fs.writeFile(join(directory, destinationName), contents);
+  }
+}
+
+async function cleanUpComponentDirectory(directory: string): Promise<void> {
+  try {
+    await fs.rm(directory, { recursive: true, force: true });
+  } catch (error) {
+    log(
+      'warn',
+      `Unable to clean up component directory "${directory}": ${String(error)}`,
+    );
+  }
+}
+
+async function replaceComponentDirectory(
+  destination: string,
+  artifacts: ComponentArtifact[],
+): Promise<void> {
+  const transaction = await fs.mkdtemp(
+    join(dirname(destination), '.emulsify-component-'),
+  );
+  const staged = join(transaction, 'staged');
+  const backup = join(transaction, 'original');
+  let keepBackup = false;
+
+  try {
+    await fs.mkdir(staged);
+    await writeComponentFiles(staged, artifacts);
+    await fs.rename(destination, backup);
+
+    try {
+      await fs.rename(staged, destination);
+    } catch (error) {
+      try {
+        await fs.rename(backup, destination);
+      } catch (restoreError) {
+        keepBackup = true;
+        throw new CliError(
+          `Unable to replace component "${destination}": ${String(error)}. Restore the original component from "${backup}". Automatic restoration failed: ${String(restoreError)}.`,
+        );
+      }
+      throw error;
+    }
+  } finally {
+    if (!keepBackup) await cleanUpComponentDirectory(transaction);
   }
 }
 
@@ -297,7 +355,9 @@ export default async function generateComponent(
     const realRunAction = componentExists
       ? force
         ? 'replace the existing component directory'
-        : 'prompt before replacing the existing component directory'
+        : isInteractiveTerminal()
+          ? 'prompt before replacing the existing component directory'
+          : 'fail unless --force is passed to replace the existing component directory'
       : 'create the component directory';
     const generatedFiles = artifactDestinations
       .map((filePath) => `  - ${filePath}`)
@@ -329,7 +389,9 @@ export default async function generateComponent(
           message: `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
           initialValue: false,
         }),
-      nonInteractive: { value: false },
+      nonInteractive: {
+        error: `The component "${humanName}" already exists in ${structure.directory}. Pass --force to replace it in non-interactive mode.`,
+      },
       accept: { when: force, value: true },
     });
 
@@ -340,32 +402,32 @@ export default async function generateComponent(
     }
   }
 
-  markSessionMayHaveChanges();
-  if (!parentExists) {
-    await fs.mkdir(parentPath, { recursive: true });
-  }
-
-  if (componentExists) {
-    // Remove the existing component directory to ensure a clean start.
-    await remove(destination);
-  }
-
-  // Create the component directory
-  await fs.mkdir(destination, { recursive: true });
-
-  for (const [index, artifact] of artifacts.entries()) {
-    // Resolve a project override first; missing or empty overrides fall back to
-    // the byte-for-byte built-in builders for each known generated artifact.
-    const templateFile =
+  // Render every override before making any changes to the project.
+  for (const artifact of artifacts) {
+    artifact.contents =
       (await resolveComponentTemplate(
         projectRoot,
         type,
         artifact.logicalName,
         templateVars,
       )) ?? artifact.contents;
-    const artifactDestination = artifactDestinations[index];
+  }
 
-    await fs.writeFile(artifactDestination, templateFile);
+  markSessionMayHaveChanges();
+  if (!parentExists) {
+    await fs.mkdir(parentPath, { recursive: true });
+  }
+  if (componentExists) {
+    await replaceComponentDirectory(destination, artifacts);
+  } else {
+    // Reserve the path so a concurrent create cannot overwrite it.
+    await fs.mkdir(destination);
+    try {
+      await writeComponentFiles(destination, artifacts);
+    } catch (error) {
+      await cleanUpComponentDirectory(destination);
+      throw error;
+    }
   }
 
   log(

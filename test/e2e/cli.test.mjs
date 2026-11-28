@@ -546,6 +546,49 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.match(result.stderr, /Pass --directory <directory>/u);
   });
 
+  test('requires --force to replace an existing component outside a TTY', () => {
+    const name = 'component-overwrite-project';
+    const root = createComponentPackageProject(name, json({ name }));
+    const destination = join(root, 'components', 'card');
+    const template = join(destination, 'card.twig');
+    const notes = join(destination, 'notes.md');
+    const originalTemplate = '{# Hand-edited template #}\n';
+    mkdirSync(destination, { recursive: true });
+    writeFileSync(template, originalTemplate);
+    writeFileSync(notes, 'Project-specific notes\n');
+    const before = snapshotFiles(destination);
+    const args = [
+      'component',
+      'create',
+      'card',
+      '--directory',
+      'components',
+      '--type',
+      'twig',
+    ];
+
+    const declined = runCli(root, args);
+    assert.equal(
+      declined.status,
+      1,
+      commandFailure('component create', declined),
+    );
+    assert.match(
+      declined.stderr,
+      /The component "Card" already exists in components\. Pass --force to replace it in non-interactive mode\./u,
+    );
+    assert.deepEqual(snapshotFiles(destination), before);
+
+    const forced = runCli(root, [...args, '--force']);
+    assert.equal(
+      forced.status,
+      0,
+      commandFailure('component create --force', forced),
+    );
+    assert.notEqual(readFileSync(template, 'utf8'), originalTemplate);
+    assert.equal(existsSync(notes), false);
+  });
+
   test('fails fast when component install has no target outside a TTY', () => {
     const result = runCli(tempRoot, ['component', 'install']);
 

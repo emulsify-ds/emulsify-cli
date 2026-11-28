@@ -1,16 +1,3 @@
-jest.mock('fs-extra', () => ({
-  __esModule: true,
-  default: {
-    mkdir: jest.fn(),
-    emptyDir: jest.fn(),
-    writeFile: jest.fn(),
-    copy: jest.fn(),
-    remove: jest.fn(),
-  },
-  pathExists: jest.fn(),
-  emptyDir: jest.fn(),
-  remove: jest.fn(),
-}));
 // The prompt library is ESM-only, so the mock is built from a factory rather
 // than automocked from the real module.
 jest.mock('@clack/prompts', () => {
@@ -35,10 +22,12 @@ jest.mock('../fs/loadJsonFile.js');
 
 import { CANCEL_SYMBOL, confirm, select, text } from '@clack/prompts';
 import { promises as fs } from 'fs';
+import { tmpdir } from 'os';
 import { join, normalize, resolve, sep } from 'path';
-import { pathExists, remove } from 'fs-extra';
+import { pathExists } from 'fs-extra';
+import CliError from '../../lib/CliError.js';
 import log from '../../lib/log.js';
-import { note } from '../../lib/session.js';
+import { markSessionMayHaveChanges, note } from '../../lib/session.js';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_PROJECT_TEMPLATES_FOLDER,
@@ -57,6 +46,12 @@ const projectRoot = resolve(
 );
 const projectConfigPath = join(projectRoot, EMULSIFY_PROJECT_CONFIG_FILE);
 const componentStructurePath = join(projectRoot, 'components', '00-base');
+const transactionPath = join(
+  componentStructurePath,
+  '.emulsify-component-test',
+);
+const stagedPath = join(transactionPath, 'staged');
+const backupPath = join(transactionPath, 'original');
 const componentPath = (name: string, fileName?: string) =>
   fileName
     ? join(componentStructurePath, name, fileName)
@@ -97,7 +92,9 @@ const projectConfig: EmulsifyProjectConfiguration = {
 };
 
 const pathExistsMock = (pathExists as jest.Mock).mockResolvedValue(true);
-const removeMock = remove as jest.Mock;
+const rmMock = jest.mocked(fs.rm);
+const renameMock = jest.mocked(fs.rename);
+const mkdtempMock = jest.mocked(fs.mkdtemp);
 const readFileMock = fs.readFile as jest.Mock;
 const writeFileMock = fs.writeFile as jest.Mock;
 const mkdirMock = fs.mkdir as jest.Mock;
@@ -154,6 +151,7 @@ describe('generateComponent', () => {
     setStdinIsTTY(true);
     pathExistsMock.mockImplementation((path) => !isTemplatePath(path));
     readFileMock.mockResolvedValue('');
+    mkdtempMock.mockResolvedValue(transactionPath);
     loadJsonFileMock.mockResolvedValue({
       dependencies: { '@emulsify/core': '^4.4.0' },
     });
@@ -418,7 +416,7 @@ describe('generateComponent', () => {
     });
 
     expect(confirm).not.toHaveBeenCalled();
-    expect(removeMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalled();
     expect(mkdirMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
     expect(noteMock).toHaveBeenCalledWith(
@@ -446,7 +444,7 @@ describe('generateComponent', () => {
       dryRun: true,
     });
 
-    expect(removeMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalled();
     expect(mkdirMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
     expect(noteMock).toHaveBeenCalledWith(
@@ -459,31 +457,38 @@ describe('generateComponent', () => {
     );
   });
 
-  it('previews an existing destination without prompting or removing in dry-run mode', async () => {
-    expect.assertions(5);
-    setStdinIsTTY(false);
-    pathExistsMock.mockImplementation((path) => !isTemplatePath(path));
+  it.each([
+    [true, 'prompt before replacing the existing component directory'],
+    [
+      false,
+      'fail unless --force is passed to replace the existing component directory',
+    ],
+  ] as const)(
+    'previews an existing destination when interactive is %s',
+    async (isTTY, action) => {
+      expect.assertions(5);
+      setStdinIsTTY(isTTY);
+      pathExistsMock.mockImplementation((path) => !isTemplatePath(path));
 
-    await generateComponent(variant, projectConfig, 'link', {
-      directory: 'base',
-      type: 'twig',
-      dryRun: true,
-    });
+      await generateComponent(variant, projectConfig, 'link', {
+        directory: 'base',
+        type: 'twig',
+        dryRun: true,
+      });
 
-    expect(confirm).not.toHaveBeenCalled();
-    expect(removeMock).not.toHaveBeenCalled();
-    expect(writeFileMock).not.toHaveBeenCalled();
-    expect(noteMock).toHaveBeenCalledWith(
-      expect.stringContaining('Destination exists: yes'),
-      expect.any(String),
-    );
-    expect(noteMock).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'Real run would: prompt before replacing the existing component directory',
-      ),
-      expect.any(String),
-    );
-  });
+      expect(confirm).not.toHaveBeenCalled();
+      expect(rmMock).not.toHaveBeenCalled();
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(noteMock).toHaveBeenCalledWith(
+        expect.stringContaining('Destination exists: yes'),
+        expect.any(String),
+      );
+      expect(noteMock).toHaveBeenCalledWith(
+        expect.stringContaining(`Real run would: ${action}`),
+        expect.any(String),
+      );
+    },
+  );
 
   it('throws a clear error when a provided type is invalid', async () => {
     expect.assertions(4);
@@ -589,7 +594,7 @@ describe('generateComponent', () => {
       `Component structure directory "../../outside" resolves to "${resolve(projectRoot, '../../outside')}", which is outside the expected root "${projectRoot}".`,
     );
 
-    expect(removeMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
   });
 
@@ -612,6 +617,22 @@ describe('generateComponent', () => {
     expect(result).toBe('Canceled; the existing link component was kept');
   });
 
+  it('requires force before replacing an existing component non-interactively', async () => {
+    setStdinIsTTY(false);
+
+    const pending = generateComponent(variant, projectConfig, 'link', {
+      directory: 'base',
+      type: 'twig',
+    });
+    await expect(pending).rejects.toBeInstanceOf(CliError);
+    await expect(pending).rejects.toThrow(
+      'The component "Link" already exists in ./components/00-base. Pass --force to replace it in non-interactive mode.',
+    );
+    expect(confirm).not.toHaveBeenCalled();
+    expect(markSessionMayHaveChanges).not.toHaveBeenCalled();
+    expect(mkdtempMock).not.toHaveBeenCalled();
+  });
+
   it('skips the overwrite confirm and replaces the component when yes is set', async () => {
     expect.assertions(3);
     setStdinIsTTY(false);
@@ -623,7 +644,11 @@ describe('generateComponent', () => {
     });
 
     expect(confirm).not.toHaveBeenCalled();
-    expect(removeMock).toHaveBeenCalledWith(componentPath('link'));
+    expect(renameMock).toHaveBeenNthCalledWith(
+      1,
+      componentPath('link'),
+      backupPath,
+    );
     expect(log).toHaveBeenCalledWith(
       'success',
       expect.stringContaining('Success!'),
@@ -631,7 +656,7 @@ describe('generateComponent', () => {
   });
 
   it('skips the overwrite confirm and replaces the component when force is set', async () => {
-    expect.assertions(3);
+    expect.assertions(5);
     setStdinIsTTY(false);
 
     await generateComponent(variant, projectConfig, 'link', {
@@ -641,7 +666,19 @@ describe('generateComponent', () => {
     });
 
     expect(confirm).not.toHaveBeenCalled();
-    expect(removeMock).toHaveBeenCalledWith(componentPath('link'));
+    expect(renameMock).toHaveBeenNthCalledWith(
+      1,
+      componentPath('link'),
+      backupPath,
+    );
+    expect(renameMock).toHaveBeenNthCalledWith(
+      2,
+      stagedPath,
+      componentPath('link'),
+    );
+    expect(writeFileMock.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      renameMock.mock.invocationCallOrder[0],
+    );
     expect(log).toHaveBeenCalledWith(
       'success',
       expect.stringContaining('Success!'),
@@ -662,6 +699,153 @@ describe('generateComponent', () => {
       expect.stringContaining('Success!'),
     );
     expect(result).toBe('Created the link component in base');
+  });
+
+  it('keeps every original byte when reading the second template fails', async () => {
+    const realFs = jest.requireActual<typeof import('fs')>('fs');
+    const root = await realFs.promises.mkdtemp(
+      join(tmpdir(), 'emulsify-component-'),
+    );
+    try {
+      const destination = join(root, 'components', '00-base', 'link');
+      const templates = join(root, EMULSIFY_PROJECT_TEMPLATES_FOLDER, 'twig');
+      const firstTemplate = join(templates, 'component.twig');
+      const brokenTemplate = join(templates, 'component.scss');
+      const original = {
+        'link.twig': Buffer.from('hand-edited Twig\r\n'),
+        'notes.md': Buffer.from([0, 10, 255]),
+      };
+      await realFs.promises.mkdir(destination, { recursive: true });
+      await realFs.promises.mkdir(templates, { recursive: true });
+      for (const [file, contents] of Object.entries(original)) {
+        await realFs.promises.writeFile(join(destination, file), contents);
+      }
+      await realFs.promises.writeFile(firstTemplate, '{{ filename }}');
+      await realFs.promises.mkdir(brokenTemplate);
+      findFileMock.mockReturnValueOnce(
+        join(root, EMULSIFY_PROJECT_CONFIG_FILE),
+      );
+      pathExistsMock.mockImplementation(realFs.existsSync);
+      readFileMock
+        .mockResolvedValueOnce(
+          await realFs.promises.readFile(firstTemplate, 'utf8'),
+        )
+        .mockRejectedValueOnce(
+          new Error('EISDIR: illegal operation on a directory'),
+        );
+
+      await expect(
+        generateComponent(variant, projectConfig, 'link', {
+          directory: 'base',
+          type: 'twig',
+          force: true,
+        }),
+      ).rejects.toThrow(
+        `Unable to read component template override "${brokenTemplate}"`,
+      );
+
+      expect(readFileMock.mock.calls).toEqual([
+        [firstTemplate, 'utf8'],
+        [brokenTemplate, 'utf8'],
+      ]);
+      expect(markSessionMayHaveChanges).not.toHaveBeenCalled();
+      expect(mkdtempMock).not.toHaveBeenCalled();
+      expect(mkdirMock).not.toHaveBeenCalled();
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(renameMock).not.toHaveBeenCalled();
+      expect(rmMock).not.toHaveBeenCalled();
+      expect((await realFs.promises.readdir(destination)).sort()).toEqual(
+        Object.keys(original),
+      );
+      for (const [file, contents] of Object.entries(original)) {
+        expect(await realFs.promises.readFile(join(destination, file))).toEqual(
+          contents,
+        );
+      }
+    } finally {
+      await realFs.promises.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('cleans up staged files without moving the original when staging fails', async () => {
+    const writeError = new Error('disk full');
+    writeFileMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(writeError);
+
+    await expect(
+      generateComponent(variant, projectConfig, 'link', {
+        directory: 'base',
+        type: 'twig',
+        force: true,
+      }),
+    ).rejects.toBe(writeError);
+
+    expect(renameMock).not.toHaveBeenCalled();
+    expect(rmMock).toHaveBeenCalledWith(transactionPath, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('restores the original component when publishing the staged component fails', async () => {
+    const publishError = new Error('cannot publish component');
+    renameMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(publishError);
+
+    await expect(
+      generateComponent(variant, projectConfig, 'link', {
+        directory: 'base',
+        type: 'twig',
+        force: true,
+      }),
+    ).rejects.toBe(publishError);
+
+    expect(renameMock).toHaveBeenNthCalledWith(
+      3,
+      backupPath,
+      componentPath('link'),
+    );
+    expect(rmMock).toHaveBeenCalledWith(transactionPath, {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('keeps and identifies the backup if restoration fails', async () => {
+    renameMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('cannot publish component'))
+      .mockRejectedValueOnce(new Error('cannot restore component'));
+
+    await expect(
+      generateComponent(variant, projectConfig, 'link', {
+        directory: 'base',
+        type: 'twig',
+        force: true,
+      }),
+    ).rejects.toThrow(`Restore the original component from "${backupPath}"`);
+
+    expect(rmMock).not.toHaveBeenCalled();
+  });
+
+  it('removes an incomplete new component when writing fails', async () => {
+    pathExistsMock.mockResolvedValue(false);
+    const writeError = new Error('disk full');
+    writeFileMock.mockRejectedValueOnce(writeError);
+
+    await expect(
+      generateComponent(variant, projectConfig, 'link', {
+        directory: 'base',
+        type: 'twig',
+      }),
+    ).rejects.toBe(writeError);
+
+    expect(rmMock).toHaveBeenCalledWith(componentPath('link'), {
+      recursive: true,
+      force: true,
+    });
   });
 
   it('reports a cancelled type prompt as a prompt cancellation', async () => {
