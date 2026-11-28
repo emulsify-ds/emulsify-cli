@@ -5,6 +5,7 @@ import { simpleGit } from 'simple-git';
 import { existsSync, promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 import { EMULSIFY_CACHE_METADATA_FILE } from '../../lib/constants.js';
+import CliError from '../../lib/CliError.js';
 
 import getCachedItemPath from './getCachedItemPath.js';
 import normalizeRepositoryUrl from './normalizeRepositoryUrl.js';
@@ -28,6 +29,7 @@ type CacheReuseOptions = {
 };
 
 const REMOTE_REF_LOOKUP_TIMEOUT_MS = 2_000;
+const CLONE_TIMEOUT_MS = 5 * 60 * 1_000;
 const GUARDED_GIT_ENVIRONMENT_KEY =
   /^(?:GIT_|EDITOR$|PAGER$|PREFIX$|SSH_ASKPASS$|VISUAL$)/i;
 const TEMP_DIRECTORY_MARKER = '.tmp-';
@@ -151,34 +153,33 @@ function getRemoteRefCandidates(checkout: string | void): string[] {
   ];
 }
 
+function createNonInteractiveGit(timeoutMs: number) {
+  const { GIT_SSH_COMMAND, GIT_TERMINAL_PROMPT, ...environment } =
+    getNonInteractiveGitEnvironment();
+  // simple-git rejects explicit guarded keys outside its allowlist, including
+  // inherited askpass helpers that can still prompt without a terminal.
+  const inheritedEnvironment = Object.fromEntries(
+    Object.entries(environment).filter(
+      ([key]) => !GUARDED_GIT_ENVIRONMENT_KEY.test(key.trim()),
+    ),
+  );
+  return simpleGit({
+    allowEnvironment: ['GIT_SSH_COMMAND', 'GIT_TERMINAL_PROMPT'],
+    timeout: { block: timeoutMs, stdOut: false, stdErr: false },
+  }).env({
+    ...inheritedEnvironment,
+    GIT_SSH_COMMAND,
+    GIT_TERMINAL_PROMPT,
+  });
+}
+
 async function getRemoteResolvedRef(
   repository: string,
   checkout: string | void,
 ): Promise<RemoteRefResult> {
   const remoteRefs = getRemoteRefCandidates(checkout);
-
   try {
-    const { GIT_SSH_COMMAND, GIT_TERMINAL_PROMPT, ...environment } =
-      getNonInteractiveGitEnvironment();
-    // simple-git treats every key passed through .env() as explicit and rejects
-    // guarded keys outside its allowlist. Keep the non-Git environment for Git.
-    const inheritedEnvironment = Object.fromEntries(
-      Object.entries(environment).filter(
-        ([key]) => !GUARDED_GIT_ENVIRONMENT_KEY.test(key.trim()),
-      ),
-    );
-    const git = simpleGit({
-      allowEnvironment: ['GIT_SSH_COMMAND', 'GIT_TERMINAL_PROMPT'],
-      timeout: {
-        block: REMOTE_REF_LOOKUP_TIMEOUT_MS,
-        stdOut: false,
-        stdErr: false,
-      },
-    }).env({
-      ...inheritedEnvironment,
-      GIT_SSH_COMMAND,
-      GIT_TERMINAL_PROMPT,
-    });
+    const git = createNonInteractiveGit(REMOTE_REF_LOOKUP_TIMEOUT_MS);
     const output = await git.listRemote([repository, ...remoteRefs]);
     const resolvedRefs = new Map<string, string>();
 
@@ -299,7 +300,7 @@ export default function cloneIntoCache(
     let removeTemporaryDestination = true;
 
     try {
-      const git = simpleGit();
+      const git = createNonInteractiveGit(CLONE_TIMEOUT_MS);
       await git.clone(
         normalizedRepository,
         temporaryDestination,
@@ -357,6 +358,17 @@ export default function cloneIntoCache(
 
         throw error;
       }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        'plugin' in error &&
+        error.plugin === 'timeout'
+      ) {
+        throw new CliError(
+          `Cloning repository "${repository}" timed out after ${CLONE_TIMEOUT_MS / 60_000} minutes. Check your network connection and repository access, then retry.`,
+        );
+      }
+      throw error;
     } finally {
       if (removeTemporaryDestination) {
         try {

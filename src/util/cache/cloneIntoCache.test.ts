@@ -6,6 +6,7 @@ jest.mock('../../lib/constants', () => ({
 jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
 import cloneIntoCache from './cloneIntoCache.js';
+import CliError from '../../lib/CliError.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 
 import fs from 'fs';
@@ -48,7 +49,7 @@ function cacheDestination(checkout: string | void): string {
       }),
     )
     .digest('hex');
-  return join('cache', 'systems', hash, 'cornflake');
+  return resolve('cache', 'systems', hash, 'cornflake');
 }
 
 const destination = cacheDestination(cloneOptions.checkout);
@@ -135,6 +136,35 @@ describe('cloneIntoCache', () => {
     expect(Number.isNaN(Date.parse(writtenMetadata.clonedAt))).toBe(false);
   });
 
+  it('bounds clone time and disables Git and SSH prompts', async () => {
+    const environment = jest.replaceProperty(process, 'env', {
+      PATH: '/usr/local/bin',
+      GIT_TERMINAL_PROMPT: '1',
+      GIT_SSH_COMMAND: 'ssh -oConnectTimeout=4',
+      GIT_ASKPASS: 'git-askpass',
+      SSH_ASKPASS: 'ssh-askpass',
+    });
+
+    try {
+      await cloneIntoCache('systems', ['cornflake'])(cloneOptions);
+    } finally {
+      environment.restore();
+    }
+
+    expect(simpleGitMock).toHaveBeenNthCalledWith(1, {
+      allowEnvironment: ['GIT_SSH_COMMAND', 'GIT_TERMINAL_PROMPT'],
+      timeout: { block: 300_000, stdOut: false, stdErr: false },
+    });
+    expect(envMock).toHaveBeenCalledWith({
+      PATH: '/usr/local/bin',
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_SSH_COMMAND: 'ssh -oConnectTimeout=4 -oBatchMode=yes',
+    });
+    expect(envMock.mock.invocationCallOrder[0]).toBeLessThan(
+      gitCloneMock.mock.invocationCallOrder[0],
+    );
+  });
+
   it('keeps the final entry untouched until a complete clone is ready', async () => {
     existsSyncMock.mockReturnValue(true);
     let markCloneStarted: (() => void) | undefined;
@@ -190,6 +220,28 @@ describe('cloneIntoCache', () => {
       recursive: true,
       force: true,
     });
+  });
+
+  it('reports clone timeouts with recovery guidance and removes the temp directory', async () => {
+    const { GitPluginError } =
+      jest.requireActual<typeof import('simple-git')>('simple-git');
+    gitCloneMock.mockRejectedValueOnce(
+      new GitPluginError(undefined, 'timeout', 'block timeout reached'),
+    );
+
+    const error = await cloneIntoCache('systems', ['cornflake'])(
+      cloneOptions,
+    ).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(CliError);
+    expect(error).toMatchObject({
+      message: `Cloning repository "${cloneOptions.repository}" timed out after 5 minutes. Check your network connection and repository access, then retry.`,
+    });
+    expect(rmMock).toHaveBeenCalledWith(temporaryDestination, {
+      recursive: true,
+      force: true,
+    });
+    expect(renameMock).not.toHaveBeenCalled();
   });
 
   it('reuses a complete entry that wins a concurrent rename', async () => {
@@ -312,7 +364,7 @@ describe('cloneIntoCache', () => {
       PATH: '/usr/local/bin',
       SSH_AUTH_SOCK: '/tmp/ssh-agent',
       GIT_CONFIG_COUNT: '1',
-      GIT_SSH_COMMAND: 'ssh -oBatchMode=yes -oConnectTimeout=4',
+      GIT_SSH_COMMAND: 'ssh -oConnectTimeout=4',
       EDITOR: 'vi',
     });
     existsSyncMock.mockReturnValueOnce(true);
@@ -341,7 +393,7 @@ describe('cloneIntoCache', () => {
       PATH: '/usr/local/bin',
       SSH_AUTH_SOCK: '/tmp/ssh-agent',
       GIT_TERMINAL_PROMPT: '0',
-      GIT_SSH_COMMAND: 'ssh -oBatchMode=yes -oConnectTimeout=4',
+      GIT_SSH_COMMAND: 'ssh -oConnectTimeout=4 -oBatchMode=yes',
     });
   });
 

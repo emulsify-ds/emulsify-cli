@@ -9,7 +9,7 @@ describe('getNonInteractiveGitEnvironment', () => {
     });
   });
 
-  it('preserves an explicitly configured SSH command', () => {
+  it('appends BatchMode to an explicitly configured SSH command', () => {
     expect(
       getNonInteractiveGitEnvironment({
         GIT_TERMINAL_PROMPT: '1',
@@ -17,7 +17,7 @@ describe('getNonInteractiveGitEnvironment', () => {
       }),
     ).toEqual({
       GIT_TERMINAL_PROMPT: '0',
-      GIT_SSH_COMMAND: 'custom-ssh --identity custom-key',
+      GIT_SSH_COMMAND: 'custom-ssh --identity custom-key -oBatchMode=yes',
     });
   });
 });

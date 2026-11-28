@@ -1062,6 +1062,38 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(existsSync(join(isolatedHome, '.emulsify', 'cache')), true);
   });
 
+  test('clones a system with a non-interactive Git environment', () => {
+    const name = 'non-interactive-git-project';
+    const root = createComponentPackageProject(name, json({ name }));
+    const home = mkdtempSync(join(tempRoot, 'clone-home-'));
+    const cloneEnvironmentPath = join(home, 'clone-environment.json');
+    const result = runCli(
+      root,
+      ['component', 'list'],
+      {
+        ...isolatedEnvironment(),
+        HOME: home,
+        USERPROFILE: home,
+        GIT_ASKPASS: 'unexpected-git-askpass',
+        GIT_SSH_COMMAND: 'ssh -oConnectTimeout=10',
+        GIT_TERMINAL_PROMPT: '1',
+        SSH_ASKPASS: 'unexpected-ssh-askpass',
+        EMULSIFY_E2E_GIT_CLONE_ENV: cloneEnvironmentPath,
+      },
+      [
+        '--require',
+        fileURLToPath(new URL('./record-git-clone.cjs', import.meta.url)),
+      ],
+    );
+
+    assert.equal(result.status, 0, commandFailure('component list', result));
+    assert.match(result.stdout, /button/u);
+    assert.deepEqual(JSON.parse(readFileSync(cloneEnvironmentPath, 'utf8')), {
+      GIT_SSH_COMMAND: 'ssh -oConnectTimeout=10 -oBatchMode=yes',
+      GIT_TERMINAL_PROMPT: '0',
+    });
+  });
+
   test('refreshes a cached system when its remote branch advances', () => {
     const remotePath = join(tempRoot, 'refresh-system.git');
     const refreshProjectRoot = join(projectsRoot, 'refresh-project');

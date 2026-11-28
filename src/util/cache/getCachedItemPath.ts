@@ -7,6 +7,7 @@ import {
   EMULSIFY_PROJECT_CONFIG_FILE,
 } from '../../lib/constants.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
+import safeResolveWithin from '../fs/safeResolveWithin.js';
 import normalizeRepositoryUrl from './normalizeRepositoryUrl.js';
 
 /**
@@ -35,10 +36,10 @@ export default function getCachedItemPath({
     checkout: normalizedCheckout,
   });
 
-  return join(
-    CACHE_DIR,
-    bucket,
-    createHash('md5').update(identity).digest('hex'),
-    ...itemPath,
+  const cacheKey = createHash('md5').update(identity).digest('hex');
+  return safeResolveWithin(
+    join(CACHE_DIR, bucket),
+    [cacheKey, ...itemPath],
+    'Cache item',
   );
 }

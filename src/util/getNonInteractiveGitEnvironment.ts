@@ -4,6 +4,6 @@ export default function getNonInteractiveGitEnvironment(
   return {
     ...environment,
     GIT_TERMINAL_PROMPT: '0',
-    GIT_SSH_COMMAND: environment.GIT_SSH_COMMAND || 'ssh -oBatchMode=yes',
+    GIT_SSH_COMMAND: `${environment.GIT_SSH_COMMAND || 'ssh'} -oBatchMode=yes`,
   };
 }

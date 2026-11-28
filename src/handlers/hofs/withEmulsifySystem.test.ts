@@ -8,6 +8,7 @@ jest.mock('../../util/cache/cloneIntoCache', () => jest.fn());
 jest.mock('../../lib/log', () => jest.fn());
 
 import type { EmulsifySystem } from '@emulsify-cli/config';
+import CliError from '../../lib/CliError.js';
 import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../../lib/constants.js';
 import log from '../../lib/log.js';
 import getJsonFromCachedFile from '../../util/cache/getJsonFromCachedFile.js';
@@ -152,6 +153,17 @@ describe('withEmulsifySystem', () => {
 
     await expect(withEmulsifySystem('install components')).rejects.toThrow(
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
+    );
+  });
+
+  it('preserves clone timeout guidance for component commands', async () => {
+    const timeout = new CliError(
+      `Cloning repository "${projectConfig.system.repository}" timed out. Check your network connection and repository access, then retry.`,
+    );
+    cloneSystemMock.mockRejectedValueOnce(timeout);
+
+    await expect(withEmulsifySystem('install components')).rejects.toBe(
+      timeout,
     );
   });
 

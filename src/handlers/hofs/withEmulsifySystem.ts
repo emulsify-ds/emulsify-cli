@@ -109,8 +109,8 @@ function formatPlatformExpressions(expressions: readonly string[]): string {
  *
  * @throws {EmulsifySystemError} if no Emulsify project configuration can be found.
  * @throws {EmulsifySystemError} if the project configuration does not include both a system and variant.
- * @throws {Error} if the configured system repository URL is malformed before a repository name can be parsed.
- * @throws {EmulsifySystemError} if the configured system repository does not contain a parseable repository name.
+ * @throws {CliError} if the configured repository URL or name is invalid, or cloning times out.
+ * @throws {EmulsifySystemError} if the configured repository has no parseable name.
  * @throws {EmulsifySystemError} if the configured system cannot be cloned or checked out from cache.
  * @throws {EmulsifySystemError} if the cached system configuration cannot be loaded or validated.
  * @throws {EmulsifySystemError} if the configured variant cannot be found within the cached system configuration.
@@ -146,7 +146,8 @@ export async function withEmulsifySystem(
 
   try {
     await cloneIntoCache('systems', [systemName], { refresh })(systemReference);
-  } catch {
+  } catch (error) {
+    if (error instanceof CliError) throw error;
     throw new EmulsifySystemError(
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
     );
