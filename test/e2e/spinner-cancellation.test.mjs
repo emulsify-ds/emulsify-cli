@@ -20,8 +20,8 @@ const ptyAvailable =
     timeout: 5_000,
   }).status === 0;
 
-// forkpty gives the CLI a real terminal. Terminate the stalled npm child even
-// when the CLI exits without waiting for its subprocess.
+// forkpty gives the CLI a real terminal. Removing the readiness marker lets
+// the fake npm exit even when the CLI has already exited.
 const interrupt = String.raw`
 import contextlib, errno, fcntl, os, pty, select, signal, struct, sys, termios, time
 
@@ -54,10 +54,12 @@ try:
             sys.exit(128 + os.WTERMSIG(status))
     sys.exit('Timed out waiting for CLI spinner cancellation')
 finally:
-    with contextlib.suppress(ProcessLookupError):
-        os.killpg(pid, signal.SIGKILL)
     if not reaped:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
+    with contextlib.suppress(FileNotFoundError):
+        os.unlink(ready)
     os.close(master)
 `;
 
@@ -75,7 +77,7 @@ test(
       writeFileSync(join(starter, 'package.json'), '{"name":"starter"}\n');
       writeFileSync(
         join(bin, 'npm'),
-        '#!/bin/sh\n: > "$EMULSIFY_E2E_NPM_READY"\nexec sleep 30\n',
+        '#!/bin/sh\n: > "$EMULSIFY_E2E_NPM_READY" || exit\nwhile [ -f "$EMULSIFY_E2E_NPM_READY" ]; do sleep 0.05; done\n',
         { mode: 0o755 },
       );
 
