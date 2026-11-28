@@ -58,7 +58,6 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: '.nvmrc'
-          registry-url: https://registry.npmjs.org
       - name: Install
         run: npm ci
       - name: Build
@@ -75,4 +74,4 @@ jobs:
             echo "Expected npm latest to be 2.4.1 before patch recovery, but found $latest."
             exit 1
           fi
-          npm publish --access public --provenance
+          npm publish --access public --provenance --loglevel verbose
