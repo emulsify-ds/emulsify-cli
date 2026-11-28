@@ -1,17 +1,18 @@
 import getInitSuccessMessageForPlatform from './getInitSuccessMessageForPlatform.js';
 
 const systemSelectionMessage = [
-  'Next, choose a component system:',
-  '  emulsify system install',
+  'emulsify system install',
+  '',
+  'Pick a component system to render with. Nothing renders until one',
+  'is installed.',
 ].join('\n');
 const drupalIntegrationMessage = [
-  'Detected a Drupal project.',
+  'composer require drupal/emulsify drupal/emulsify_tools',
+  'drush en emulsify_tools -y',
   '',
-  'Install the required Drupal packages with Composer:',
-  '  composer require drupal/emulsify drupal/emulsify_tools',
-  '  drush en emulsify_tools -y',
-  '',
-  'The generated Drupal starter uses drupal/emulsify as its base theme and emulsify_tools for Drupal integration, so both packages must exist in the Drupal codebase.',
+  'The generated starter uses drupal/emulsify as its base theme and',
+  'emulsify_tools for Drupal integration, so both packages must exist',
+  'in the Drupal codebase.',
 ].join('\n');
 
 describe('getInitSuccessMessageForPlatform', () => {
@@ -23,12 +24,14 @@ describe('getInitSuccessMessageForPlatform', () => {
       }),
     ).toEqual([
       {
-        method: 'warn',
+        method: 'info',
         message: drupalIntegrationMessage,
+        title: 'Drupal also needs',
       },
       {
         method: 'info',
         message: systemSelectionMessage,
+        title: 'Next',
       },
     ]);
   });
@@ -42,6 +45,7 @@ describe('getInitSuccessMessageForPlatform', () => {
       {
         method: 'info',
         message: systemSelectionMessage,
+        title: 'Next',
       },
     ]);
     expect(messages).not.toContain('composer require drupal/');
@@ -72,6 +76,7 @@ describe('getInitSuccessMessageForPlatform', () => {
       {
         method: 'info',
         message: systemSelectionMessage,
+        title: 'Next',
       },
     ]);
     expect(messages).not.toContain('Drupal integration module');
@@ -89,6 +94,15 @@ describe('getInitSuccessMessageForPlatform', () => {
     expect(messages).toEqual(
       messages.map((message) => message.replace(/^\n+|\n+$/g, '')),
     );
+  });
+
+  it('never reports success-path guidance as a warning', () => {
+    expect.assertions(1);
+    const methods = getInitSuccessMessageForPlatform('drupal', '/directory', {
+      includeDrupalInstallReminder: true,
+    }).map(({ method }) => method);
+
+    expect(methods).not.toContain('warn');
   });
 
   it('returns an empty array if the given platform does not correspond with any success messages', () => {

@@ -80,6 +80,14 @@
             "items": {
               "type": "string"
             }
+          },
+          "npmDependencies": {
+            "type": "object",
+            "description": "npm package names mapped to the semver ranges this component needs",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "required": ["name", "structure"]

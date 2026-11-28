@@ -2,6 +2,7 @@ import type { EmulsifySystem } from '@emulsify-cli/config';
 
 import { Ajv, type ErrorObject } from 'ajv';
 import addFormats from 'ajv-formats';
+import { lt, valid } from 'semver';
 import CliError from '../../lib/CliError.js';
 import log from '../../lib/log.js';
 
@@ -17,61 +18,36 @@ export type SystemConfigValidationResult =
       errors: ErrorObject[] | null | undefined;
     };
 
-async function loadSchemas() {
-  const [{ default: systemSchema }, { default: variantSchema }] =
-    await Promise.all([
-      import('../../schemas/system.json', { with: { type: 'json' } }),
-      import('../../schemas/variant.json', { with: { type: 'json' } }),
-    ]);
-
-  return { systemSchema, variantSchema };
-}
-
 async function createValidator() {
-  const [schemas, { default: packageInfo }] = await Promise.all([
-    loadSchemas(),
+  const [
+    { default: systemSchema },
+    { default: variantSchema },
+    { default: packageInfo },
+  ] = await Promise.all([
+    import('../../schemas/system.json', { with: { type: 'json' } }),
+    import('../../schemas/variant.json', { with: { type: 'json' } }),
     import('../../../package.json', { with: { type: 'json' } }),
   ]);
   const ajv = new Ajv();
-  // This is unfortunate...
   // @ts-ignore The ajv-formats typing is bad :(
   addFormats(ajv, ['uri']);
-  ajv.addSchema(schemas.variantSchema, 'variant.json');
+  ajv.addFormat('semver', (value: string) => valid(value) !== null);
+  ajv.addSchema(variantSchema, 'variant.json');
   return {
-    validate: ajv.compile<EmulsifySystem>(schemas.systemSchema),
-    schemas,
+    validate: ajv.compile<EmulsifySystem>(systemSchema),
+    schemas: { systemSchema, variantSchema },
     runningVersion: packageInfo.version,
   };
 }
 
 let validatorPromise: ReturnType<typeof createValidator> | undefined;
 
-function checkMinimumCliVersion(
-  { name, minimumCliVersion }: EmulsifySystem,
-  runningVersion: string,
-) {
-  if (minimumCliVersion === undefined) return;
-
-  const minimum = minimumCliVersion.match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].+)?$/);
-  if (!minimum) {
-    throw new CliError(
-      `The ${JSON.stringify(name)} system has an invalid minimumCliVersion ${JSON.stringify(minimumCliVersion)}. Use a version such as "2.5.0".`,
-    );
-  }
-
-  const running = runningVersion.split(/[.+-]/, 3).map(Number);
-  const required = minimum.slice(1).map(Number);
-  const index = required.findIndex((part, i) => part !== running[i]);
-  if (index !== -1 && running[index] < required[index]) {
-    throw new CliError(
-      `The ${JSON.stringify(name)} system requires Emulsify CLI ${minimumCliVersion} or newer. You are running ${runningVersion}. Upgrade with: ${upgradeCommand}`,
-    );
-  }
-}
-
 function warnUnknownProperties(
   systemConfig: EmulsifySystem,
-  { systemSchema, variantSchema }: Awaited<ReturnType<typeof loadSchemas>>,
+  {
+    systemSchema,
+    variantSchema,
+  }: Awaited<ReturnType<typeof createValidator>>['schemas'],
 ) {
   const unknown: string[] = [];
   const collect = (value: object, properties: object, location: string) => {
@@ -120,7 +96,7 @@ function warnUnknownProperties(
  *
  * @param systemConfig loaded JSON value to validate.
  * @returns a valid typed system configuration or the Ajv validation errors.
- * @throws {CliError} if the configuration declares an invalid or unmet CLI version requirement.
+ * @throws {CliError} if the running CLI is older than the system's minimum.
  */
 export default async function validateSystemConfig(
   systemConfig: unknown,
@@ -128,7 +104,18 @@ export default async function validateSystemConfig(
   const { validate, schemas, runningVersion } = await (validatorPromise ??=
     createValidator());
   if (validate(systemConfig)) {
-    checkMinimumCliVersion(systemConfig, runningVersion);
+    const { name, minimumCliVersion } = systemConfig;
+    if (
+      minimumCliVersion !== undefined &&
+      lt(
+        runningVersion.split(/[+-]/, 1)[0],
+        minimumCliVersion.split(/[+-]/, 1)[0],
+      )
+    ) {
+      throw new CliError(
+        `The ${JSON.stringify(name)} system requires Emulsify CLI ${minimumCliVersion} or newer. You are running ${runningVersion}. Upgrade with: ${upgradeCommand}`,
+      );
+    }
     warnUnknownProperties(systemConfig, schemas);
     return { valid: true, systemConfig };
   }

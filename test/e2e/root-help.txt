@@ -21,14 +21,17 @@ COMPONENTS
   component install [name]        Copy a component into your project
       -a, --all                      Install every available component
       -f, --force                    Replace an existing destination
+      -y, --yes                      Accept npm packages without prompting
       --dry-run                      Preview without writing files
+      --skip-npm                     Report npm packages without installing them
   component create [name]         Generate a new local component
       -d, --directory <dir>          Variant structure to create it in
       -t, --type <type>              twig | twig-sdc | react | web-component
       --tag-name <name>              Set the Web Component custom element tag
-      -f, --format <default|sdc>     Deprecated Twig type alias
-      --force                        Replace an existing generated component
+      -f, --force                    Replace an existing generated component
+      -y, --yes                      Compatibility alias for --force
       --dry-run                      Preview without writing files
+      --refresh                      Check the system remote before reuse
   component eject-templates [type]  Write editable built-in templates
       -a, --all                      Eject every component template type
       -f, --force                    Replace existing template files
@@ -40,6 +43,8 @@ SYSTEMS
       -r, --repository <repo>        Install from a git repository
       -c, --checkout <ref>           Commit, branch, or tag
       -a, --all                      Install every component, not just required
+      -y, --yes                      Accept the install review or npm packages
+      --skip-npm                     Report npm packages without installing them
   system detach                   Detach the system and keep project components
       -y, --yes                      Skip the confirmation prompt
   system create [name]            Scaffold a system others can install from
@@ -52,5 +57,5 @@ MAINTENANCE
   cache clear                     Remove cached system repositories
       --dry-run                      Preview cache removal
 
-  --refresh works on list, install, and create.   -V, --version   -h, --help
+  --refresh: component list, install, create.   -V, --version   -h, --help
   emulsify <command> --help for the full option list.

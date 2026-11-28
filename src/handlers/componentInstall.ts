@@ -1,6 +1,7 @@
 import { pathExists } from 'fs-extra';
-import { confirm, select } from '@inquirer/prompts';
+import { confirm, select } from '@clack/prompts';
 import log from '../lib/log.js';
+import { markSessionMayHaveChanges, note } from '../lib/session.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../lib/constants.js';
 import CliError from '../lib/CliError.js';
 import type { InstallComponentHandlerOptions } from '@emulsify-cli/handlers';
@@ -9,6 +10,13 @@ import installComponentFromCache, {
   getComponentDestination,
 } from '../util/project/installComponentFromCache.js';
 import buildComponentDependencyList from '../util/project/buildComponentDependencyList.js';
+import {
+  applyComponentNpmInstall,
+  confirmComponentNpmInstall,
+  formatAddedNpmPackages,
+  formatComponentNpmInstall,
+  prepareComponentNpmInstall,
+} from '../util/project/installComponentNpmDependencies.js';
 import catchLater from '../util/catchLater.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
 import { requireInteractiveTerminal, runPrompt } from '../util/prompt/index.js';
@@ -44,8 +52,8 @@ async function buildComponentInstallPlan(
   componentNames: string[],
   rootComponentName: string | undefined,
   force: boolean,
+  projectConfigPath: string | void,
 ): Promise<ComponentInstallPlanItem[]> {
-  const projectConfigPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
   if (!projectConfigPath) {
     throw new CliError(
       'Unable to find an Emulsify project to preview component installation into.',
@@ -79,6 +87,7 @@ function logComponentInstallDryRun(
   targetLabel: string,
   dependencies: string[],
   plan: ComponentInstallPlanItem[],
+  npmPackages: string,
 ): void {
   const dependencyList =
     dependencies.length > 0
@@ -103,6 +112,8 @@ function logComponentInstallDryRun(
       dependencyList,
       'Planned component installs:',
       plannedInstalls,
+      'npm packages:',
+      npmPackages,
       'No files were copied, removed, or overwritten.',
     ].join('\n'),
   );
@@ -111,6 +122,8 @@ function logComponentInstallDryRun(
 /**
  * Handler for the `component install` command.
  *
+ * @returns summary shown on the closing line of the session.
+ *
  * @throws {CliError} if a component name is missing and all components were not requested.
  * @throws {CliError} if the current project does not have a usable system and variant configuration.
  * @throws {CliError} if the requested component cannot be found.
@@ -118,8 +131,15 @@ function logComponentInstallDryRun(
  */
 export default async function componentInstall(
   name: string | void,
-  { force, all, dryRun, refresh }: InstallComponentHandlerOptions,
-): Promise<void> {
+  {
+    force,
+    all,
+    dryRun,
+    refresh,
+    skipNpm = false,
+    yes = false,
+  }: InstallComponentHandlerOptions,
+): Promise<string> {
   let selectedName = name;
   let installAll = all === true;
   const needsSelection = !selectedName?.trim() && !installAll;
@@ -127,6 +147,7 @@ export default async function componentInstall(
   // Preserve the fail-fast non-interactive path before loading or refreshing
   // the cached system. Interactive sessions need that system to build choices.
   if (needsSelection) {
+    if (dryRun) throw new CliError(MISSING_COMPONENT_INSTALL_TARGET_ERROR);
     requireInteractiveTerminal(MISSING_COMPONENT_INSTALL_TARGET_ERROR);
   }
 
@@ -140,16 +161,18 @@ export default async function componentInstall(
     const selection = await runPrompt<ComponentInstallSelection>({
       prompt: () =>
         select<ComponentInstallSelection>({
-          message: 'Choose a component to install:',
-          choices: [
+          message: 'Choose a component to install',
+          options: [
+            // The structure reads as a hint so the list stays scannable when a
+            // system offers many components.
             ...variantConf.components.map((component) => ({
-              name: component.name,
               value: component.name,
-              description: component.description,
+              label: component.name,
+              hint: component.structure,
             })),
             {
-              name: 'Install all available components',
               value: INSTALL_ALL_COMPONENTS,
+              label: 'Install all available components',
             },
           ],
         }),
@@ -163,102 +186,102 @@ export default async function componentInstall(
     }
   }
 
-  // If all components are to be installed, spawn promises for installing all available components.
-  const components: [string, boolean, Promise<void>][] = [];
-  if (installAll) {
-    const componentNames = variantConf.components.map(
-      (component) => component.name,
-    );
-    if (dryRun) {
-      const plan = await buildComponentInstallPlan(
-        variantConf,
-        componentNames,
-        undefined,
-        true,
-      );
-      logComponentInstallDryRun('all components', [], plan);
-      return;
-    }
-
-    components.push(
-      ...componentNames.map((component): [string, boolean, Promise<void>] => [
-        component,
-        false,
-        catchLater(
-          installComponentFromCache(
-            systemConf,
-            variantConf,
-            component,
-            // Force install all components.
-            true,
-          ),
-        ),
-      ]),
+  const rootComponentName = installAll ? undefined : selectedName || '';
+  const componentNames = installAll
+    ? variantConf.components.map(({ name }) => name)
+    : buildComponentDependencyList(variantConf.components, rootComponentName!);
+  if (!installAll && componentNames.length === 0) {
+    throw new CliError(
+      `Cannot find the definition for component "${rootComponentName}".\n\nRun "emulsify component list" to see the full list.`,
     );
   }
-  // If there is only one component to install, add one single promise for the single component.
-  else {
-    const rootComponentName = selectedName as string;
-    const componentsWithDependencies = buildComponentDependencyList(
-      variantConf.components,
-      rootComponentName,
-    );
-    if (componentsWithDependencies.length === 0) {
-      throw new CliError(
-        `Cannot find the definition for component "${rootComponentName}".\n\nRun "emulsify component list" to see the full list.`,
-      );
-    }
 
-    if (dryRun) {
-      const dependencies = componentsWithDependencies.filter(
-        (dependencyName) => dependencyName !== rootComponentName,
-      );
-      const plan = await buildComponentInstallPlan(
-        variantConf,
-        componentsWithDependencies,
-        rootComponentName,
-        Boolean(force),
-      );
-      logComponentInstallDryRun(rootComponentName, dependencies, plan);
-      return;
-    }
-
-    const projectConfigPath = findFileInCurrentPath(
-      EMULSIFY_PROJECT_CONFIG_FILE,
-    );
-
-    for (const componentName of componentsWithDependencies) {
-      const isDependency = componentName !== rootComponentName;
-      let currentForce = force;
-      const destination = projectConfigPath
+  const projectConfigPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
+  const plan: {
+    componentName: string;
+    isDependency: boolean;
+    force: boolean;
+  }[] = [];
+  for (const componentName of componentNames) {
+    const isDependency = !installAll && componentName !== rootComponentName;
+    let currentForce = installAll || Boolean(force);
+    const destination =
+      !dryRun && !installAll && projectConfigPath
         ? getComponentDestination(variantConf, componentName, projectConfigPath)
         : undefined;
 
-      if (destination && (await pathExists(destination)) && !force) {
-        const dependencyNote = isDependency
-          ? ` (required by "${rootComponentName}")`
-          : '';
-        const overwriteMessage = `The component "${componentName}"${dependencyNote} already exists.`;
-        const result = await runPrompt({
-          prompt: () =>
-            confirm({
-              message: `${overwriteMessage} Would you like to replace it?`,
-              default: false,
-            }),
-          nonInteractive: {
-            error: `${overwriteMessage} Pass --force to replace existing components in non-interactive mode.`,
-          },
-        });
-
-        if (result) {
-          currentForce = true;
-        } else {
-          log('info', `Skipping installation of component "${componentName}".`);
-          continue;
-        }
+    if (destination && (await pathExists(destination)) && !currentForce) {
+      const dependencyNote = isDependency
+        ? ` (required by "${rootComponentName}")`
+        : '';
+      const overwriteMessage = `The component "${componentName}"${dependencyNote} already exists.`;
+      currentForce = await runPrompt<boolean>({
+        prompt: () =>
+          confirm({
+            message: `${overwriteMessage} Would you like to replace it?`,
+            initialValue: false,
+          }),
+        nonInteractive: {
+          error: `${overwriteMessage} Pass --force to replace existing components in non-interactive mode.`,
+        },
+      });
+      if (!currentForce) {
+        log('info', `Skipping installation of component "${componentName}".`);
+        continue;
       }
+    }
 
-      components.push([
+    plan.push({ componentName, isDependency, force: currentForce });
+  }
+
+  const selectedComponents = installAll
+    ? variantConf.components
+    : plan.map(({ componentName }) =>
+        variantConf.components.find(({ name }) => name === componentName)!,
+      );
+  const npmPlan = await prepareComponentNpmInstall(
+    systemConf.name,
+    selectedComponents,
+    projectConfigPath,
+    Boolean(dryRun || skipNpm),
+  );
+
+  if (dryRun) {
+    const dependencies = installAll
+      ? []
+      : componentNames.filter((dependency) => dependency !== rootComponentName);
+    const preview = await buildComponentInstallPlan(
+      variantConf,
+      componentNames,
+      rootComponentName,
+      Boolean(installAll || force),
+      projectConfigPath,
+    );
+    logComponentInstallDryRun(
+      rootComponentName ?? 'all components',
+      dependencies,
+      preview,
+      formatComponentNpmInstall(npmPlan, skipNpm ? 'skip' : 'preview'),
+    );
+    return 'Dry run complete';
+  }
+
+  if (plan.length === 0) return 'No components were installed';
+
+  const acceptedNpm = await confirmComponentNpmInstall(
+    npmPlan,
+    skipNpm,
+    yes,
+    plan.some(({ componentName }) => componentName === rootComponentName)
+      ? `The ${JSON.stringify(rootComponentName)} component`
+      : 'This component install',
+  );
+
+  // All decisions are final before the first copy can remove a destination.
+  markSessionMayHaveChanges();
+  const components = plan.map(
+    ({ componentName, isDependency, force }) =>
+      [
         componentName,
         isDependency,
         catchLater(
@@ -266,12 +289,11 @@ export default async function componentInstall(
             systemConf,
             variantConf,
             componentName,
-            currentForce,
+            force,
           ),
         ),
-      ]);
-    }
-  }
+      ] as const,
+  );
 
   const installedDeps: string[] = [];
   const failedDeps: string[] = [];
@@ -299,7 +321,7 @@ export default async function componentInstall(
 
   if (installedDeps.length > 0) {
     const depList = installedDeps.map((d) => `  → ${d}`).join('\n');
-    log('info', `The following dependencies were also installed:\n${depList}`);
+    note(depList, 'Also installed');
   }
 
   if (failedDeps.length > 0) {
@@ -313,4 +335,8 @@ export default async function componentInstall(
   if (failureMessages.length > 0) {
     throw new CliError(failureMessages.join('\n'));
   }
+
+  const added = await applyComponentNpmInstall(npmPlan, acceptedNpm);
+  const summary = `Installed ${plan.length} component${plan.length === 1 ? '' : 's'}`;
+  return added ? `${summary} · ${formatAddedNpmPackages(added)}` : summary;
 }

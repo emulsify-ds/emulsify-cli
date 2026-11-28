@@ -24,9 +24,9 @@ emulsify --help
 | Path                | Purpose                                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `src/index.ts`      | Commander command composition and top-level error handling.                                                  |
-| `src/handlers`      | Command handlers for `init`, `system`, and `component` commands.                                             |
-| `src/handlers/hofs` | Shared handler wrappers, including progress and system-loading helpers.                                      |
-| `src/lib`           | Logging, constants, and CLI error primitives.                                                                |
+| `src/handlers`      | Handlers for `init`, `audit`, `system`, `component`, and `cache` commands.                                     |
+| `src/handlers/hofs` | `withSession` frames command output. `withEmulsifySystem` loads the configured system and variant.             |
+| `src/lib`           | Session rendering, logging, terminal colors, root help, constants, and CLI errors.                           |
 | `src/schemas`       | JSON Schemas for project, system, and variant configuration.                                                 |
 | `src/scripts`       | TypeScript maintenance scripts, including schema type generation.                                            |
 | `src/types`         | Type modules. Generated schema types are prefixed with `_`.                                                  |
@@ -62,23 +62,26 @@ emulsify --help
 | `npm run semantic-release`   | Publish through semantic-release; use `-- --dry-run` unless publication is explicitly intended.    |
 | `npm run prepare`            | Install this repository's Husky Git hooks after installing dependencies.                           |
 
-Run one test file by passing the path after `--`:
+For a focused test run, pass `--no-coverage` and the test path after `--`.
+Use `npm run test:unit` to check the global coverage thresholds.
 
 ```bash
-npm run test:unit -- src/handlers/componentCreate.test.ts
+npm run test:unit -- --no-coverage src/handlers/componentCreate.test.ts
 ```
 
 ## End-to-End Tests
 
-The tests in `test/e2e/` use Node's test runner to spawn the real built binary
-at `dist/index.js`. They create local Git repositories and an isolated home and
-cache beneath the operating system's temporary directory, so they do not use
-the network or the developer's Emulsify cache.
+The tests in `test/e2e/` use Node's test runner to spawn the built binary at
+`dist/index.js`. The Git fixtures use local repositories and isolate the home
+directory and cache under the operating system's temporary directory. The
+interactive cancellation tests require `python3` and a POSIX pseudoterminal
+(PTY) and are skipped when either is unavailable.
 
-These tests must remain outside `src/`. Jest applies `jest.setup.cjs` to every
-test under `src/`, globally mocking `simple-git`, `fs`, `fs-extra`,
-`child_process`, and `progress`; those mocks would prevent a real end-to-end
-run.
+Keep these tests in `test/e2e/` so they run with the real filesystem, child
+processes, and terminal renderer. The Jest unit suite under `src/` uses
+`jest.setup.cjs` to mock `simple-git`, `fs`, `fs-extra`, `child_process`, and
+`@clack/prompts`. The Clack mock provides prompt and renderer doubles,
+including the cancellation sentinel.
 
 Build first, then run one end-to-end file directly:
 
@@ -110,7 +113,8 @@ npm run pack:dry-run
 npm run smoke:pack
 ```
 
-The package checks verify npm's actual file list, create the real tarball, install it
-with its declared runtime dependencies, and exercise `emulsify --help` and
-`emulsify --version`. Temporary tarballs and install projects are removed whether
-the smoke test passes or fails.
+The package checks verify npm's actual file list, create the tarball, and install
+it with its declared runtime dependencies. The smoke test exercises
+`emulsify --help`, `emulsify --version`, and
+`emulsify system create packed-system --yes --dry-run` using the installed CLI.
+It removes temporary tarballs and install projects on success or failure.

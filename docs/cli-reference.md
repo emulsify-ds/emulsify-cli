@@ -182,6 +182,10 @@ The generated `example-card` is marked as required, so installing the system
 also proves that its component source layout is usable. `--git` additionally
 creates the `.git/` metadata directory with `main` as the initial branch.
 
+If your system requires a particular CLI version or newer, set
+`minimumCliVersion` in the generated `system.emulsify.json`. See the
+[system configuration guide](./systems.md#system-repository-shape).
+
 Use `--dry-run` to inspect the normalized target, every generated file, and
 whether Git would be initialized. If the target already exists, the preview
 reports that a real run would refuse it; no directories, files, or Git metadata
@@ -232,12 +236,13 @@ The scope picker offers:
 - `Essentials only` — install only components marked `required: true`.
 - `Everything` — install every component in the selected component set.
 
-Both choices include their component counts. The review then shows the selected
+Both choices include their component counts. The review shows the selected
 system and checkout, repository source, component set, scope, component and
-asset counts, and their concrete destination paths. The CLI asks
-for confirmation before changing `project.emulsify.json`, copying components or
-assets, or running the project install hook. The selected repository may already
-have been downloaded into the CLI cache so its configuration can be reviewed.
+asset destinations, and npm packages to add with their ranges, requesting
+components, and package manager. The CLI asks for confirmation
+before writing project configuration, copying components or assets, installing
+packages, or running the project install hook. The selected repository may
+already have been downloaded into the CLI cache for review.
 
 ```text
 Install a component system                                Step 4 of 4
@@ -248,6 +253,7 @@ Install a component system                                Step 4 of 4
   Scope          Essentials only
   Will install   5 components  →  components/
                  2 asset folders  →  assets/, src/vendor/
+  npm packages   none
 
 ? Install now? (Y/n)
 ```
@@ -261,10 +267,11 @@ checkout (branch, tag, or commit); the displayed step total expands to include
 them. Selecting `Cancel`, or declining the final review, reports `System install
 cancelled.` and leaves the project configuration and destinations unchanged.
 
-Supplying a built-in name or both custom-repository flags bypasses the guided
-installer and preserves the direct command behavior. Variant compatibility is
-resolved automatically unless `--variant` is supplied, and only essential
-components are installed unless `--all` is supplied.
+Supplying a built-in name or both custom-repository flags starts a direct
+install. The CLI selects a compatible variant unless you supply `--variant`,
+and installs only essential components unless you pass `--all`. If packages
+would be added, the CLI prompts for npm consent. Declining continues the system
+install and prints a command to install the packages later.
 
 Options:
 
@@ -273,8 +280,9 @@ Options:
 | `-r, --repository <repository>`      | Install from a remote Git repository or a local repository path. Remote URLs must end in `.git`.                                                 |
 | `-c, --checkout <commit/branch/tag>` | Checkout to use. This is required when `--repository` is used.                                                                                   |
 | `--variant <platform-expression>`    | Install the variant whose platform expression exactly matches this value. Quote compound expressions at the shell.                               |
-| `-a, --all`                          | Install every component in the selected variant. Without this flag, only components marked `required: true` are installed during system install. |
-| `-y, --yes`                          | Accept the final guided-install review without prompting. It does not supply any earlier wizard choice.                                          |
+| `-a, --all`                          | Install every component in the selected variant. The default scope is required components and their component dependencies.                     |
+| `-y, --yes`                          | Accept the final guided review or the npm packages in a direct install without prompting.                                                        |
+| `--skip-npm`                         | Report the selected components' npm packages and print an install command for later.                                                              |
 
 Prompts are never opened when standard input is not a TTY. A bare command fails
 immediately with this guidance:
@@ -285,8 +293,10 @@ No component system source was provided. Pass a built-in system name as the posi
 
 For scripts and CI, pass a built-in name or pass both `--repository` and
 `--checkout`. Supplying only one custom-repository option also fails immediately
-and names the missing flag. `--yes` does not make a bare command
-non-interactive: the source, component set, and scope still require choices.
+and names the missing flag. The guided installer requires a TTY to choose the
+source, component set, and scope. In direct installs that would add packages,
+pass `--yes` to accept or `--skip-npm` to continue without them. See the
+[npm package installation guide](./components.md#npm-packages).
 
 Examples:
 
@@ -302,7 +312,10 @@ emulsify system install --repository https://github.com/example/example-system.g
 emulsify system install --repository /absolute/path/to/local-system --checkout v1.0.0
 ```
 
-System variant compatibility is selected from each variant's `platform` expression. Examples:
+Before selecting a variant, the CLI checks the system's optional
+`minimumCliVersion` and reports how to upgrade if the running CLI is older.
+
+The CLI selects compatible variants using each variant's `platform` expression.
 
 - `"platform": "wordpress"` matches WordPress projects.
 - `"platform": "drupal || wordpress"` matches Drupal and WordPress projects.
@@ -358,7 +371,9 @@ emulsify component ls
 emulsify component list --refresh
 ```
 
-Lists components available from the installed system and selected variant. Output uses the component structure followed by the component name, for example `atoms -> buttons`.
+Lists components available from the installed system and selected variant,
+grouped by structure. Notes show required components, component dependencies,
+and npm package names.
 
 Pass `--refresh` to check the system's remote ref before listing. Without it, the command validates and reuses the local cache without touching the network.
 
@@ -379,7 +394,9 @@ Options:
 | ------------- | --------------------------------------------------------------------------------------------------- |
 | `-f, --force` | Replace an existing component destination without prompting.                                        |
 | `-a, --all`   | Install all available components instead of one named component.                                    |
-| `--dry-run`   | Preview dependencies, destinations, overwrite behavior, and copy operations without changing files. |
+| `-y, --yes`   | Accept the npm packages a component requires without prompting.                                    |
+| `--dry-run`   | Preview component copies, overwrites, and npm package statuses without changing project files.       |
+| `--skip-npm`  | Report the components' npm packages and print an install command for later.                           |
 | `--refresh`   | Check the system's remote ref before reusing its local cache entry.                                 |
 
 Examples:
@@ -396,6 +413,13 @@ When standard input is not a TTY, provide either `[name]` or `--all`; the CLI
 exits with an actionable error instead of opening the picker. If a named
 component destination already exists, the command also exits unless `--force`
 is passed to replace it without an overwrite prompt.
+
+If packages would be added, the CLI shows their ranges, requesting components,
+and package manager before asking for consent. Declining copies the components
+and prints a command to install the packages later. Outside an interactive
+terminal, pass `--yes` or `--skip-npm` when packages would be added. With a
+component name or `--all`, `--dry-run` previews the package plan without a
+confirmation prompt. See the [npm package installation guide](./components.md#npm-packages).
 
 ## `component eject-templates`
 
@@ -471,8 +495,8 @@ Options:
 | `-d, --directory <directory>`                       | Variant structure name where the component should be created.                                       |
 | `-t, --type <twig\|twig-sdc\|react\|web-component>` | Component renderer and packaging type.                                                              |
 | `--tag-name <tag-name>`                             | Explicit custom element tag for `--type web-component`.                                             |
-| `-f, --format <default\|sdc>`                       | Deprecated alias: `default` maps to `twig`; `sdc` maps to `twig-sdc`. Prints a deprecation warning. |
-| `--force`                                           | Replace an existing generated component without prompting.                                          |
+| `--format <default\|sdc>`                           | Deprecated alias. `default` maps to `twig` and `sdc` maps to `twig-sdc`. Prints a deprecation warning. |
+| `-f, --force`                                       | Replace an existing generated component without prompting.                                          |
 | `-y, --yes`                                         | Compatibility alias for `--force`.                                                                  |
 | `--dry-run`                                         | Preview destination and generated files without writing, removing, or creating files.               |
 | `--refresh`                                         | Check the system's remote ref before reusing its local cache entry.                                 |
@@ -502,7 +526,7 @@ validation rules. `--tag-name` is rejected for types other than
 When standard input is not a TTY, provide the positional `[name]` plus both
 `--directory` and `--type`; otherwise the command exits with an actionable
 error instead of waiting for prompts that cannot be answered. If the generated
-component already exists, also pass `--force` to replace it without an
+component already exists, also pass `-f` or `--force` to replace it without an
 overwrite prompt. Existing scripts may continue using the `-y, --yes`
 compatibility alias. The deprecated `--format default` and `--format sdc`
 forms also remain available and print a deprecation warning.

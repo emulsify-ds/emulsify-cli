@@ -60,6 +60,10 @@ Unless overridden, its required URL metadata uses obvious, schema-valid
 `https://TODO.invalid/...` placeholders that must also be replaced before
 publishing.
 
+Set `minimumCliVersion` in `system.emulsify.json` to declare the earliest CLI
+version your system supports. See the adoption rule for `npmDependencies` in the
+[system configuration guide](./docs/systems.md#system-repository-shape).
+
 Add `--dry-run` to preview the normalized target, every generated file, and
 whether Git would be initialized without changing the filesystem.
 
@@ -116,9 +120,12 @@ emulsify system detach --yes
 ```
 
 For component installation, provide either a component name or `--all`, and use
-`--force` when an existing destination should be replaced. For component
-creation, provide the positional name plus `--type` and `--directory`, and use
-`--force` when an existing generated component should be replaced. The existing
+`--force` when an existing destination should be replaced. Use `--skip-npm` with
+`component install` or `system install` to report the
+[npm packages](./docs/components.md#npm-packages) and install them later.
+For component creation, provide the positional name plus `--type` and
+`--directory`, and use `--force` when an existing generated component should be
+replaced. The existing
 `-y, --yes` form remains available as a compatibility alias. Explicit
 `--type` values are honored even when project detection would hide that choice
 from the wizard. The deprecated `--format default` and `--format sdc` forms

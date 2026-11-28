@@ -10,13 +10,15 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { after, before, describe, test } from 'node:test';
+import { hasPty, runPtyPrompt } from './pty-prompt.mjs';
 
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 const cliPath = join(repositoryRoot, 'dist', 'index.js');
@@ -165,6 +167,61 @@ function commandFailure(label, result) {
   ].join('\n');
 }
 
+function createComponentPackageProject(name, packageContents) {
+  const root = join(projectsRoot, name);
+  mkdirSync(root, { recursive: true });
+  writeFileSync(
+    join(root, 'project.emulsify.json'),
+    json({
+      project: { platform: 'none', name, machineName: name },
+      starter: { repository: starterRepository },
+      system: { repository: systemRepository, checkout: 'main' },
+      variant: {
+        platform: 'none',
+        structureImplementations: [
+          { name: 'components', directory: 'components' },
+        ],
+      },
+    }),
+  );
+  writeFileSync(join(root, 'package.json'), packageContents);
+  return root;
+}
+
+function recordNpmInvocations(exitCode = 0) {
+  const bin = mkdtempSync(join(tempRoot, 'fake-npm-'));
+  const recorder = join(bin, 'record-npm.cjs');
+  const log = join(bin, 'invocations.jsonl');
+  writeFileSync(
+    recorder,
+    [
+      "const { appendFileSync } = require('node:fs');",
+      'const invocation = { cwd: process.cwd(), args: process.argv.slice(2) };',
+      'appendFileSync(process.env.EMULSIFY_E2E_NPM_LOG, JSON.stringify(invocation) + "\\n");',
+      `process.exitCode = ${exitCode};`,
+    ].join('\n'),
+  );
+  writeFileSync(
+    join(bin, 'npm'),
+    '#!/bin/sh\nexec "$EMULSIFY_E2E_NODE" "$EMULSIFY_E2E_NPM_RECORDER" "$@"\n',
+    { mode: 0o755 },
+  );
+  writeFileSync(
+    join(bin, 'npm.cmd'),
+    '@echo off\r\n"%EMULSIFY_E2E_NODE%" "%EMULSIFY_E2E_NPM_RECORDER%" %*\r\nexit /b %errorlevel%\r\n',
+  );
+
+  const env = isolatedEnvironment();
+  const pathKey =
+    Object.keys(env).find((key) => key.toLowerCase() === 'path') ?? 'PATH';
+  env[pathKey] = [bin, env[pathKey]].filter(Boolean).join(delimiter);
+  env.EMULSIFY_E2E_NPM_LOG = log;
+  env.EMULSIFY_E2E_NODE = process.execPath;
+  env.EMULSIFY_E2E_NPM_RECORDER = recorder;
+  delete env.NO_COLOR;
+  return { env, log };
+}
+
 describe('built Emulsify CLI', { concurrency: false }, () => {
   before(() => {
     tempRoot = mkdtempSync(join(tmpdir(), 'emulsify-cli-e2e-'));
@@ -260,6 +317,16 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
                 structure: 'components',
                 required: true,
               },
+              {
+                name: 'slider',
+                structure: 'components',
+                npmDependencies: { swiper: '^11.2.0' },
+              },
+              {
+                name: 'slider-story',
+                structure: 'components',
+                dependency: ['slider'],
+              },
             ],
           },
           {
@@ -281,6 +348,8 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       }),
       'components/button/fixture.txt': 'button fixture\n',
       'components/card/fixture.txt': 'card fixture\n',
+      'components/slider/fixture.txt': 'slider fixture\n',
+      'components/slider-story/fixture.txt': 'slider story fixture\n',
     });
     systemRepository = pathToFileURL(systemPath).href;
   });
@@ -314,6 +383,69 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.doesNotMatch(result.stdout, /\u001b\[/u);
   });
 
+  for (const [command, prompt] of [
+    ['init', 'Project name'],
+    ['system create', 'Platform targets'],
+    ['system install', 'Add these npm packages?'],
+    ['system detach', 'Detach the'],
+    ['component create', 'Component name'],
+    [
+      'component eject-templates',
+      'Which component template types should be ejected?',
+    ],
+  ]) {
+    test(
+      `returns exit 130 without project changes when ${command} is cancelled`,
+      { skip: hasPty ? false : 'Requires python3 and a POSIX PTY' },
+      () => {
+        const name = `cancel-${command.replaceAll(' ', '-')}`;
+        const root = join(projectsRoot, name);
+        const args = command.split(' ');
+        if (command === 'init' || command === 'system create') {
+          mkdirSync(root);
+        } else {
+          createComponentPackageProject(name, json({ name }));
+        }
+        if (command === 'init') {
+          args.push('--starter', starterRepository);
+        } else if (command === 'system create') {
+          args.push('Example', '--directory', '.');
+        } else if (command === 'system install') {
+          const configPath = join(root, 'project.emulsify.json');
+          const config = JSON.parse(readFileSync(configPath, 'utf8'));
+          delete config.system;
+          delete config.variant;
+          writeFileSync(configPath, json(config));
+          args.push(
+            '--repository',
+            systemRepository,
+            '--checkout',
+            'main',
+            '--all',
+          );
+        }
+
+        const before = snapshotFiles(root);
+        const entries = readdirSync(root, { recursive: true }).sort();
+        const { env, log } = recordNpmInvocations();
+        const result = runPtyPrompt(
+          [process.execPath, cliPath, ...args],
+          [[prompt, '\u0003']],
+          { cwd: root, env },
+        );
+
+        assert.equal(result.status, 130, commandFailure(command, result));
+        assert.match(result.stdout, /Cancelled\. Nothing was changed\./u);
+        assert.deepEqual(snapshotFiles(root), before);
+        assert.deepEqual(
+          readdirSync(root, { recursive: true }).sort(),
+          entries,
+        );
+        assert.equal(existsSync(log), false);
+      },
+    );
+  }
+
   test('uses canonical type values and marks format as deprecated in detailed component create help', () => {
     const result = runCli(tempRoot, ['component', 'create', '--help']);
 
@@ -327,9 +459,9 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       result.stdout,
       /--type <twig\|twig-sdc\|react\|web-component>/u,
     );
-    assert.match(result.stdout, /--format <default\|sdc>/u);
+    assert.match(result.stdout, /^ +--format <default\|sdc>/mu);
     assert.match(result.stdout, /Deprecated alias/u);
-    assert.match(result.stdout, /--force/u);
+    assert.match(result.stdout, /^ +-f, --force\b/mu);
     assert.match(result.stdout, /-y, --yes/u);
     assert.match(result.stdout, /Compatibility alias for --force/u);
     assert.match(result.stdout, /--tag-name <tag-name>/u);
@@ -368,11 +500,8 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
 
     assert.equal(result.status, 0, commandFailure('--version', result));
     assert.equal(result.stderr, '');
-    assert.equal(result.stdout.includes('Emulsify CLI'), true);
-    assert.equal(
-      result.stdout.includes(`Version: ${packageInfo.version}`),
-      true,
-    );
+    // The version is a value scripts read, so it prints as one plain line.
+    assert.equal(result.stdout.trim(), packageInfo.version);
   });
 
   test('fails fast when component create has no name outside a TTY', () => {
@@ -417,6 +546,76 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.match(result.stderr, /Pass --directory <directory>/u);
   });
 
+  test('requires an explicit overwrite flag to replace an existing component outside a TTY', () => {
+    const name = 'component-overwrite-project';
+    const root = createComponentPackageProject(name, json({ name }));
+    const destination = join(root, 'components', 'card');
+    const template = join(destination, 'card.twig');
+    const notes = join(destination, 'notes.md');
+    const originalTemplate = '{# Hand-edited template #}\n';
+    mkdirSync(destination, { recursive: true });
+    writeFileSync(template, originalTemplate);
+    writeFileSync(notes, 'Project-specific notes\n');
+    const before = snapshotFiles(destination);
+    const command = ['component', 'create', 'card'];
+    const options = ['--directory', 'components', '--type', 'twig'];
+
+    const declined = runCli(root, [...command, ...options]);
+    assert.equal(
+      declined.status,
+      1,
+      commandFailure('component create', declined),
+    );
+    assert.match(
+      declined.stderr,
+      /The component "Card" already exists in components\. Pass --force to replace it in non-interactive mode\./u,
+    );
+    assert.deepEqual(snapshotFiles(destination), before);
+
+    for (const flag of ['-f', '--force', '-y']) {
+      writeFileSync(template, originalTemplate);
+      writeFileSync(notes, 'Project-specific notes\n');
+      const forced = runCli(root, [...command, flag, ...options]);
+      assert.equal(
+        forced.status,
+        0,
+        commandFailure(`component create ${flag}`, forced),
+      );
+      assert.notEqual(readFileSync(template, 'utf8'), originalTemplate);
+      assert.equal(existsSync(notes), false);
+    }
+  });
+
+  test('accepts --format default as Twig and prints a deprecation warning', () => {
+    const name = 'component-format-project';
+    const root = createComponentPackageProject(name, json({ name }));
+    const result = runCli(root, [
+      'component',
+      'create',
+      'card',
+      '--directory',
+      'components',
+      '--format',
+      'default',
+    ]);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component create --format default', result),
+    );
+    assert.match(
+      result.stderr,
+      /The --format option is deprecated; use --type twig instead\./u,
+    );
+    assert.deepEqual(readdirSync(join(root, 'components', 'card')).sort(), [
+      'card.scss',
+      'card.stories.js',
+      'card.twig',
+      'card.yml',
+    ]);
+  });
+
   test('fails fast when component install has no target outside a TTY', () => {
     const result = runCli(tempRoot, ['component', 'install']);
 
@@ -426,6 +625,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       result.stderr,
       /Please specify a component to install, or pass --all to install all available components\./,
     );
+    assert.match(result.stderr, /^No changes were made\.$/mu);
   });
 
   test('fails fast when system create has no values outside a TTY', () => {
@@ -496,6 +696,53 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.match(result.stderr, /--repository/);
     assert.match(result.stderr, /--checkout/);
     assert.equal(readFileSync(projectConfigPath, 'utf8'), configBefore);
+  });
+
+  test('requires npm consent for an explicit system install outside a TTY', () => {
+    const root = nonInteractiveInstallProjectRoot;
+    const packagePath = join(root, 'package.json');
+    writeFileSync(
+      packagePath,
+      json({ name: 'non-interactive-install-project' }),
+    );
+    const before = snapshotFiles(root);
+    const { env, log } = recordNpmInvocations();
+    const args = [
+      'system',
+      'install',
+      '--repository',
+      systemRepository,
+      '--checkout',
+      'main',
+      '--variant',
+      'none',
+      '--all',
+    ];
+    const withoutConsent = runCli(root, args, env);
+
+    assert.notEqual(withoutConsent.status, 0);
+    assert.match(withoutConsent.stderr, /swiper@\^11\.2\.0/u);
+    assert.match(withoutConsent.stderr, /--yes/u);
+    assert.match(withoutConsent.stderr, /--skip-npm/u);
+    assert.deepEqual(snapshotFiles(root), before);
+    assert.equal(existsSync(log), false);
+
+    const accepted = runCli(root, [...args, '-y'], env);
+    assert.equal(
+      accepted.status,
+      0,
+      commandFailure('system install -y', accepted),
+    );
+    assert.deepEqual(
+      JSON.parse(readFileSync(packagePath, 'utf8')).dependencies,
+      {
+        swiper: '^11.2.0',
+      },
+    );
+    assert.deepEqual(JSON.parse(readFileSync(log, 'utf8')).args, [
+      'install',
+      '--ignore-scripts',
+    ]);
   });
 
   test('creates a standalone system and installs it from a local path', () => {
@@ -593,7 +840,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     );
     assert.match(
       installResult.stdout,
-      /Successfully installed the round-trip-system system using the drupal \|\| wordpress variant/,
+      /Round Trip System installed\s+·\s+drupal \|\| wordpress component set/,
     );
 
     const installedComponentRoot = join(
@@ -796,24 +1043,29 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
   });
 
   test('initializes a WordPress project with starter hook metadata', () => {
-    const result = runCli(tempRoot, [
-      'init',
-      'Fixture Project',
-      projectsRoot,
-      '--machineName',
-      'fixture-project',
-      '--starter',
-      starterRepository,
-      '--checkout',
-      'main',
-      '--platform',
-      'wordpress',
-      '--yes',
-    ]);
+    const { env, log } = recordNpmInvocations();
+    const result = runCli(
+      tempRoot,
+      [
+        'init',
+        'Fixture Project',
+        projectsRoot,
+        '--machineName',
+        'fixture-project',
+        '--starter',
+        starterRepository,
+        '--checkout',
+        'main',
+        '--platform',
+        'wordpress',
+        '--yes',
+      ],
+      env,
+    );
 
     assert.equal(result.status, 0, commandFailure('init', result));
     assert.equal(result.stderr.trim(), '');
-    assert.match(result.stdout, /Created an Emulsify project/);
+    assert.match(result.stdout, /Created fixture-project in /);
     assert.deepEqual(
       JSON.parse(
         readFileSync(join(projectRoot, 'project.emulsify.json'), 'utf8'),
@@ -838,6 +1090,9 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       true,
     );
     assert.equal(existsSync(join(projectRoot, '.git')), false);
+    const invocation = JSON.parse(readFileSync(log, 'utf8'));
+    assert.deepEqual(invocation.args, ['install']);
+    assert.equal(realpathSync(invocation.cwd), realpathSync(projectRoot));
   });
 
   test('loads starter hook metadata when installing a system', () => {
@@ -856,7 +1111,7 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
     assert.equal(result.stderr, '');
     assert.match(
       result.stdout,
-      /Successfully installed the fixture-system system using the wordpress variant/,
+      /Fixture System installed\s+·\s+wordpress component set/,
     );
 
     const projectConfig = JSON.parse(
@@ -875,6 +1130,340 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       'card fixture\n',
     );
     assert.equal(existsSync(join(isolatedHome, '.emulsify', 'cache')), true);
+  });
+
+  test('clones a system with a non-interactive Git environment', () => {
+    const name = 'non-interactive-git-project';
+    const root = createComponentPackageProject(name, json({ name }));
+    const home = mkdtempSync(join(tempRoot, 'clone-home-'));
+    const cloneEnvironmentPath = join(home, 'clone-environment.json');
+    const result = runCli(
+      root,
+      ['component', 'list'],
+      {
+        ...isolatedEnvironment(),
+        HOME: home,
+        USERPROFILE: home,
+        GIT_ASKPASS: 'unexpected-git-askpass',
+        GIT_SSH_COMMAND: 'ssh -oConnectTimeout=10',
+        GIT_TERMINAL_PROMPT: '1',
+        SSH_ASKPASS: 'unexpected-ssh-askpass',
+        EMULSIFY_E2E_GIT_CLONE_ENV: cloneEnvironmentPath,
+      },
+      [
+        '--require',
+        fileURLToPath(new URL('./record-git-clone.cjs', import.meta.url)),
+      ],
+    );
+
+    assert.equal(result.status, 0, commandFailure('component list', result));
+    assert.match(result.stdout, /button/u);
+    assert.deepEqual(JSON.parse(readFileSync(cloneEnvironmentPath, 'utf8')), {
+      GIT_SSH_COMMAND: 'ssh -oConnectTimeout=10 -oBatchMode=yes',
+      GIT_TERMINAL_PROMPT: '0',
+    });
+  });
+
+  test('refreshes a cached system when its remote branch advances', () => {
+    const remotePath = join(tempRoot, 'refresh-system.git');
+    const refreshProjectRoot = join(projectsRoot, 'refresh-project');
+    git(tempRoot, ['clone', systemRepository, remotePath]);
+    mkdirSync(refreshProjectRoot, { recursive: true });
+    writeFileSync(
+      join(refreshProjectRoot, 'project.emulsify.json'),
+      json({
+        project: {
+          platform: 'none',
+          name: 'Refresh Project',
+          machineName: 'refresh-project',
+        },
+        starter: { repository: starterRepository },
+        system: {
+          repository: pathToFileURL(remotePath).href,
+          checkout: 'main',
+        },
+        variant: {
+          platform: 'none',
+          structureImplementations: [
+            { name: 'components', directory: 'components' },
+          ],
+        },
+      }),
+    );
+
+    const initialList = runCli(refreshProjectRoot, ['component', 'list']);
+    assert.equal(
+      initialList.status,
+      0,
+      commandFailure('component list', initialList),
+    );
+    assert.match(initialList.stdout, /button/u);
+
+    const systemConfigPath = join(remotePath, 'system.emulsify.json');
+    const systemConfig = JSON.parse(readFileSync(systemConfigPath, 'utf8'));
+    const variant = systemConfig.variants.find(
+      ({ platform }) => platform === 'none',
+    );
+    variant.components.push({
+      name: 'refresh-fixture',
+      structure: 'components',
+    });
+    writeFileSync(systemConfigPath, json(systemConfig));
+    git(remotePath, ['add', 'system.emulsify.json']);
+    git(remotePath, [
+      '-c',
+      'user.email=e2e@example.test',
+      '-c',
+      'user.name=Emulsify E2E',
+      'commit',
+      '-m',
+      'test: advance the system fixture',
+    ]);
+
+    const refreshedList = runCli(refreshProjectRoot, [
+      'component',
+      'list',
+      '--refresh',
+    ]);
+    assert.equal(
+      refreshedList.status,
+      0,
+      commandFailure('component list --refresh', refreshedList),
+    );
+    assert.match(refreshedList.stdout, /refresh-fixture/u);
+  });
+
+  test('previews npm packages for a named component and --all without writing project files', () => {
+    const root = createComponentPackageProject(
+      'package-dry-run',
+      json({ name: 'package-dry-run', private: true }),
+    );
+    const before = snapshotFiles(root);
+
+    for (const target of ['slider-story', '--all']) {
+      const result = runCli(root, [
+        'component',
+        'install',
+        target,
+        '--dry-run',
+      ]);
+      assert.equal(
+        result.status,
+        0,
+        commandFailure(`component install ${target} --dry-run`, result),
+      );
+      assert.match(result.stdout, /swiper.*\^11\.2\.0/u);
+      assert.match(result.stdout, /would add/u);
+      assert.deepEqual(snapshotFiles(root), before);
+    }
+  });
+
+  test('requires npm consent outside a TTY and allows --skip-npm', () => {
+    const packageContents = json({ name: 'skip-package', private: true });
+    const root = createComponentPackageProject('skip-package', packageContents);
+    const before = snapshotFiles(root);
+    const { env, log } = recordNpmInvocations();
+    const args = ['component', 'install', 'slider'];
+    const withoutConsent = runCli(root, args, env);
+
+    assert.notEqual(withoutConsent.status, 0);
+    assert.match(withoutConsent.stderr, /swiper@\^11\.2\.0/u);
+    assert.match(withoutConsent.stderr, /--yes/u);
+    assert.match(withoutConsent.stderr, /--skip-npm/u);
+    assert.match(withoutConsent.stderr, /^No changes were made\.$/mu);
+    assert.deepEqual(snapshotFiles(root), before);
+    assert.equal(existsSync(log), false);
+
+    const result = runCli(root, [...args, '--skip-npm'], env);
+
+    assert.equal(
+      result.status,
+      0,
+      commandFailure('component install slider --skip-npm', result),
+    );
+    assert.match(result.stdout, /npm install "swiper@\^11\.2\.0"/u);
+    assert.equal(existsSync(log), false);
+    assert.equal(
+      readFileSync(join(root, 'package.json'), 'utf8'),
+      packageContents,
+    );
+    assert.equal(
+      readFileSync(join(root, 'components', 'slider', 'fixture.txt'), 'utf8'),
+      'slider fixture\n',
+    );
+  });
+
+  test(
+    'preserves both component directories when the second overwrite is cancelled',
+    { skip: hasPty ? false : 'Requires python3 and a POSIX PTY' },
+    () => {
+      const root = createComponentPackageProject(
+        'cancel-overwrites',
+        json({ name: 'cancel-overwrites' }),
+      );
+      for (const [index, component] of ['slider-story', 'slider'].entries()) {
+        const destination = join(root, 'components', component);
+        mkdirSync(destination, { recursive: true });
+        writeFileSync(
+          join(destination, 'local.bin'),
+          Buffer.from([0, index, 255]),
+        );
+      }
+      const before = snapshotFiles(root);
+      const entries = readdirSync(root, { recursive: true }).sort();
+      const result = runPtyPrompt(
+        [
+          process.execPath,
+          cliPath,
+          'component',
+          'install',
+          'slider-story',
+          '--skip-npm',
+        ],
+        [
+          ['The component "slider-story"', 'y\r'],
+          ['The component "slider"', '\u0003'],
+        ],
+        { cwd: root, env: isolatedEnvironment() },
+      );
+
+      assert.equal(
+        result.status,
+        130,
+        commandFailure('cancel overwrite', result),
+      );
+      assert.match(result.stdout, /Cancelled\. Nothing was changed\./u);
+      assert.deepEqual(snapshotFiles(root), before);
+      assert.deepEqual(readdirSync(root, { recursive: true }).sort(), entries);
+    },
+  );
+
+  test(
+    'declining the only component requiring npm leaves its files and manifest intact',
+    { skip: hasPty ? false : 'Requires python3 and a POSIX PTY' },
+    () => {
+      const packageContents = json({ name: 'decline-npm-component' });
+      const root = createComponentPackageProject(
+        'decline-npm-component',
+        packageContents,
+      );
+      const slider = join(root, 'components', 'slider');
+      mkdirSync(slider, { recursive: true });
+      writeFileSync(join(slider, 'local.txt'), 'local edits\n');
+      const sliderBefore = snapshotFiles(slider);
+      const { env, log } = recordNpmInvocations();
+      const result = runPtyPrompt(
+        [
+          process.execPath,
+          cliPath,
+          'component',
+          'install',
+          'slider-story',
+          '--yes',
+        ],
+        [['The component "slider"', 'n\r']],
+        { cwd: root, env },
+      );
+
+      assert.equal(result.status, 0, commandFailure('decline slider', result));
+      assert.deepEqual(snapshotFiles(slider), sliderBefore);
+      assert.equal(existsSync(log), false);
+      assert.equal(
+        readFileSync(join(root, 'package.json'), 'utf8'),
+        packageContents,
+      );
+      assert.equal(
+        readFileSync(
+          join(root, 'components', 'slider-story', 'fixture.txt'),
+          'utf8',
+        ),
+        'slider story fixture\n',
+      );
+    },
+  );
+
+  test('reports retained dependencies after npm install fails', () => {
+    const root = createComponentPackageProject(
+      'failed-npm',
+      json({ name: 'failed-npm' }),
+    );
+    const { env, log } = recordNpmInvocations(1);
+    const result = runCli(
+      root,
+      ['component', 'install', 'slider', '--yes'],
+      env,
+    );
+
+    assert.equal(
+      result.status,
+      1,
+      commandFailure('npm install failure', result),
+    );
+    assert.match(
+      result.stderr,
+      /The new dependencies remain in package\.json\./u,
+    );
+    assert.match(
+      result.stderr,
+      /Run npm install --ignore-scripts in .* to finish installing the packages\./u,
+    );
+    assert.match(result.stderr, /^Command failed\.$/mu);
+    assert.doesNotMatch(result.stderr, /No changes were made\./u);
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies,
+      { swiper: '^11.2.0' },
+    );
+    assert.equal(existsSync(log), true);
+  });
+
+  test('adds sorted npm packages and invokes npm once from the project root', () => {
+    const manifest = {
+      private: true,
+      name: 'install-packages',
+      dependencies: { zod: '^4.0.0', ajv: '^8.0.0' },
+      version: '1.0.0',
+    };
+    const serialize = (value) =>
+      JSON.stringify(value, null, 4).replaceAll('\n', '\r\n');
+    const root = createComponentPackageProject(
+      'install-packages',
+      serialize(manifest),
+    );
+    const packagePath = join(root, 'package.json');
+    const childDirectory = join(root, 'child-directory');
+    mkdirSync(childDirectory);
+    const { env, log } = recordNpmInvocations();
+    const args = ['component', 'install', 'slider-story', '--yes'];
+    const result = runCli(childDirectory, args, env);
+
+    assert.equal(result.status, 0, commandFailure(args.join(' '), result));
+    assert.equal(result.stderr, '');
+    assert.doesNotMatch(result.stdout, /\u001b\[/u);
+    assert.match(result.stdout, /^Installing npm packages$/mu);
+    assert.match(result.stdout, /^Installed 1 npm package with npm$/mu);
+    assert.match(result.stdout, /Lifecycle scripts were not run.*npm rebuild/u);
+    assert.match(result.stdout, /added 1 npm package/u);
+
+    const expectedContents = serialize({
+      ...manifest,
+      dependencies: { ajv: '^8.0.0', swiper: '^11.2.0', zod: '^4.0.0' },
+    });
+    assert.equal(readFileSync(packagePath, 'utf8'), expectedContents);
+    const invocations = readFileSync(log, 'utf8');
+    const records = invocations.trim().split('\n').map(JSON.parse);
+    assert.equal(records.length, 1);
+    assert.deepEqual(records[0].args, ['install', '--ignore-scripts']);
+    assert.equal(realpathSync(records[0].cwd), realpathSync(root));
+
+    const repeat = runCli(childDirectory, [...args, '--force'], env);
+    assert.equal(
+      repeat.status,
+      0,
+      commandFailure('repeat component install', repeat),
+    );
+    assert.match(repeat.stdout, /already in package\.json/u);
+    assert.equal(readFileSync(log, 'utf8'), invocations);
+    assert.equal(readFileSync(packagePath, 'utf8'), expectedContents);
   });
 
   test('creates a component through the plural command alias', () => {
@@ -1205,6 +1794,28 @@ describe('built Emulsify CLI', { concurrency: false }, () => {
       result.status,
       0,
       'component install must fail when its requested component is not copied',
+    );
+  });
+
+  test('reports failure after a partial component install --all', () => {
+    const root = createComponentPackageProject(
+      'partial-component-install',
+      json({ name: 'partial-component-install' }),
+    );
+    const configPath = join(root, 'project.emulsify.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.project.platform = 'wordpress';
+    config.variant.platform = 'wordpress';
+    writeFileSync(configPath, json(config));
+    const result = runCli(root, ['component', 'install', '--all']);
+
+    assert.equal(result.status, 1, commandFailure('partial install', result));
+    assert.match(result.stderr, /Unable to install missing:/u);
+    assert.match(result.stderr, /^Command failed\.$/mu);
+    assert.doesNotMatch(result.stderr, /No changes were made\./u);
+    assert.equal(
+      readFileSync(join(root, 'components', 'card', 'fixture.txt'), 'utf8'),
+      'card fixture\n',
     );
   });
 });

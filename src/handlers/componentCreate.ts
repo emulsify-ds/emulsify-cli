@@ -1,11 +1,11 @@
 import type { CreateComponentHandlerOptions } from '@emulsify-cli/handlers';
-import { input } from '@inquirer/prompts';
+import { text } from '@clack/prompts';
 import generateComponent from '../util/project/generateComponent.js';
 import { withEmulsifySystem } from './hofs/withEmulsifySystem.js';
 import CliError from '../lib/CliError.js';
 import deriveComponentNames from '../util/deriveComponentNames.js';
 import {
-  isExitPromptError,
+  isPromptCancelledError,
   requireInteractiveTerminal,
   runPrompt,
 } from '../util/prompt/index.js';
@@ -17,10 +17,10 @@ import {
 const MISSING_COMPONENT_NAME_ERROR =
   'Please specify a name for the new component.';
 
-function validateComponentName(name: string): true | string {
+function validateComponentName(name: string | undefined): string | undefined {
   try {
-    deriveComponentNames(name);
-    return true;
+    deriveComponentNames(name ?? '');
+    return undefined;
   } catch (error) {
     return (error as Error).message;
   }
@@ -29,6 +29,8 @@ function validateComponentName(name: string): true | string {
 /**
  * Handler for the `component create` command.
  *
+ * @returns summary shown on the closing line of the session.
+ *
  * @throws {CliError} if the component name is missing.
  * @throws {CliError} if the current project does not have a usable system and variant configuration.
  * @throws {CliError} if component generation fails.
@@ -36,7 +38,7 @@ function validateComponentName(name: string): true | string {
 export default async function componentCreate(
   name: string | void,
   options: CreateComponentHandlerOptions = {},
-): Promise<void> {
+): Promise<string> {
   const providedComponentName = name?.trim() ? name : undefined;
 
   // Missing prompt values can be rejected before loading or refreshing the
@@ -61,24 +63,28 @@ export default async function componentCreate(
 
   const componentName =
     providedComponentName ??
-    (await runPrompt({
+    (await runPrompt<string>({
       prompt: () =>
-        input({
-          message: 'Component name:',
+        text({
+          message: 'Component name',
           validate: validateComponentName,
         }),
       nonInteractive: { error: MISSING_COMPONENT_NAME_ERROR },
     }));
 
   try {
-    await generateComponent(
+    // generateComponent reports the outcome it actually reached, which may be a
+    // declined overwrite rather than a new component.
+    return await generateComponent(
       variantConf,
       emulsifyConfig,
       componentName,
       options,
     );
   } catch (e) {
-    if (isExitPromptError(e)) {
+    // A cancelled prompt is closed by the top-level runner, which reports it as
+    // a cancellation rather than a failure. Wrapping it here would hide it.
+    if (isPromptCancelledError(e)) {
       throw e;
     }
 

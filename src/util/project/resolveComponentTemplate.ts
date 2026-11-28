@@ -6,6 +6,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { pathExists } from 'fs-extra';
 
+import CliError from '../../lib/CliError.js';
 import log from '../../lib/log.js';
 import { EMULSIFY_PROJECT_TEMPLATES_FOLDER } from '../../lib/constants.js';
 import renderTemplate, {
@@ -31,7 +32,7 @@ const LEGACY_TEMPLATE_DIRECTORIES: Partial<Record<ComponentType, string>> = {
  * @param logicalName logical template file name, such as `component.twig`.
  * @param vars component template values available for token replacement.
  * @returns rendered override content, or null when the built-in template should be used.
- * @throws {Error} if an existing override file cannot be read.
+ * @throws {CliError} if an existing override file cannot be read.
  *
  * @example
  * await resolveComponentTemplate('/project', 'twig', 'component.twig', {
@@ -73,7 +74,17 @@ export default async function resolveComponentTemplate(
       continue;
     }
 
-    const template = await fs.readFile(templatePath, 'utf8');
+    let template: string;
+    try {
+      template = await fs.readFile(templatePath, 'utf8');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const readError = new CliError(
+        `Unable to read component template override "${templatePath}": ${message}`,
+      );
+      readError.cause = error;
+      throw readError;
+    }
     if (template.trim() === '') {
       log(
         'warn',

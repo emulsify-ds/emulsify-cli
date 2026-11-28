@@ -1,0 +1,275 @@
+/**
+ * @file session.ts
+ * Shared session framing for every command that talks to a person.
+ *
+ * A session opens with a title, threads each step onto a single gutter, and
+ * closes with either a summary or a cancellation. All command output is drawn
+ * by one renderer so prompts, logs, and spinners share a visual language.
+ */
+
+import {
+  cancel as renderCancel,
+  intro as renderIntro,
+  note as renderNote,
+  outro as renderOutro,
+  spinner as createSpinner,
+  type SpinnerResult,
+} from '@clack/prompts';
+import { PROMPT_CANCELLED_EXIT_CODE } from '../util/prompt/index.js';
+
+/**
+ * Matches SGR and other ANSI escape sequences.
+ *
+ * @remarks Built from a string so the two control characters it matches stay
+ * written as escapes rather than being embedded literally in the source.
+ */
+const ANSI_PATTERN = new RegExp(
+  '[\\u001B\\u009B][[\\]()#;?]*(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nqry=><]',
+  'g',
+);
+
+let sessionIsOpen = false;
+let sessionMayHaveChanges = false;
+const abortCleanups = new Set<() => void>();
+
+/** Register synchronous work to run if Ctrl-C aborts an active spinner. */
+export function onAbort(cleanup: () => void): () => void {
+  abortCleanups.add(cleanup);
+  return () => {
+    abortCleanups.delete(cleanup);
+  };
+}
+
+/**
+ * Remove ANSI escape sequences from a string.
+ *
+ * @param value string that may contain escape sequences.
+ * @returns the string with every escape sequence removed.
+ */
+export function stripAnsi(value: string): string {
+  return value.replace(ANSI_PATTERN, '');
+}
+
+/** Use Clack's standard width when a TTY reports unusable dimensions. */
+export function getRendererOutput(
+  stream: NodeJS.WriteStream = process.stdout,
+): NodeJS.WriteStream {
+  const { columns } = stream;
+  if (
+    typeof columns === 'number' &&
+    (!Number.isFinite(columns) || columns < 40)
+  ) {
+    // Keep the actual stream so Clack still receives its terminal events.
+    // Prompts also read these dimensions from stdout in an active session.
+    stream.columns = 80;
+  }
+  return stream;
+}
+
+/**
+ * Whether output is being drawn for a person at a terminal.
+ *
+ * @remarks Piped and redirected output is read by scripts and other commands,
+ * so it gets plain lines instead of a drawn session frame.
+ *
+ * @param stream stdout stream to test.
+ * @returns true when stdout is an interactive terminal.
+ */
+export function isInteractiveOutput(
+  stream: NodeJS.WriteStream = process.stdout,
+): boolean {
+  return stream.isTTY === true;
+}
+
+/**
+ * Whether a session frame is currently open.
+ *
+ * @returns true between `startSession` and `finishSession`/`cancelSession`.
+ */
+export function isSessionOpen(): boolean {
+  return sessionIsOpen;
+}
+
+/** Record that a write may leave changes even if it throws. */
+export function markSessionMayHaveChanges(): void {
+  sessionMayHaveChanges = true;
+}
+
+/** Describe the outcome of a failed session. */
+export function getSessionFailureSummary(cancellation?: string): string {
+  if (cancellation !== undefined) {
+    return sessionMayHaveChanges ? 'Cancelled.' : cancellation;
+  }
+  return sessionMayHaveChanges ? 'Command failed.' : 'No changes were made.';
+}
+
+/**
+ * Open a session frame.
+ *
+ * @param title short command label shown in the session header.
+ */
+export function startSession(title: string): void {
+  if (sessionIsOpen) {
+    return;
+  }
+
+  sessionIsOpen = true;
+  sessionMayHaveChanges = false;
+
+  if (isInteractiveOutput()) {
+    renderIntro(title, { output: getRendererOutput() });
+  }
+}
+
+/**
+ * Close an open session frame with an optional summary.
+ *
+ * @param message summary shown on the closing line.
+ */
+export function finishSession(message?: string): void {
+  if (!sessionIsOpen) {
+    return;
+  }
+
+  sessionIsOpen = false;
+
+  if (isInteractiveOutput()) {
+    renderOutro(message, { output: getRendererOutput() });
+    return;
+  }
+
+  if (message) {
+    process.stdout.write(`${message}\n`);
+  }
+}
+
+/**
+ * Close an open session frame as cancelled or failed.
+ *
+ * @param message reason shown on the closing line.
+ */
+export function cancelSession(message: string): void {
+  if (!sessionIsOpen) {
+    return;
+  }
+
+  sessionIsOpen = false;
+
+  if (isInteractiveOutput()) {
+    renderCancel(message, { output: getRendererOutput() });
+    return;
+  }
+
+  process.stderr.write(`${message}\n`);
+}
+
+/**
+ * Render a bordered block of related lines inside the current session.
+ *
+ * @param message block body.
+ * @param title optional block heading.
+ */
+export function note(message: string, title?: string): void {
+  if (isInteractiveOutput()) {
+    renderNote(message, title, { output: getRendererOutput() });
+    return;
+  }
+
+  process.stdout.write(`${title ? `${title}\n` : ''}${message}\n`);
+}
+
+/**
+ * Write one plain progress line.
+ *
+ * @param stream stream to write to.
+ * @param message line to write, if any.
+ */
+function writeLine(stream: NodeJS.WriteStream, message?: string): void {
+  if (message) {
+    stream.write(`${message}\n`);
+  }
+}
+
+type SpinnerProcess = Pick<NodeJS.Process, 'stdout' | 'stderr' | 'exitCode'> & {
+  on(event: 'exit', listener: (code: number) => void): void;
+  off(event: 'exit', listener: (code: number) => void): void;
+};
+
+/**
+ * Create a spinner bound to the current session.
+ *
+ * @remarks Long-running work reports which phase it is in rather than
+ * pretending to know how much of the total work is complete. Outside a
+ * terminal there is nothing to animate, so each phase is written as one plain
+ * line and the log stays readable in CI.
+ *
+ * @returns a spinner whose `message` updates the active phase.
+ */
+export function spinner(runtime: SpinnerProcess = process): SpinnerResult {
+  if (isInteractiveOutput(runtime.stdout)) {
+    const progress = createSpinner({
+      indicator: 'timer',
+      output: getRendererOutput(runtime.stdout),
+    });
+    const abortOnExit = (code: number) => {
+      runtime.off('exit', abortOnExit);
+      if (code !== 0) return;
+
+      // Clack's raw-mode Ctrl-C exits with 0. Only a spinner that is still
+      // active treats that exit as cancellation, and exit callbacks must be sync.
+      runtime.exitCode = PROMPT_CANCELLED_EXIT_CODE;
+      const cleanups = [...abortCleanups];
+      abortCleanups.clear();
+      for (const cleanup of cleanups) {
+        try {
+          cleanup();
+        } catch (error) {
+          writeLine(runtime.stderr, String(error));
+        }
+      }
+    };
+    const finish =
+      (end: SpinnerResult['stop']): SpinnerResult['stop'] =>
+      (message) => {
+        runtime.off('exit', abortOnExit);
+        end(message);
+      };
+
+    return {
+      start(message) {
+        runtime.off('exit', abortOnExit);
+        progress.start(message);
+        runtime.on('exit', abortOnExit);
+      },
+      stop: finish(progress.stop),
+      cancel: finish(progress.cancel),
+      error: finish(progress.error),
+      clear: finish(progress.clear),
+      message: progress.message,
+      get isCancelled() {
+        return progress.isCancelled;
+      },
+    };
+  }
+
+  return {
+    start: (message) => writeLine(runtime.stdout, message),
+    stop: (message) => writeLine(runtime.stdout, message),
+    message: (message) => writeLine(runtime.stdout, message),
+    cancel: (message) => writeLine(runtime.stderr, message),
+    error: (message) => writeLine(runtime.stderr, message),
+    clear: () => undefined,
+    isCancelled: false,
+  };
+}
+
+/**
+ * Reset session state.
+ *
+ * @remarks Exported for tests; production code opens and closes sessions in pairs.
+ */
+export function resetSessionForTesting(): void {
+  sessionIsOpen = false;
+  sessionMayHaveChanges = false;
+  abortCleanups.clear();
+}

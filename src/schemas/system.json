@@ -21,6 +21,7 @@
     },
     "minimumCliVersion": {
       "type": "string",
+      "format": "semver",
       "description": "Minimum Emulsify CLI version required to use this system"
     },
     "structure": {

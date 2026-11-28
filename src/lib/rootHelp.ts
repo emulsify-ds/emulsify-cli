@@ -94,8 +94,18 @@ const sections: HelpSection[] = [
       },
       {
         kind: 'option',
+        label: '-y, --yes',
+        description: 'Accept npm packages without prompting',
+      },
+      {
+        kind: 'option',
         label: '--dry-run',
         description: 'Preview without writing files',
+      },
+      {
+        kind: 'option',
+        label: '--skip-npm',
+        description: 'Report npm packages without installing them',
       },
       {
         kind: 'command',
@@ -119,18 +129,23 @@ const sections: HelpSection[] = [
       },
       {
         kind: 'option',
-        label: '-f, --format <default|sdc>',
-        description: 'Deprecated Twig type alias',
+        label: '-f, --force',
+        description: 'Replace an existing generated component',
       },
       {
         kind: 'option',
-        label: '--force',
-        description: 'Replace an existing generated component',
+        label: '-y, --yes',
+        description: 'Compatibility alias for --force',
       },
       {
         kind: 'option',
         label: '--dry-run',
         description: 'Preview without writing files',
+      },
+      {
+        kind: 'option',
+        label: '--refresh',
+        description: 'Check the system remote before reuse',
       },
       {
         kind: 'command',
@@ -181,6 +196,16 @@ const sections: HelpSection[] = [
         kind: 'option',
         label: '-a, --all',
         description: 'Install every component, not just required',
+      },
+      {
+        kind: 'option',
+        label: '-y, --yes',
+        description: 'Accept the install review or npm packages',
+      },
+      {
+        kind: 'option',
+        label: '--skip-npm',
+        description: 'Report npm packages without installing them',
       },
       {
         kind: 'command',
@@ -383,7 +408,7 @@ export default function getRootHelp({
     lines.push('');
   }
 
-  const refresh = '--refresh works on list, install, and create.';
+  const refresh = '--refresh: component list, install, create.';
   const switches = '-V, --version   -h, --help';
   if (width >= NATURAL_WIDTH) {
     lines.push(colors.dim(`  ${refresh}   ${switches}`));

@@ -9,18 +9,14 @@ emulsify component list
 emulsify component ls
 ```
 
-The command loads the configured system, finds the selected variant, and prints each component as:
+The command loads the selected variant and groups components by structure.
+Notes show required components and any component or npm dependencies.
 
 ```text
-<structure> -> <component-name>
-```
-
-Example:
-
-```text
-base -> 01-colors
-atoms -> buttons
-molecules -> card
+components  ·  3 components  ·  1 required
+  button        required
+  slider        npm swiper
+  slider-story  needs slider
 ```
 
 ## Install One Component
@@ -88,7 +84,9 @@ emulsify component install card --force
 
 ## Dry Runs
 
-Use `--dry-run` to preview component installation without copying, removing, or overwriting files.
+Use `--dry-run` to preview component and npm package installation without
+making project changes. Provide a component name or `--all`. The preview skips
+the npm confirmation prompt.
 
 ```bash
 emulsify component install card --dry-run
@@ -103,6 +101,59 @@ Dry-run output includes:
 | Destination        | Project path where each component would be copied.                              |
 | Destination exists | Whether the destination currently exists.                                       |
 | Real run would     | Whether the real command would copy, replace, or prompt.                        |
+| npm packages       | Packages that would be added, are already satisfied, or need attention.         |
+
+## npm packages
+
+A system can declare [npm packages for each component](./systems.md#system-repository-shape).
+The CLI resolves all overwrite choices before copying components. It checks the
+packages declared by the components selected for copying, including their
+selected component dependencies. An all-components install checks the entire
+variant, and a dry run previews all potential copies and their packages.
+`system install` checks the components included in the selected scope.
+
+Before adding packages, the CLI shows the packages, exact ranges, requesting
+components, and package manager. Choose **No** at the npm prompt or pass
+`--skip-npm` to copy components and get an install command for later. Pass
+`-y, --yes` to accept the packages without prompting. Outside an interactive
+terminal, use `--yes` or `--skip-npm` when packages would be added. In guided
+`system install`, the final review confirms the whole install.
+
+The install summary shows the status of each package.
+
+| Status                  | What it means                                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Added                   | The CLI added the missing package to `dependencies` in the project's `package.json`.                                                |
+| Already in package.json | An existing spec in `dependencies` or `devDependencies` fits the required range.                                                   |
+| Needs attention         | A declaration cannot satisfy the requirement. The CLI keeps it and explains how to update it.                                     |
+
+When several components require the same package, the CLI uses the range they
+have in common. An entry in `peerDependencies` produces a warning. If a package
+is listed in `optionalDependencies`, move it to `dependencies` or
+`devDependencies` to make it required. An optional entry can override a direct
+dependency with the same name. See [npm’s package.json reference](https://docs.npmjs.com/cli/configuring-npm/package-json/#optionaldependencies).
+
+For npm projects, the CLI runs `npm install --ignore-scripts` once when it adds
+packages. If a package needs its lifecycle scripts, run `npm rebuild` from
+the project root. For pnpm, Yarn, and Bun projects, the CLI records the
+dependencies and prints the matching install command for you to run. When the
+project has no `packageManager` field, the CLI checks for pnpm, Yarn, and Bun
+lockfiles before npm lockfiles and defaults to npm if it finds none.
+
+A component that needs npm packages requires a valid `package.json` in the
+project root. If the npm install fails, the copied components and new dependency
+entries stay in place. Run `npm install --ignore-scripts` in the project root to
+finish.
+
+`--skip-npm` and `--dry-run` warn about invalid npm declarations and report any
+valid declarations that remain. On `component install`, `--dry-run` also previews
+any missing or invalid `package.json` alongside the planned component copies.
+
+```bash
+emulsify component install slider --dry-run
+emulsify component install slider --skip-npm
+emulsify component install slider --yes
+```
 
 ## Create A Local Component
 

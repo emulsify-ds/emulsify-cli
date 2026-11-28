@@ -4,7 +4,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { CACHE_DIR } from '../lib/constants.js';
 import CliError from '../lib/CliError.js';
-import log from '../lib/log.js';
+import { markSessionMayHaveChanges } from '../lib/session.js';
 
 type CacheStats = {
   exists: boolean;
@@ -66,29 +66,23 @@ async function inspectCache(): Promise<CacheStats> {
  * Clear all local Emulsify repository cache entries.
  *
  * @param options command options, including dry-run behavior.
+ * @returns a short summary of what the cache held and what was removed.
  * @throws {CliError} if the cache cannot be inspected or removed.
  */
 export default async function cacheClear({
   dryRun = false,
-}: ClearCacheHandlerOptions = {}): Promise<void> {
+}: ClearCacheHandlerOptions = {}): Promise<string> {
   const stats = await inspectCache();
   if (!stats.exists) {
-    log(
-      'info',
-      'The Emulsify cache is already empty: 0 buckets and 0 entries.',
-    );
-    return;
+    return 'The Emulsify cache is already empty: 0 buckets and 0 entries.';
   }
 
   if (dryRun) {
-    log(
-      'info',
-      `Dry run: the Emulsify cache contains ${stats.bucketCount} buckets and ${stats.entryCount} entries. No files were removed.`,
-    );
-    return;
+    return `Dry run: the Emulsify cache contains ${stats.bucketCount} buckets and ${stats.entryCount} entries. No files were removed.`;
   }
 
   try {
+    markSessionMayHaveChanges();
     await fs.rm(CACHE_DIR, { recursive: true, force: true });
   } catch (error) {
     throw new CliError(
@@ -96,8 +90,5 @@ export default async function cacheClear({
     );
   }
 
-  log(
-    'success',
-    `Cleared the Emulsify cache: removed ${stats.bucketCount} buckets and ${stats.entryCount} entries.`,
-  );
+  return `Cleared the Emulsify cache: removed ${stats.bucketCount} buckets and ${stats.entryCount} entries.`;
 }

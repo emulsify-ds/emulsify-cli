@@ -8,13 +8,40 @@ jest.mock('../util/cache/getJsonFromCachedFile', () => jest.fn());
 jest.mock('../util/cache/cloneIntoCache', () => jest.fn());
 jest.mock('../util/cache/copyItemFromCache', () => jest.fn());
 jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
-jest.mock('@inquirer/prompts');
+jest.mock('../util/project/installDependencies', () => jest.fn());
+jest.mock('../lib/session', () => ({
+  markSessionMayHaveChanges: jest.fn(),
+  note: jest.fn(),
+  onAbort: jest.fn(),
+  spinner: jest.fn(),
+}));
+// The prompt library is ESM-only, so the mock is built from a factory rather
+// than automocked from the real module.
+jest.mock('@clack/prompts', () => {
+  const cancelSymbol = Symbol('clack:cancel');
 
-import { pathExists } from 'fs-extra';
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL: cancelSymbol,
+    isCancel: (value: unknown) => value === cancelSymbol,
+    select: jest.fn(),
+    confirm: jest.fn(),
+  };
+});
+
+import { existsSync, promises as fs, writeSync } from 'fs';
+import { pathExists, remove } from 'fs-extra';
 import { join, resolve } from 'path';
-import { confirm, select } from '@inquirer/prompts';
+import { CANCEL_SYMBOL, confirm, select } from '@clack/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
+import { PromptCancelledError } from '../util/prompt/index.js';
 import log from '../lib/log.js';
+import {
+  markSessionMayHaveChanges,
+  note,
+  onAbort,
+  spinner,
+} from '../lib/session.js';
 import CliError from '../lib/CliError.js';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
@@ -25,9 +52,13 @@ import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
 import copyItemFromCache from '../util/cache/copyItemFromCache.js';
 import findFileInCurrentPath from '../util/fs/findFileInCurrentPath.js';
+import installDependencies from '../util/project/installDependencies.js';
 import componentInstall from './componentInstall.js';
 
 const logMock = log as jest.Mock;
+const noteMock = note as jest.Mock;
+const disposeAbortMock = jest.fn();
+const onAbortMock = jest.mocked(onAbort).mockReturnValue(disposeAbortMock);
 const getEmulsifyConfigMock = getEmulsifyConfig as jest.Mock;
 const getJsonFromCachedFileMock = getJsonFromCachedFile as jest.Mock;
 const cloneIntoCacheMock = cloneIntoCache as jest.Mock;
@@ -37,6 +68,18 @@ const findFileInCurrentPathMock = findFileInCurrentPath as jest.Mock;
 const pathExistsMock = pathExists as jest.Mock;
 const confirmMock = confirm as jest.Mock;
 const selectMock = select as jest.Mock;
+const installDependenciesMock = installDependencies as jest.Mock;
+const readFileMock = fs.readFile as jest.Mock;
+const openMock = jest.mocked(fs.open);
+const writeFileMock = jest.fn();
+const temporaryFileHandle = {
+  writeFile: writeFileMock,
+  chmod: jest.fn(),
+  sync: jest.fn(),
+  close: jest.fn(),
+} as unknown as Awaited<ReturnType<typeof fs.open>>;
+const renameMock = fs.rename as jest.Mock;
+const progress = { start: jest.fn(), stop: jest.fn(), error: jest.fn() };
 const originalStdinIsTTY = process.stdin.isTTY;
 
 function setStdinIsTTY(value: boolean | undefined) {
@@ -48,6 +91,7 @@ function setStdinIsTTY(value: boolean | undefined) {
 
 const projectRoot = resolve('/project');
 const projectConfigPath = join(projectRoot, 'project.emulsify.json');
+const packageJsonPath = join(projectRoot, 'package.json');
 const componentPath = (name: string) =>
   join(projectRoot, 'components', '00-base', name);
 
@@ -108,6 +152,30 @@ const system = {
   variants: [variant],
 } as EmulsifySystem;
 
+function declarePackages(packages: Record<string, Record<string, string>>) {
+  getJsonFromCachedFileMock.mockResolvedValueOnce({
+    ...system,
+    variants: [
+      {
+        ...variant,
+        components: variant.components.map((component) => ({
+          ...component,
+          npmDependencies: packages[component.name],
+        })),
+      },
+    ],
+  });
+}
+
+function expectManifestDependencies(dependencies: Record<string, string>) {
+  expect(writeFileMock).toHaveBeenCalledTimes(1);
+  const [manifest] = writeFileMock.mock.calls[0];
+  const [temporaryFile] = openMock.mock.calls[0];
+  expect(JSON.parse(manifest)).toEqual({ name: 'theme', dependencies });
+  expect(renameMock).toHaveBeenCalledTimes(1);
+  expect(renameMock).toHaveBeenCalledWith(temporaryFile, packageJsonPath);
+}
+
 describe('componentInstall', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -122,6 +190,12 @@ describe('componentInstall', () => {
     pathExistsMock.mockResolvedValue(false);
     confirmMock.mockResolvedValue(false);
     selectMock.mockResolvedValue('card');
+    (existsSync as jest.Mock).mockReturnValue(false);
+    (fs.stat as jest.Mock).mockResolvedValue({ mode: 0o644 });
+    openMock.mockResolvedValue(temporaryFileHandle);
+    readFileMock.mockResolvedValue('{\n  "name": "theme"\n}\n');
+    installDependenciesMock.mockResolvedValue('');
+    (spinner as jest.Mock).mockReturnValue(progress);
   });
 
   afterAll(() => {
@@ -176,7 +250,7 @@ describe('componentInstall', () => {
     getEmulsifyConfigMock.mockResolvedValueOnce({
       ...projectConfig,
       system: {
-        repository: 'https://github.com/example/.git',
+        repository: 'file://%',
         checkout: 'main',
       },
     });
@@ -265,26 +339,26 @@ describe('componentInstall', () => {
     await componentInstall(undefined, { force: true });
 
     expect(selectMock).toHaveBeenCalledWith({
-      message: 'Choose a component to install:',
-      choices: [
+      message: 'Choose a component to install',
+      options: [
         {
-          name: 'button',
           value: 'button',
-          description: undefined,
+          label: 'button',
+          hint: 'base',
         },
         {
-          name: 'icon',
           value: 'icon',
-          description: undefined,
+          label: 'icon',
+          hint: 'base',
         },
         {
-          name: 'card',
           value: 'card',
-          description: undefined,
+          label: 'card',
+          hint: 'base',
         },
         {
-          name: 'Install all available components',
           value: expect.any(Symbol),
+          label: 'Install all available components',
         },
       ],
     });
@@ -305,8 +379,8 @@ describe('componentInstall', () => {
   });
 
   it('installs all components when the interactive all choice is selected', async () => {
-    selectMock.mockImplementationOnce(async ({ choices }) => {
-      return choices.at(-1).value;
+    selectMock.mockImplementationOnce(async ({ options }) => {
+      return options.at(-1).value;
     });
 
     await componentInstall(undefined, {});
@@ -349,7 +423,9 @@ describe('componentInstall', () => {
   });
 
   it('installs a component and its dependencies on the happy path', async () => {
-    await componentInstall('button', { force: true });
+    await expect(componentInstall('button', { force: true })).resolves.toBe(
+      'Installed 2 components',
+    );
 
     expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
       1,
@@ -369,10 +445,8 @@ describe('componentInstall', () => {
       'success',
       'Success! The button component has been added to your project.',
     );
-    expect(logMock).toHaveBeenCalledWith(
-      'info',
-      'The following dependencies were also installed:\n  → icon',
-    );
+    // The dependency list reads as a block rather than a log line.
+    expect(noteMock).toHaveBeenCalledWith('  → icon', 'Also installed');
   });
 
   it('requests a remote freshness check when refresh is enabled', async () => {
@@ -384,7 +458,9 @@ describe('componentInstall', () => {
   });
 
   it('previews a single component install without copying in dry-run mode', async () => {
-    await componentInstall('card', { dryRun: true });
+    await expect(componentInstall('card', { dryRun: true })).resolves.toBe(
+      'Dry run complete',
+    );
 
     expect(confirmMock).not.toHaveBeenCalled();
     expect(copyItemFromCacheMock).not.toHaveBeenCalled();
@@ -443,7 +519,9 @@ describe('componentInstall', () => {
   it('installs a component when no project config path is found for destination checks', async () => {
     findFileInCurrentPathMock.mockReturnValueOnce(undefined);
 
-    await componentInstall('card', {});
+    await expect(componentInstall('card', {})).resolves.toBe(
+      'Installed 1 component',
+    );
 
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
@@ -453,23 +531,46 @@ describe('componentInstall', () => {
     );
   });
 
-  it('prompts and installs when an existing component overwrite is accepted', async () => {
+  it('plans every accepted overwrite before starting any component copies', async () => {
     pathExistsMock.mockResolvedValue(true);
     confirmMock.mockResolvedValue(true);
 
     await componentInstall('button', {});
 
-    expect(confirmMock).toHaveBeenCalledWith({
+    expect(confirmMock).toHaveBeenCalledTimes(2);
+    expect(confirmMock).toHaveBeenNthCalledWith(1, {
       message:
         'The component "button" already exists. Would you like to replace it?',
-      default: false,
+      initialValue: false,
     });
+    expect(confirmMock.mock.invocationCallOrder[1]).toBeLessThan(
+      copyItemFromCacheMock.mock.invocationCallOrder[0],
+    );
+    expect(
+      jest.mocked(markSessionMayHaveChanges).mock.invocationCallOrder[0],
+    ).toBeLessThan(copyItemFromCacheMock.mock.invocationCallOrder[0]);
     expect(copyItemFromCacheMock).toHaveBeenCalledWith(
       'systems',
       ['compound', 'components/00-base', 'button'],
       componentPath('button'),
       true,
     );
+  });
+
+  it('starts no copies when the second overwrite prompt is cancelled', async () => {
+    pathExistsMock.mockResolvedValue(true);
+    confirmMock
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(CANCEL_SYMBOL);
+
+    const installation = componentInstall('button', {});
+
+    await expect(installation).rejects.toBeInstanceOf(PromptCancelledError);
+    await expect(installation).rejects.toHaveProperty('exitCode', 130);
+
+    expect(confirmMock).toHaveBeenCalledTimes(2);
+    expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+    expect(markSessionMayHaveChanges).not.toHaveBeenCalled();
   });
 
   it('does not prompt for overwrite when force is true', async () => {
@@ -487,11 +588,9 @@ describe('componentInstall', () => {
   });
 
   it('includes dependency context when prompting to overwrite a dependency', async () => {
-    pathExistsMock
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(true);
+    pathExistsMock.mockImplementation(
+      async (path) => path === componentPath('icon'),
+    );
     confirmMock.mockResolvedValue(true);
 
     await componentInstall('button', {});
@@ -499,7 +598,7 @@ describe('componentInstall', () => {
     expect(confirmMock).toHaveBeenCalledWith({
       message:
         'The component "icon" (required by "button") already exists. Would you like to replace it?',
-      default: false,
+      initialValue: false,
     });
     expect(copyItemFromCacheMock).toHaveBeenNthCalledWith(
       2,
@@ -514,7 +613,9 @@ describe('componentInstall', () => {
     pathExistsMock.mockResolvedValue(true);
     confirmMock.mockResolvedValue(false);
 
-    await componentInstall('button', {});
+    await expect(componentInstall('button', {})).resolves.toBe(
+      'No components were installed',
+    );
 
     expect(logMock).toHaveBeenCalledWith(
       'info',
@@ -611,5 +712,560 @@ describe('componentInstall', () => {
       componentPath('button'),
       false,
     );
+  });
+
+  describe('npm packages', () => {
+    it('shows the exact packages and their requesting components before accepted npm consent', async () => {
+      declarePackages({
+        button: { popup: '^1.0.0' },
+        icon: { swiper: '^11.2.0' },
+      });
+      confirmMock.mockResolvedValueOnce(true);
+
+      await expect(componentInstall('button', {})).resolves.toBe(
+        'Installed 2 components · added 2 npm packages',
+      );
+
+      expect(confirmMock).toHaveBeenCalledTimes(1);
+      expect(confirmMock).toHaveBeenCalledWith({
+        message: 'Add these npm packages?',
+        initialValue: false,
+      });
+      const [confirmationOrder] = confirmMock.mock.invocationCallOrder;
+      const [[review]] = noteMock.mock.calls;
+      expect(review).toContain('popup@^1.0.0 (needed by button)');
+      expect(review).toContain('swiper@^11.2.0 (needed by icon)');
+      expect(review).toContain('Package manager: npm install --ignore-scripts');
+      expect(noteMock.mock.invocationCallOrder[0]).toBeLessThan(
+        confirmationOrder,
+      );
+      expect(confirmationOrder).toBeLessThan(
+        copyItemFromCacheMock.mock.invocationCallOrder[0],
+      );
+      expect(confirmationOrder).toBeLessThan(
+        writeFileMock.mock.invocationCallOrder[0],
+      );
+      expect(installDependenciesMock).toHaveBeenCalledWith(projectRoot, {
+        ignoreScripts: true,
+      });
+      expect(logMock).toHaveBeenCalledWith(
+        'info',
+        expect.stringContaining('npm rebuild'),
+      );
+    });
+
+    it('continues with component files and reports skipped packages when consent is declined', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      confirmMock.mockResolvedValueOnce(false);
+
+      await expect(componentInstall('card', {})).resolves.toBe(
+        'Installed 1 component',
+      );
+
+      expect(confirmMock).toHaveBeenCalledTimes(1);
+      expect(copyItemFromCacheMock).toHaveBeenCalledTimes(1);
+      expect(noteMock).toHaveBeenCalledWith(
+        expect.stringMatching(/swiper@\^11\.2\.0[^\n]*skipped/u),
+        'npm packages',
+      );
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
+
+    it('accepts --yes in a non-interactive session without prompting', async () => {
+      setStdinIsTTY(false);
+      declarePackages({ card: { swiper: '^11.2.0' } });
+
+      await expect(componentInstall('card', { yes: true })).resolves.toBe(
+        'Installed 1 component · added 1 npm package',
+      );
+
+      expect(confirmMock).not.toHaveBeenCalled();
+      expectManifestDependencies({ swiper: '^11.2.0' });
+      expect(installDependenciesMock).toHaveBeenCalledWith(projectRoot, {
+        ignoreScripts: true,
+      });
+    });
+
+    it('requires --yes or --skip-npm before making changes in a non-interactive session', async () => {
+      setStdinIsTTY(false);
+      declarePackages({ card: { swiper: '^11.2.0' } });
+
+      await expect(componentInstall('card', {})).rejects.toMatchObject({
+        name: 'CliError',
+        exitCode: 1,
+        message: expect.stringMatching(
+          /swiper@\^11\.2\.0[\s\S]*--yes[\s\S]*--skip-npm/u,
+        ),
+      });
+
+      expect(confirmMock).not.toHaveBeenCalled();
+      expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
+
+    it('can cancel the npm prompt after accepting an overwrite without making changes', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      pathExistsMock.mockResolvedValue(true);
+      confirmMock
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(CANCEL_SYMBOL);
+
+      await expect(componentInstall('card', {})).rejects.toMatchObject({
+        name: 'PromptCancelledError',
+        exitCode: 130,
+      });
+
+      expect(confirmMock).toHaveBeenNthCalledWith(2, {
+        message: 'Add these npm packages?',
+        initialValue: false,
+      });
+      expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+      expect(markSessionMayHaveChanges).not.toHaveBeenCalled();
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
+
+    it('offers and adds only packages requested by the accepted component plan', async () => {
+      declarePackages({
+        button: { popup: '^1.0.0' },
+        icon: { swiper: '^11.2.0' },
+      });
+      pathExistsMock.mockImplementation(
+        async (path) => path === componentPath('icon'),
+      );
+      confirmMock.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+      await expect(componentInstall('button', {})).resolves.toBe(
+        'Installed 1 component · added 1 npm package',
+      );
+
+      expect(confirmMock).toHaveBeenCalledTimes(2);
+      expect(confirmMock).toHaveBeenNthCalledWith(1, {
+        message:
+          'The component "icon" (required by "button") already exists. Would you like to replace it?',
+        initialValue: false,
+      });
+      expect(confirmMock).toHaveBeenNthCalledWith(2, {
+        message: 'Add these npm packages?',
+        initialValue: false,
+      });
+      expect(noteMock).toHaveBeenCalledWith(
+        expect.stringContaining('popup@^1.0.0 (needed by button)'),
+        'npm package review',
+      );
+      expect(noteMock).not.toHaveBeenCalledWith(
+        expect.stringContaining('swiper'),
+        expect.any(String),
+      );
+      expect(copyItemFromCacheMock).toHaveBeenCalledTimes(1);
+      expect(copyItemFromCacheMock).toHaveBeenCalledWith(
+        'systems',
+        ['compound', 'components/00-base', 'button'],
+        componentPath('button'),
+        false,
+      );
+      expect(readFileMock).toHaveBeenCalledWith(packageJsonPath, 'utf8');
+      expect(confirmMock.mock.invocationCallOrder[0]).toBeLessThan(
+        readFileMock.mock.invocationCallOrder[0],
+      );
+      expect(confirmMock.mock.invocationCallOrder[1]).toBeLessThan(
+        copyItemFromCacheMock.mock.invocationCallOrder[0],
+      );
+      expectManifestDependencies({ popup: '^1.0.0' });
+      expect(installDependenciesMock).toHaveBeenCalledTimes(1);
+      expect(installDependenciesMock).toHaveBeenCalledWith(projectRoot, {
+        ignoreScripts: true,
+      });
+      expect(progress.start).toHaveBeenCalledWith('Installing npm packages');
+      expect(progress.stop).toHaveBeenCalledWith(
+        'Installed 1 npm package with npm',
+      );
+    });
+
+    it('does not plan or install packages requested only by a declined component', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      pathExistsMock.mockResolvedValue(true);
+      confirmMock.mockResolvedValueOnce(false);
+
+      await expect(componentInstall('card', {})).resolves.toBe(
+        'No components were installed',
+      );
+
+      expect(confirmMock).toHaveBeenCalledTimes(1);
+      expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+      expect(readFileMock).not.toHaveBeenCalled();
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+      expect(markSessionMayHaveChanges).not.toHaveBeenCalled();
+    });
+
+    it.each(['--all', 'the picker’s install-all choice'])(
+      'applies every component’s packages with %s',
+      async (mode) => {
+        declarePackages({
+          icon: { swiper: '^11.2.0' },
+          card: { popup: '^1.0.0' },
+        });
+        if (mode !== '--all') {
+          selectMock.mockImplementationOnce(
+            async ({ options }) => options.at(-1).value,
+          );
+        }
+
+        await expect(
+          componentInstall(undefined, { all: mode === '--all', yes: true }),
+        ).resolves.toBe('Installed 3 components · added 2 npm packages');
+
+        expect(copyItemFromCacheMock).toHaveBeenCalledTimes(3);
+        expectManifestDependencies({ popup: '^1.0.0', swiper: '^11.2.0' });
+        expect(installDependenciesMock).toHaveBeenCalledTimes(1);
+        expect(installDependenciesMock).toHaveBeenCalledWith(projectRoot, {
+          ignoreScripts: true,
+        });
+      },
+    );
+
+    it.each([false, true])(
+      'previews every package status without writing with all=%s',
+      async (all) => {
+        setStdinIsTTY(false);
+        declarePackages({
+          icon: { swiper: '^11.2.0', popup: '^1.0.0', menu: '^2.0.0' },
+        });
+        readFileMock.mockResolvedValue(
+          '{"dependencies":{"popup":"^1.2.0","menu":"^1.0.0"}}',
+        );
+
+        await expect(
+          componentInstall('button', { all, dryRun: true }),
+        ).resolves.toBe('Dry run complete');
+
+        expect(logMock).toHaveBeenCalledWith(
+          'info',
+          expect.stringMatching(/swiper@\^11\.2\.0 .*would add/u),
+        );
+        expect(logMock).toHaveBeenCalledWith(
+          'info',
+          expect.stringMatching(/popup@\^1\.0\.0 .*already satisfied/u),
+        );
+        expect(logMock).toHaveBeenCalledWith(
+          'info',
+          expect.stringMatching(/menu@\^2\.0\.0 .*needs attention/u),
+        );
+        expect(confirmMock).not.toHaveBeenCalled();
+        expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+        expect(writeFileMock).not.toHaveBeenCalled();
+        expect(installDependenciesMock).not.toHaveBeenCalled();
+      },
+    );
+
+    it('reports missing package.json in a dry run without copying or installing', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      readFileMock.mockRejectedValueOnce(
+        Object.assign(new Error('missing'), { code: 'ENOENT' }),
+      );
+
+      await expect(componentInstall('card', { dryRun: true })).resolves.toBe(
+        'Dry run complete',
+      );
+
+      expect(logMock).toHaveBeenCalledWith(
+        'info',
+        expect.stringContaining('package.json missing'),
+      );
+      expect(logMock).toHaveBeenCalledWith(
+        'info',
+        expect.stringContaining(`${packageJsonPath} does not exist`),
+      );
+      expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
+
+    it.each(['ready', 'missing', 'invalid'])(
+      'shows one quoted command with --skip-npm when package.json is %s',
+      async (manifest) => {
+        declarePackages({ card: { swiper: '^11.2.0', popup: '>=1\n<2' } });
+        if (manifest === 'missing') {
+          readFileMock.mockRejectedValueOnce(
+            Object.assign(new Error('missing'), { code: 'ENOENT' }),
+          );
+        }
+        if (manifest === 'invalid')
+          readFileMock.mockResolvedValueOnce('broken');
+
+        setStdinIsTTY(false);
+        await expect(componentInstall('card', { skipNpm: true })).resolves.toBe(
+          'Installed 1 component',
+        );
+
+        expect(confirmMock).not.toHaveBeenCalled();
+        expect(copyItemFromCacheMock).toHaveBeenCalledTimes(1);
+        expect(noteMock).toHaveBeenCalledWith(
+          expect.stringContaining(
+            'npm install "swiper@^11.2.0" "popup@>=1 <2"',
+          ),
+          'npm packages',
+        );
+        if (manifest !== 'ready') {
+          expect(noteMock).toHaveBeenCalledWith(
+            expect.stringContaining(`package.json ${manifest}`),
+            'npm packages',
+          );
+        }
+        expect(writeFileMock).not.toHaveBeenCalled();
+        expect(installDependenciesMock).not.toHaveBeenCalled();
+      },
+    );
+
+    it('keeps component files and the updated manifest when npm fails', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      installDependenciesMock.mockImplementationOnce(async () => {
+        expect(copyItemFromCacheMock).toHaveBeenCalledWith(
+          'systems',
+          ['compound', 'components/00-base', 'card'],
+          componentPath('card'),
+          false,
+        );
+        expectManifestDependencies({ swiper: '^11.2.0' });
+        throw new Error('  npm error ERESOLVE\n');
+      });
+
+      const install = componentInstall('card', { yes: true });
+
+      await expect(install).rejects.toBeInstanceOf(CliError);
+      await expect(install).rejects.toThrow(
+        `npm install failed:\nnpm error ERESOLVE\nThe new dependencies remain in package.json.\nRun npm install --ignore-scripts in ${projectRoot} to finish installing the packages.`,
+      );
+      expect(progress.error).toHaveBeenCalledWith(
+        'Unable to install npm packages',
+      );
+      expect(disposeAbortMock).toHaveBeenCalledTimes(1);
+      expect(fs.rm).not.toHaveBeenCalled();
+      expect(remove).not.toHaveBeenCalled();
+      expectManifestDependencies({ swiper: '^11.2.0' });
+    });
+
+    it('prints synchronous retry guidance and keeps the manifest if npm is interrupted', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      installDependenciesMock.mockImplementationOnce(async () => {
+        const [[cleanup]] = onAbortMock.mock.calls;
+        expectManifestDependencies({ swiper: '^11.2.0' });
+        cleanup();
+        return '';
+      });
+
+      await componentInstall('card', { yes: true });
+
+      expect(writeSync).toHaveBeenCalledWith(
+        process.stderr.fd,
+        expect.stringContaining(
+          `Run npm install --ignore-scripts in ${projectRoot} to finish installing the packages.`,
+        ),
+      );
+      expect(fs.rm).not.toHaveBeenCalled();
+      expectManifestDependencies({ swiper: '^11.2.0' });
+      expect(disposeAbortMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips the package step when a component cannot be copied', async () => {
+      declarePackages({ icon: { swiper: '^11.2.0' } });
+      copyItemFromCacheMock
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('copy failed'));
+
+      await expect(componentInstall('button', { yes: true })).rejects.toThrow(
+        'Unable to install icon: copy failed',
+      );
+
+      expect(readFileMock).toHaveBeenCalledWith(packageJsonPath, 'utf8');
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invalid declaration before changing files', async () => {
+      declarePackages({ icon: { swiper: 'latest' } });
+      pathExistsMock.mockResolvedValue(true);
+      confirmMock.mockResolvedValue(true);
+
+      const install = componentInstall('button', {});
+
+      await expect(install).rejects.toBeInstanceOf(CliError);
+      await expect(install).rejects.toThrow(
+        'System "compound", component "icon", npm package "swiper" must use a valid semver range.',
+      );
+      expect(confirmMock).toHaveBeenCalledTimes(2);
+      expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+      expect(readFileMock).not.toHaveBeenCalled();
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
+
+    it.each(['skipNpm', 'dryRun'] as const)(
+      'warns about invalid entries and keeps valid ones with %s',
+      async (mode) => {
+        declarePackages({
+          button: { '../evil': '^1.0.0', safe: '^2.0.0' },
+          icon: { swiper: 'latest' },
+        });
+
+        await expect(
+          componentInstall('', { all: true, [mode]: true }),
+        ).resolves.toBe(
+          mode === 'dryRun' ? 'Dry run complete' : 'Installed 3 components',
+        );
+
+        expect(logMock).toHaveBeenCalledWith(
+          'warn',
+          expect.stringContaining('"../evil" has an invalid npm package name.'),
+        );
+        expect(logMock).toHaveBeenCalledWith(
+          'warn',
+          expect.stringContaining('"swiper" must use a valid semver range.'),
+        );
+        if (mode === 'dryRun') {
+          expect(logMock).toHaveBeenCalledWith(
+            'info',
+            expect.stringContaining('safe@^2.0.0'),
+          );
+          expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+        } else {
+          expect(noteMock).toHaveBeenCalledWith(
+            expect.stringContaining('safe@^2.0.0'),
+            'npm packages',
+          );
+          expect(copyItemFromCacheMock).toHaveBeenCalledTimes(3);
+        }
+        expect(confirmMock).not.toHaveBeenCalled();
+        expect(writeFileMock).not.toHaveBeenCalled();
+        expect(installDependenciesMock).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['missing', 'invalid'])(
+      'rejects a %s package.json before changing files',
+      async (manifest) => {
+        declarePackages({ card: { swiper: '^11.2.0' } });
+        pathExistsMock.mockResolvedValue(true);
+        confirmMock.mockResolvedValueOnce(true);
+        if (manifest === 'missing') {
+          readFileMock.mockRejectedValueOnce(
+            Object.assign(new Error('missing'), { code: 'ENOENT' }),
+          );
+        } else {
+          readFileMock.mockResolvedValueOnce('broken');
+        }
+
+        const install = componentInstall('card', {});
+
+        await expect(install).rejects.toBeInstanceOf(CliError);
+        await expect(install).rejects.toThrow(
+          `card needs npm packages (swiper@^11.2.0), but ${packageJsonPath}`,
+        );
+        expect(confirmMock).toHaveBeenCalledTimes(1);
+        expect(copyItemFromCacheMock).not.toHaveBeenCalled();
+        expect(writeFileMock).not.toHaveBeenCalled();
+        expect(installDependenciesMock).not.toHaveBeenCalled();
+      },
+    );
+
+    it('preserves satisfied and incompatible declarations without running npm', async () => {
+      declarePackages({ card: { swiper: '^11.2.0', popup: '^1.0.0' } });
+      readFileMock.mockResolvedValue(
+        '{"dependencies":{"swiper":"^10.3.0"},"devDependencies":{"popup":"^1.2.0"}}',
+      );
+
+      await expect(componentInstall('card', {})).resolves.toBe(
+        'Installed 1 component',
+      );
+
+      expect(noteMock).toHaveBeenCalledWith(
+        expect.stringMatching(/popup@\^1\.0\.0 .*already in package\.json/u),
+        'npm packages',
+      );
+      expect(logMock).toHaveBeenCalledWith(
+        'warn',
+        expect.stringContaining('npm install "swiper@^11.2.0"'),
+      );
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
+
+    it('warns about a peer-only entry and adds a direct dependency', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      readFileMock.mockResolvedValue(
+        '{"peerDependencies":{"swiper":"^11.2.0"}}',
+      );
+
+      await expect(componentInstall('card', { yes: true })).resolves.toBe(
+        'Installed 1 component · added 1 npm package',
+      );
+
+      expect(logMock).toHaveBeenCalledWith(
+        'warn',
+        expect.stringContaining('swiper is declared in peerDependencies'),
+      );
+      expect(JSON.parse(writeFileMock.mock.calls[0][0])).toEqual({
+        peerDependencies: { swiper: '^11.2.0' },
+        dependencies: { swiper: '^11.2.0' },
+      });
+      expect(installDependenciesMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('warns that an optional entry needs attention before it can become required', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      readFileMock.mockResolvedValue(
+        '{"optionalDependencies":{"swiper":"^11.2.0"}}',
+      );
+
+      await expect(componentInstall('card', {})).resolves.toBe(
+        'Installed 1 component',
+      );
+
+      expect(logMock).toHaveBeenCalledWith(
+        'warn',
+        expect.stringContaining('swiper is declared in optionalDependencies'),
+      );
+      expect(noteMock).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'needs attention (declared in optionalDependencies)',
+        ),
+        'npm packages',
+      );
+      expect(writeFileMock).not.toHaveBeenCalled();
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
+
+    it('writes package.json and prints the install command for a pnpm project', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      readFileMock.mockResolvedValue(
+        '{"name":"theme","packageManager":"pnpm@9.15.0"}',
+      );
+
+      confirmMock.mockResolvedValueOnce(true);
+      await expect(componentInstall('card', {})).resolves.toBe(
+        'Installed 1 component · added 1 npm package',
+      );
+
+      expect(confirmMock).toHaveBeenCalledTimes(1);
+      expect(noteMock).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('Package manager: pnpm'),
+        'npm package review',
+      );
+      expect(writeFileMock).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(writeFileMock.mock.calls[0][0])).toEqual({
+        name: 'theme',
+        packageManager: 'pnpm@9.15.0',
+        dependencies: { swiper: '^11.2.0' },
+      });
+      expect(logMock).toHaveBeenCalledWith(
+        'info',
+        expect.stringContaining('pnpm install'),
+      );
+      expect(installDependenciesMock).not.toHaveBeenCalled();
+    });
   });
 });

@@ -90,7 +90,7 @@ describe('getRepositoryLatestTag', () => {
         env: {
           ...process.env,
           GIT_TERMINAL_PROMPT: '0',
-          GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -oBatchMode=yes',
+          GIT_SSH_COMMAND: `${process.env.GIT_SSH_COMMAND || 'ssh'} -oBatchMode=yes`,
         },
       },
       expect.any(Function),

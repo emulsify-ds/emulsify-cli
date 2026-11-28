@@ -9,7 +9,7 @@ import type { EmulsifySystemReference } from '@emulsify-cli/internal';
 
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
-import { confirm, input, select, Separator } from '@inquirer/prompts';
+import { confirm, select, text } from '@clack/prompts';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
   EMULSIFY_SYSTEM_CONFIG_FILE,
@@ -18,12 +18,20 @@ import {
 } from '../lib/constants.js';
 import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
+import { note } from '../lib/session.js';
 import getAvailableSystems from '../util/system/getAvailableSystems.js';
 import getGitRepoNameFromUrl from '../util/getGitRepoNameFromUrl.js';
 import cloneIntoCache from '../util/cache/cloneIntoCache.js';
 import getCachedItemCheckout from '../util/cache/getCachedItemCheckout.js';
 import getRepositoryLatestTag from '../util/getRepositoryLatestTag.js';
 import installComponentFromCache from '../util/project/installComponentFromCache.js';
+import {
+  applyComponentNpmInstall,
+  confirmComponentNpmInstall,
+  formatAddedNpmPackages,
+  getComponentNpmInstallReview,
+  prepareComponentNpmInstall,
+} from '../util/project/installComponentNpmDependencies.js';
 import installGeneralAssetsFromCache from '../util/project/installGeneralAssetsFromCache.js';
 import getJsonFromCachedFile from '../util/cache/getJsonFromCachedFile.js';
 import setEmulsifyConfig from '../util/project/setEmulsifyConfig.js';
@@ -49,7 +57,9 @@ const MISSING_SYSTEM_SOURCE_ERROR =
   'No component system source was provided. Pass a built-in system name as the positional argument, or pass both --repository <repository> and --checkout <branch, tag, or commit>.';
 const INVALID_SYSTEM_SOURCE_ERROR =
   'Unable to resolve the requested component system source. Pass a valid built-in system name as the positional argument, or pass both --repository <repository> and --checkout <branch, tag, or commit>.';
-const WIZARD_TITLE = 'Install a component system';
+const CANCELLED_SUMMARY = 'System install cancelled.';
+const DECLINED_SUMMARY =
+  'System install cancelled. No project files were changed.';
 
 type BuiltInSourceChoice = {
   kind: 'built-in';
@@ -67,17 +77,12 @@ type CancelSourceChoice = {
 type SystemSourceChoice =
   BuiltInSourceChoice | CustomSourceChoice | CancelSourceChoice;
 
-function formatWizardHeader(step: number, total?: number): string {
-  const progress = total ? `Step ${step} of ${total}` : `Step ${step}`;
-  return `${WIZARD_TITLE.padEnd(60)}${progress}`;
+function formatWizardStep(step: number, total?: number): string {
+  return total ? `Step ${step} of ${total}` : `Step ${step}`;
 }
 
 function showWizardStep(step: number, total?: number): void {
-  log('info', formatWizardHeader(step, total));
-}
-
-function formatChoice(label: string, description: string): string {
-  return `${label.padEnd(22)}${description}`;
+  log('info', formatWizardStep(step, total));
 }
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
@@ -131,10 +136,12 @@ function formatRepositorySource(repository: string): string {
   return repository.replace(/\.git\/?$/, '');
 }
 
-function validateRepositoryInput(repository: string): true | string {
+function validateRepositoryInput(
+  repository: string | undefined,
+): string | undefined {
   try {
-    return getGitRepoNameFromUrl(repository.trim())
-      ? true
+    return getGitRepoNameFromUrl((repository || '').trim())
+      ? undefined
       : 'Enter a Git repository with a recognizable name.';
   } catch (error) {
     return error instanceof Error ? error.message : String(error);
@@ -210,24 +217,21 @@ async function promptForSystemInstallChoice(): Promise<
       showWizardStep(1);
       return select<SystemSourceChoice>({
         message: 'Which system?',
-        choices: [
+        options: [
           ...availableSystems.map((reference) => ({
-            name: formatChoice(reference.label, reference.description),
             value: { kind: 'built-in', reference } as BuiltInSourceChoice,
-            short: reference.label,
+            label: reference.label,
+            hint: reference.description,
           })),
           {
-            name: formatChoice(
-              'Bring your own',
-              'Install from a git repository you control.',
-            ),
             value: { kind: 'custom' } as CustomSourceChoice,
-            short: 'Bring your own',
+            label: 'Bring your own',
+            hint: 'Install from a git repository you control.',
           },
-          new Separator('────────────'),
           {
-            name: 'Cancel',
             value: { kind: 'cancel' } as CancelSourceChoice,
+            label: 'Cancel',
+            hint: 'Leave this project unchanged.',
           },
         ],
       });
@@ -236,7 +240,6 @@ async function promptForSystemInstallChoice(): Promise<
   });
 
   if (selectedSource.kind === 'cancel') {
-    log('info', 'System install cancelled.');
     return;
   }
 
@@ -247,11 +250,11 @@ async function promptForCustomRepository(
   step: number,
   total: number,
 ): Promise<string> {
-  return runPrompt({
+  return runPrompt<string>({
     prompt: () => {
       showWizardStep(step, total);
-      return input({
-        message: 'Repository URL or local path:',
+      return text({
+        message: 'Repository URL or local path',
         validate: validateRepositoryInput,
       });
     },
@@ -266,13 +269,15 @@ async function promptForCustomCheckout(
   step: number,
   total: number,
 ): Promise<string> {
-  return runPrompt({
+  return runPrompt<string>({
     prompt: () => {
       showWizardStep(step, total);
-      return input({
-        message: 'Checkout (branch, tag, or commit):',
+      return text({
+        message: 'Checkout (branch, tag, or commit)',
         validate: (value) =>
-          value.trim().length > 0 || 'Enter a branch, tag, or commit.',
+          (value || '').trim().length > 0
+            ? undefined
+            : 'Enter a branch, tag, or commit.',
       });
     },
     nonInteractive: {
@@ -336,7 +341,7 @@ async function promptForVariantChoice(
     recommendedVariants.has(variant),
   )?.index;
 
-  const selectedIndex = await runPrompt({
+  const selectedIndex = await runPrompt<number>({
     prompt: () => {
       if (wizardStep) {
         showWizardStep(wizardStep.step, wizardStep.total);
@@ -345,23 +350,23 @@ async function promptForVariantChoice(
         message: wizardStep
           ? 'Which component set?'
           : `Which ${formatSystemLabel(systemName)} component set should be used?`,
-        choices: rankedVariants.map(({ variant, index }) => {
+        options: rankedVariants.map(({ variant, index }) => {
           const componentCount = variant.components.length;
           const requiredCount = variant.components.filter(
             ({ required }) => required === true,
           ).length;
-          const counts = ` · ${pluralize(componentCount, 'component')}, ${pluralize(requiredCount, 'required component')}`;
+          const counts = `${pluralize(componentCount, 'component')}, ${pluralize(requiredCount, 'required component')}`;
           const recommended = recommendedVariants.has(variant)
-            ? ' — Recommended'
+            ? 'Recommended · '
             : '';
 
           return {
-            name: `${formatPlatformLabel(variant.platform)} (${variant.platform})${recommended}${counts}`,
             value: index,
-            short: formatPlatformLabel(variant.platform),
+            label: `${formatPlatformLabel(variant.platform)} (${variant.platform})`,
+            hint: `${recommended}${counts}`,
           };
         }),
-        default: defaultChoice,
+        initialValue: defaultChoice,
       });
     },
     nonInteractive: { error: nonInteractiveError },
@@ -432,30 +437,24 @@ async function promptForInstallScope(
     ({ required }) => required === true,
   ).length;
 
-  return runPrompt({
+  return runPrompt<boolean>({
     prompt: () => {
       showWizardStep(step, total);
       return select({
         message: 'How much do you want to install?',
-        choices: [
+        options: [
           {
-            name: formatChoice(
-              'Essentials only',
-              pluralize(requiredComponentCount, 'required component'),
-            ),
             value: false,
-            short: 'Essentials only',
+            label: 'Essentials only',
+            hint: pluralize(requiredComponentCount, 'required component'),
           },
           {
-            name: formatChoice(
-              'Everything',
-              pluralize(variant.components.length, 'component'),
-            ),
             value: true,
-            short: 'Everything',
+            label: 'Everything',
+            hint: pluralize(variant.components.length, 'component'),
           },
         ],
-        default: false,
+        initialValue: false,
       });
     },
     nonInteractive: {
@@ -486,6 +485,7 @@ export function formatSystemInstallReview(
   variant: EmulsifyVariant,
   plan: SystemInstallPlan,
   installAll: boolean,
+  npmPackages: string[] = [],
 ): string {
   const continuationIndent = '                 ';
   const installRows = [
@@ -511,6 +511,7 @@ export function formatSystemInstallReview(
     `  Scope          ${installAll ? 'Everything' : 'Essentials only'}`,
     `  Will install   ${installRows[0]}`,
     ...installRows.slice(1).map((row) => `${continuationIndent}${row}`),
+    `  npm packages   ${npmPackages.join(`\n${continuationIndent}`) || 'none'}`,
   ].join('\n');
 }
 
@@ -521,13 +522,13 @@ async function promptForInstallConfirmation(
   accept: boolean,
 ): Promise<boolean> {
   showWizardStep(step, total);
-  log('info', `\n${review}\n`);
+  note(review, 'Review');
 
-  return runPrompt({
+  return runPrompt<boolean>({
     prompt: () =>
       confirm({
         message: 'Install now?',
-        default: true,
+        initialValue: true,
       }),
     nonInteractive: {
       error:
@@ -548,12 +549,14 @@ async function promptForInstallConfirmation(
  * @param options.repository optional string containing a git URL to a repository containing the system that should be installed.
  * @param options.checkout optional string containing the commit/branch/tag of the system that should be used.
  *
+ * @returns string summarizing the outcome for the session's closing line.
+ *
  * @throws {CliError} if the project cannot install the requested system.
  */
 export default async function systemInstall(
   name: string | void,
   options: InstallSystemHandlerOptions,
-): Promise<void> {
+): Promise<string> {
   // Attempt to load emulsify config. If none is found, this is not an Emulsify project.
   const projectConfig = await getEmulsifyConfig();
   if (!projectConfig) {
@@ -577,7 +580,7 @@ export default async function systemInstall(
   if (guidedInstall) {
     const source = await promptForSystemInstallChoice();
     if (!source) {
-      return;
+      return CANCELLED_SUMMARY;
     }
 
     if (source.kind === 'built-in') {
@@ -683,9 +686,6 @@ export default async function systemInstall(
   }
 
   systemLabel ||= formatSystemLabel(systemConf.name);
-  if (guidedInstall) {
-    log('info', `Loaded ${systemLabel}  ·  ${repo.checkout}.`);
-  }
 
   const projectPlatform = projectConfig.project.platform;
   if (!isPlatform(projectPlatform)) {
@@ -726,12 +726,18 @@ export default async function systemInstall(
     guidedInstall && !options.all
       ? await promptForInstallScope(variantConf, ++wizardStep, wizardTotalSteps)
       : options.all === true;
-  let componentsToInstall = selectSystemComponents(variantConf, installAll);
+  const componentsToInstall = selectSystemComponents(variantConf, installAll);
+  const projectConfigPath = findFileInCurrentPath(EMULSIFY_PROJECT_CONFIG_FILE);
+  const skipNpm = options.skipNpm === true;
+  const npmPlan = await prepareComponentNpmInstall(
+    systemConf.name,
+    componentsToInstall,
+    projectConfigPath,
+    skipNpm,
+  );
 
+  let acceptedNpm = !skipNpm;
   if (guidedInstall) {
-    const projectConfigPath = findFileInCurrentPath(
-      EMULSIFY_PROJECT_CONFIG_FILE,
-    );
     if (!projectConfigPath) {
       throw new CliError(
         'Unable to find the Emulsify project configuration for the installation review.',
@@ -744,7 +750,6 @@ export default async function systemInstall(
       installAll,
       projectConfigPath,
     );
-    componentsToInstall = plan.components;
     const confirmed = await promptForInstallConfirmation(
       formatSystemInstallReview(
         systemLabel,
@@ -753,18 +758,26 @@ export default async function systemInstall(
         variantConf,
         plan,
         installAll,
+        getComponentNpmInstallReview(npmPlan, skipNpm)?.lines,
       ),
       ++wizardStep,
       wizardTotalSteps,
       options.yes === true,
     );
     if (!confirmed) {
-      log('info', 'System install cancelled. No project files were changed.');
-      return;
+      return DECLINED_SUMMARY;
     }
+  } else {
+    acceptedNpm = await confirmComponentNpmInstall(
+      npmPlan,
+      skipNpm,
+      options.yes === true,
+      `The ${JSON.stringify(systemConf.name)} system`,
+    );
   }
 
   // Update emulsify project config.
+  let added = 0;
   try {
     await setEmulsifyConfig({
       system: {
@@ -796,10 +809,9 @@ export default async function systemInstall(
     // Install all global files and folders.
     await installGeneralAssetsFromCache(systemConf, variantConf);
 
+    added = await applyComponentNpmInstall(npmPlan, acceptedNpm);
+
     // Execute system install hook.
-    const projectConfigPath = findFileInCurrentPath(
-      EMULSIFY_PROJECT_CONFIG_FILE,
-    );
     const hookPath = projectConfigPath
       ? join(
           dirname(projectConfigPath),
@@ -811,15 +823,14 @@ export default async function systemInstall(
       await executeScript(hookPath);
     }
   } catch (e) {
+    if (e instanceof CliError) throw e;
     throw new CliError(
       `Unable to install system assets and/or required components: ${String(e)}`,
     );
   }
 
-  return log(
-    'success',
-    guidedInstall
-      ? `Successfully installed the ${systemLabel} system using the ${formatPlatformLabel(variantConf.platform)} component set.`
-      : `Successfully installed the ${systemConf.name} system using the ${variantConf.platform} variant.`,
-  );
+  // Name the component set that was installed: a system can offer several, and
+  // which one landed is the thing a person needs to know afterwards.
+  const summary = `${systemLabel} installed  ·  ${variantConf.platform} component set`;
+  return added ? `${summary}  ·  ${formatAddedNpmPackages(added)}` : summary;
 }

@@ -4,13 +4,14 @@ import type {
 } from '@emulsify-cli/config';
 import type { CreateComponentHandlerOptions } from '@emulsify-cli/handlers';
 
-import { confirm, input, select } from '@inquirer/prompts';
+import { confirm, select, text } from '@clack/prompts';
 import { promises as fs } from 'fs';
-import { dirname } from 'path';
-import { pathExists, remove } from 'fs-extra';
+import { dirname, join } from 'path';
+import { pathExists } from 'fs-extra';
 
+import CliError from '../../lib/CliError.js';
 import log from '../../lib/log.js';
-import getTerminalColors from '../../lib/terminalColors.js';
+import { markSessionMayHaveChanges, note } from '../../lib/session.js';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import safeResolveWithin from '../fs/safeResolveWithin.js';
 import { EMULSIFY_PROJECT_CONFIG_FILE } from '../../lib/constants.js';
@@ -19,7 +20,11 @@ import {
   assertValidCustomElementTagName,
   deriveCustomElementTagName,
 } from '../deriveCustomElementTagName.js';
-import { isInteractiveTerminal, runPrompt } from '../prompt/index.js';
+import {
+  isInteractiveTerminal,
+  runPrompt,
+  type PromptResult,
+} from '../prompt/index.js';
 import {
   componentTypeFromLegacyFormat,
   getAvailableComponentTypes,
@@ -33,7 +38,10 @@ import {
 } from './componentTypes.js';
 import resolveComponentTemplate from './resolveComponentTemplate.js';
 import type { ComponentTemplateVars } from './renderTemplate.js';
-import { buildComponentArtifacts } from './componentTemplates/index.js';
+import {
+  buildComponentArtifacts,
+  type ComponentArtifact,
+} from './componentTemplates/index.js';
 
 const TYPE_LABELS: Record<ComponentType, string> = {
   twig: 'Twig',
@@ -66,9 +74,7 @@ function resolveProvidedComponentType(
 async function promptForComponentType(
   projectRoot: string,
   platform: EmulsifyProjectConfiguration['project']['platform'],
-  bold: (value: string) => string,
-  cyan: (value: string) => string,
-): Promise<ComponentType> {
+): Promise<PromptResult<ComponentType>> {
   const hasEmulsifyCore = await projectDeclaresEmulsifyCore(projectRoot);
   const availableTypes = getAvailableComponentTypes(platform, hasEmulsifyCore);
 
@@ -98,21 +104,77 @@ async function promptForComponentType(
   };
 
   return select<ComponentType>({
-    message: cyan('Choose the component type:'),
-    choices: availableTypes.map((type) => ({
-      name: bold(TYPE_LABELS[type]),
+    message: 'Choose the component type',
+    options: availableTypes.map((type) => ({
       value: type,
-      description: descriptions[type],
+      label: TYPE_LABELS[type],
+      hint: descriptions[type],
     })),
   });
 }
 
-function validateCustomElementTagName(value: string): true | string {
+function validateCustomElementTagName(
+  value: string | undefined,
+): string | undefined {
   try {
-    assertValidCustomElementTagName(value.trim());
-    return true;
+    assertValidCustomElementTagName((value ?? '').trim());
+    return undefined;
   } catch (error) {
     return (error as Error).message;
+  }
+}
+
+async function writeComponentFiles(
+  directory: string,
+  artifacts: ComponentArtifact[],
+): Promise<void> {
+  for (const { destinationName, contents } of artifacts) {
+    await fs.writeFile(join(directory, destinationName), contents);
+  }
+}
+
+async function cleanUpComponentDirectory(directory: string): Promise<void> {
+  try {
+    await fs.rm(directory, { recursive: true, force: true });
+  } catch (error) {
+    log(
+      'warn',
+      `Unable to clean up component directory "${directory}": ${String(error)}`,
+    );
+  }
+}
+
+async function replaceComponentDirectory(
+  destination: string,
+  artifacts: ComponentArtifact[],
+): Promise<void> {
+  const transaction = await fs.mkdtemp(
+    join(dirname(destination), '.emulsify-component-'),
+  );
+  const staged = join(transaction, 'staged');
+  const backup = join(transaction, 'original');
+  let keepBackup = false;
+
+  try {
+    await fs.mkdir(staged);
+    await writeComponentFiles(staged, artifacts);
+    await fs.rename(destination, backup);
+
+    try {
+      await fs.rename(staged, destination);
+    } catch (error) {
+      try {
+        await fs.rename(backup, destination);
+      } catch (restoreError) {
+        keepBackup = true;
+        throw new CliError(
+          `Unable to replace component "${destination}": ${String(error)}. Restore the original component from "${backup}". Automatic restoration failed: ${String(restoreError)}.`,
+        );
+      }
+      throw error;
+    }
+  } finally {
+    if (!keepBackup) await cleanUpComponentDirectory(transaction);
   }
 }
 
@@ -130,7 +192,7 @@ function validateCustomElementTagName(value: string): true | string {
  * @param options.force whether to replace existing components without prompting.
  * @param options.yes compatibility alias for options.force.
  * @param options.dryRun whether to preview generated files without changing the project.
- * @returns
+ * @returns summary of what happened, suitable for the closing line of the session. Distinguishes a created component from a declined overwrite and from a dry run.
  * @throws {Error} if the component name is invalid, the current path is not within an Emulsify project, the requested structure is invalid, or required non-interactive options are missing.
  */
 export default async function generateComponent(
@@ -138,8 +200,7 @@ export default async function generateComponent(
   projectConfig: EmulsifyProjectConfiguration,
   componentName: string,
   options: CreateComponentHandlerOptions = {},
-): Promise<void> {
-  const { bold, cyan, green, yellow } = getTerminalColors();
+): Promise<string> {
   const { filename, className, camelName, pascalName, snakeName, humanName } =
     deriveComponentNames(componentName);
   const providedType = resolveProvidedComponentType(options);
@@ -160,14 +221,9 @@ export default async function generateComponent(
   // the command never waits for input it cannot receive.
   const type = providedType
     ? providedType
-    : await runPrompt({
+    : await runPrompt<ComponentType>({
         prompt: () =>
-          promptForComponentType(
-            projectRoot,
-            projectConfig.project.platform,
-            bold,
-            cyan,
-          ),
+          promptForComponentType(projectRoot, projectConfig.project.platform),
         nonInteractive: { error: MISSING_COMPONENT_TYPE_ERROR },
       });
 
@@ -198,11 +254,12 @@ export default async function generateComponent(
         projectConfig.project.machineName,
       );
       tagName = (
-        await runPrompt({
+        await runPrompt<string>({
           prompt: () =>
-            input({
-              message: cyan('Custom element tag name:'),
-              default: derivedTagName,
+            text({
+              message: 'Custom element tag name',
+              placeholder: derivedTagName,
+              defaultValue: derivedTagName,
               validate: validateCustomElementTagName,
             }),
           nonInteractive: { value: derivedTagName },
@@ -223,13 +280,13 @@ export default async function generateComponent(
 
   // Choose the component's parent structure within the given variant configuration.
   if (!directory) {
-    directory = await runPrompt({
+    directory = await runPrompt<string>({
       prompt: () =>
         select({
-          message: cyan('Choose a directory for the new component:'),
-          choices: variant.structureImplementations.map((structure) => ({
-            name: structure.name,
+          message: 'Choose a directory for the new component',
+          options: variant.structureImplementations.map((structure) => ({
             value: structure.name,
+            label: structure.name,
           })),
         }),
       nonInteractive: {
@@ -298,16 +355,16 @@ export default async function generateComponent(
     const realRunAction = componentExists
       ? force
         ? 'replace the existing component directory'
-        : 'prompt before replacing the existing component directory'
+        : isInteractiveTerminal()
+          ? 'prompt before replacing the existing component directory'
+          : 'fail unless --force is passed to replace the existing component directory'
       : 'create the component directory';
     const generatedFiles = artifactDestinations
       .map((filePath) => `  - ${filePath}`)
       .join('\n');
 
-    return log(
-      'info',
+    note(
       [
-        `Dry run: component create "${filename}"`,
         `Type: ${type}`,
         `Directory: ${directory}`,
         `Structure path: ${structure.directory}`,
@@ -319,55 +376,64 @@ export default async function generateComponent(
         generatedFiles,
         'No files were written, removed, or created.',
       ].join('\n'),
+      `Dry run: component create "${filename}"`,
     );
-  }
 
-  if (!parentExists) {
-    // Create the component's parent directory.
-    await fs.mkdir(parentPath, { recursive: true });
+    return 'Dry run complete; no files were changed';
   }
 
   if (componentExists) {
-    const shouldReplace = await runPrompt({
+    const shouldReplace = await runPrompt<boolean>({
       prompt: () =>
         confirm({
-          message: yellow(
-            `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
-          ),
-          default: false,
+          message: `The component "${humanName}" already exists in ${structure.directory}. Would you like to replace it?`,
+          initialValue: false,
         }),
-      nonInteractive: { value: false },
+      nonInteractive: {
+        error: `The component "${humanName}" already exists in ${structure.directory}. Pass --force to replace it in non-interactive mode.`,
+      },
       accept: { when: force, value: true },
     });
 
     if (!shouldReplace) {
-      return log('info', `Component creation canceled.`);
-    }
+      log('info', `Component creation canceled.`);
 
-    // Remove the existing component directory to ensure a clean start.
-    await remove(destination);
+      return `Canceled; the existing ${componentName} component was kept`;
+    }
   }
 
-  // Create the component directory
-  await fs.mkdir(destination, { recursive: true });
-
-  for (const [index, artifact] of artifacts.entries()) {
-    // Resolve a project override first; missing or empty overrides fall back to
-    // the byte-for-byte built-in builders for each known generated artifact.
-    const templateFile =
+  // Render every override before making any changes to the project.
+  for (const artifact of artifacts) {
+    artifact.contents =
       (await resolveComponentTemplate(
         projectRoot,
         type,
         artifact.logicalName,
         templateVars,
       )) ?? artifact.contents;
-    const artifactDestination = artifactDestinations[index];
-
-    await fs.writeFile(artifactDestination, templateFile);
   }
 
-  return log(
+  markSessionMayHaveChanges();
+  if (!parentExists) {
+    await fs.mkdir(parentPath, { recursive: true });
+  }
+  if (componentExists) {
+    await replaceComponentDirectory(destination, artifacts);
+  } else {
+    // Reserve the path so a concurrent create cannot overwrite it.
+    await fs.mkdir(destination);
+    try {
+      await writeComponentFiles(destination, artifacts);
+    } catch (error) {
+      await cleanUpComponentDirectory(destination);
+      throw error;
+    }
+  }
+
+  log(
     'success',
-    `${bold(green('Success!'))} The ${bold(cyan(componentName))} component (${yellow(TYPE_LABELS[type].toUpperCase())}) has been created in ${bold(directory)}.`,
+    `Success! The ${componentName} component (${TYPE_LABELS[type].toUpperCase()}) has been created in ${directory}.`,
   );
+
+  return `Created the ${componentName} component in ${directory}`;
 }

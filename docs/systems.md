@@ -47,11 +47,12 @@ The built-in path has four decisions:
    marks the best match for the current project as `Recommended`. Component and
    essential counts appear on every choice.
 3. **Installation scope.** Choose `Essentials only` to install components marked
-   `required: true`, or `Everything` to install every component. Both choices
-   show how many components they install.
+   `required: true` and their component dependencies, or `Everything` to install
+   every component. Both choices show a component count.
 4. **Review.** Check the system and checkout, repository source, component set,
-   selected scope, component and asset counts, and their concrete destination
-   paths before confirming.
+   selected scope, component and asset counts and destinations, and the npm
+   packages to add before confirming. The review shows each package's range,
+   the components that require it, and the package manager.
 
 The repository is downloaded and its configuration validated before the
 component-set and review screens can be built. This may populate the isolated
@@ -70,6 +71,7 @@ Install a component system                                Step 4 of 4
   Scope          Essentials only
   Will install   5 components  →  components/
                  2 asset folders  →  assets/, src/vendor/
+  npm packages   none
 
 ? Install now? (Y/n)
 ```
@@ -98,9 +100,11 @@ For a built-in system, the command:
 5. Reads and validates `system.emulsify.json` from the cached system.
 6. Selects the reviewed component set in guided mode, or resolves the best compatible variant for `project.platform` in direct mode. `--variant` selects an exact expression in direct mode.
 7. Selects essential components and their declared dependencies, or all components.
-8. Presents and confirms the review in guided mode.
+8. Confirms the final review in guided mode or asks for consent before adding npm packages in direct mode.
 9. Writes `system` and `variant` entries into `project.emulsify.json`.
 10. Installs the selected components and variant-level general files and directories.
+11. Handles the selected components' [npm packages](./components.md#npm-packages)
+    before running the project install hook.
 
 If you already know the system name, pass it directly:
 
@@ -113,6 +117,11 @@ An explicit built-in name bypasses the wizard. This is the form to use in a
 script or CI job. It selects the best compatible component set automatically and
 installs only essential components and their declared dependencies unless flags
 override those choices.
+
+When a direct install would add npm packages, the CLI shows the package plan and
+asks for consent. Declining has the same effect as `--skip-npm`. The command
+installs the system and prints a command to add the packages later. Pass `--yes`
+to accept the packages without prompting.
 
 Use `--all` to install every component in the selected variant during system installation:
 
@@ -167,11 +176,12 @@ emulsify system install \
 ```
 
 Providing `--repository` without `--checkout`, or `--checkout` without
-`--repository`, exits non-zero and identifies the missing flag. Explicit source
-commands do not open the guided review: compatible component-set selection and
-the essentials-only default remain deterministic unless `--variant` or `--all`
-is passed. Because `--yes` only accepts the final guided review, it does not
-supply a missing source or make bare `system install --yes` valid outside a TTY.
+`--repository`, exits non-zero and identifies the missing flag. A direct install
+selects a compatible component set and installs essential components unless you
+pass `--variant` or `--all`. When a direct install would add npm packages, pass
+`--yes` to accept them or `--skip-npm` to continue without them. The guided
+installer requires an interactive terminal for source, component set, and scope
+choices.
 
 ## Detach A System
 
@@ -410,19 +420,22 @@ The exact checkout, selected variant `platform` string, and structure mappings c
 
 ## System Repository Shape
 
-A system repository must contain `system.emulsify.json` at its root. The schema requires:
+A system repository must contain `system.emulsify.json` at its root. Its
+top-level fields include the following.
 
-| Field        | Required | Purpose                                                                |
-| ------------ | -------- | ---------------------------------------------------------------------- |
-| `name`       | Yes      | System machine name.                                                   |
-| `homepage`   | Yes      | Documentation, styleguide, or example URL.                             |
-| `repository` | Yes      | System repository URL.                                                 |
-| `structure`  | Yes      | Named structural groups, such as `base` or `molecules`.                |
-| `variants`   | No       | Platform-specific implementations, components, files, and directories. |
+| Field               | Required | Purpose                                                                |
+| ------------------- | -------- | ---------------------------------------------------------------------- |
+| `name`              | Yes      | System machine name.                                                   |
+| `homepage`          | Yes      | Documentation, styleguide, or example URL.                             |
+| `repository`        | Yes      | System repository URL.                                                 |
+| `minimumCliVersion` | No       | Earliest supported Emulsify CLI version, such as `"2.5.0"`.             |
+| `structure`         | Yes      | Named structural groups, such as `base` or `molecules`.                |
+| `variants`          | No       | Platform-specific implementations, components, files, and directories. |
 
-Set the optional `minimumCliVersion` field to a `major.minor.patch` version such
-as `"2.5.0"` when a system depends on newer CLI behavior. The CLI ignores
-prerelease tags and reports how to upgrade when it falls below that minimum.
+Use a single semver version for `minimumCliVersion`. The CLI ignores prerelease
+tags when comparing versions. If the running version is below the minimum,
+`system install` and the component commands report how to upgrade.
+
 Unknown fields at the system and variant levels and in component, structure
 implementation, directory, and file entries produce a warning. The CLI still
 validates required fields and known field types.
@@ -436,6 +449,39 @@ Each variant used by the CLI must include:
 | `components`               | Yes      | Installable component definitions.                            |
 | `directories`              | No       | General directories copied during system install.             |
 | `files`                    | No       | General files copied during system install.                   |
+
+Each item in a variant's `components` array supports these fields.
+
+| Field             | Required | Purpose                                                           |
+| ----------------- | -------- | ----------------------------------------------------------------- |
+| `name`            | Yes      | Component name and source folder name.                            |
+| `structure`       | Yes      | Structure that maps the component to a project directory.         |
+| `description`     | No       | Describes the component.                                          |
+| `required`        | No       | Includes the component in the essentials scope of system install. |
+| `dependency`      | No       | Names of other components this component needs.                    |
+| `npmDependencies` | No       | Map of npm package names to semver ranges.                         |
+
+```json
+{
+  "name": "slider",
+  "structure": "components",
+  "dependency": ["button", "icons"],
+  "npmDependencies": { "swiper": "^11.2.0" }
+}
+```
+
+`system install` and `component install` use `npmDependencies` to add packages
+required by the selected components and their component dependencies. Use a
+semver range that excludes at least some versions. A wildcard such as `*`
+is rejected, and a minimum such as `>=1.0.0` is allowed. For consent and
+installation behavior, see [npm packages](./components.md#npm-packages).
+
+A system that uses `npmDependencies` must also set `"minimumCliVersion": "2.5.0"`
+at the top level of `system.emulsify.json`. Emulsify CLI 2.4.1 and earlier reject
+unknown component properties on every command that loads a system, including
+`system install`, `component list`, `component install`, and `component create`.
+Do not publish a system using `npmDependencies` until the forward-compatible
+2.4.x patch has been released and your users have had time to upgrade.
 
 ## Variant Platform Compatibility
 

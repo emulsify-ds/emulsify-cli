@@ -7,6 +7,7 @@ jest.mock('../../lib/log.js');
 import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import { pathExists } from 'fs-extra';
+import CliError from '../../lib/CliError.js';
 import log from '../../lib/log.js';
 import { EMULSIFY_PROJECT_TEMPLATES_FOLDER } from '../../lib/constants.js';
 import resolveComponentTemplate from './resolveComponentTemplate.js';
@@ -124,6 +125,25 @@ describe('resolveComponentTemplate', () => {
       'warn',
       `Component template override "${twigTemplatePath}" is empty; using the built-in template instead.`,
     );
+  });
+
+  it('reports which override could not be read and retains the read error', async () => {
+    const cause = new Error('EISDIR: illegal operation on a directory, read');
+    pathExistsMock.mockResolvedValueOnce(true);
+    readFileMock.mockRejectedValueOnce(cause);
+
+    const error = await resolveComponentTemplate(
+      projectRoot,
+      'twig',
+      'component.twig',
+      vars,
+    ).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(CliError);
+    expect(error).toMatchObject({
+      message: `Unable to read component template override "${twigTemplatePath}": ${cause.message}`,
+      cause,
+    });
   });
 
   it('checks only the canonical directory for a type without a legacy alias', async () => {

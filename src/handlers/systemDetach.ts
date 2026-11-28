@@ -1,6 +1,6 @@
 import type { DetachSystemHandlerOptions } from '@emulsify-cli/handlers';
 
-import { confirm } from '@inquirer/prompts';
+import { confirm } from '@clack/prompts';
 
 import CliError from '../lib/CliError.js';
 import log from '../lib/log.js';
@@ -10,6 +10,8 @@ import unsetEmulsifyConfig from '../util/project/unsetEmulsifyConfig.js';
 import { runPrompt } from '../util/prompt/index.js';
 
 const CONFIGURED_SYSTEM_LABEL = 'configured component system';
+const DECLINED_SUMMARY =
+  'System detach cancelled. No project files were changed.';
 
 function getSystemLabel(repository: string): string {
   try {
@@ -22,10 +24,12 @@ function getSystemLabel(repository: string): string {
 
 /**
  * Detach the configured component system without changing component files.
+ *
+ * @returns summary shown on the closing line of the session.
  */
 export default async function systemDetach({
   yes = false,
-}: DetachSystemHandlerOptions = {}): Promise<void> {
+}: DetachSystemHandlerOptions = {}): Promise<string> {
   const projectConfig = await getEmulsifyConfig();
   if (!projectConfig) {
     throw new CliError(
@@ -41,11 +45,11 @@ export default async function systemDetach({
 
   const systemLabel = getSystemLabel(projectConfig.system.repository);
   const systemReference = `${systemLabel} at ${projectConfig.system.checkout}`;
-  const confirmed = await runPrompt({
+  const confirmed = await runPrompt<boolean>({
     prompt: () =>
       confirm({
         message: `Detach the ${systemReference} from this project? Component files will be left in place.`,
-        default: false,
+        initialValue: false,
       }),
     nonInteractive: {
       error:
@@ -55,8 +59,7 @@ export default async function systemDetach({
   });
 
   if (!confirmed) {
-    log('info', 'System detach cancelled. No project files were changed.');
-    return;
+    return DECLINED_SUMMARY;
   }
 
   try {
@@ -68,11 +71,9 @@ export default async function systemDetach({
   }
 
   log(
-    'success',
-    `Detached the ${systemReference}. All component files were left in place.`,
-  );
-  log(
     'info',
     'Next: run "emulsify system create" to scaffold your own system repository, then replace its example content with the components preserved in this project.',
   );
+
+  return `Detached the ${systemReference}. All component files were left in place.`;
 }

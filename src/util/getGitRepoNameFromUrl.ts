@@ -1,10 +1,12 @@
 import { existsSync } from 'fs';
 import { basename, isAbsolute, resolve, win32 } from 'path';
+import CliError from '../lib/CliError.js';
 
 const fileUriPattern = /^file:\/\//i;
 const explicitRelativePathPattern = /^\.{1,2}(?:[\\/]|$)/;
 const uriPattern = /^[a-z][a-z\d+.-]*:\/\//i;
 const scpLikePattern = /^(?:[^@/\\\s]+@)?[^:/\\\s]+:.+/;
+const repositoryNamePattern = /^[A-Za-z0-9._-]+$/;
 
 function isLocalRepository(repository: string): boolean {
   if (
@@ -39,7 +41,7 @@ function getLocalRepositoryName(repository: string): string | void {
     name = basename(resolve(repository));
   }
 
-  return name.endsWith('.git') ? name.slice(0, -4) || undefined : name;
+  return name;
 }
 
 /**
@@ -49,24 +51,34 @@ function getLocalRepositoryName(repository: string): string | void {
  *
  * @param url Git URL or local path from which a repo name should be extracted.
  *
- * @returns string repo name, or undefined if one cannot be parsed.
+ * @returns string repo name, or undefined if a file URL cannot be parsed.
  */
 export default function getGitRepoNameFromUrl(url: string): string | void {
   const repository = url.trim();
-  if (!repository) {
-    throw new Error('The repository URL must end in .git.');
+  let gitName: string | void;
+
+  if (repository && isLocalRepository(repository)) {
+    gitName = getLocalRepositoryName(repository);
+    if (gitName === undefined) {
+      return;
+    }
+  } else {
+    const repositoryPath =
+      !uriPattern.test(repository) && scpLikePattern.test(repository)
+        ? repository.slice(repository.indexOf(':') + 1)
+        : repository;
+    gitName = repositoryPath.split('/').at(-1) ?? '';
+    if (!gitName.endsWith('.git')) {
+      throw new CliError(
+        `The repository URL must end in .git. Received "${url}".`,
+      );
+    }
   }
 
-  if (isLocalRepository(repository)) {
-    return getLocalRepositoryName(repository);
+  const name = gitName.endsWith('.git') ? gitName.slice(0, -4) : gitName;
+  if (!repositoryNamePattern.test(name) || name === '.' || name === '..') {
+    throw new CliError(`Invalid repository name in "${url}".`);
   }
 
-  const parts = repository.split('/');
-  const gitName = parts.at(-1) as string;
-
-  // If no .git extension is provided, then this is an invalid git url.
-  if (!gitName.endsWith('.git')) {
-    throw new Error('The repository URL must end in .git.');
-  }
-  return gitName.slice(0, -4) || undefined;
+  return name;
 }

@@ -10,7 +10,7 @@ import { join, resolve, sep } from 'path';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import getCachedItemPath from './getCachedItemPath.js';
 
-const cacheDirectory = 'cache';
+const cacheDirectory = resolve('cache');
 const projectPath = resolve('fixtures', 'emulsify');
 const baseRepository = 'https://github.com/emulsify-ds/compound.git';
 const baseCheckout = 'branch-name';
@@ -121,6 +121,15 @@ describe('getCachedItemPath', () => {
     expect(getCachedItemPath({ ...baseOptions, checkout: undefined })).toBe(
       getCachedItemPath({ ...baseOptions, checkout: '' }),
     );
+  });
+
+  it('rejects paths that resolve to the cache bucket or its parent', () => {
+    expect(() =>
+      getCachedItemPath({ ...baseOptions, itemPath: ['..'] }),
+    ).toThrow('a path inside the root is required');
+    expect(() =>
+      getCachedItemPath({ ...baseOptions, itemPath: ['..', '..'] }),
+    ).toThrow('outside the expected root');
   });
 
   it('throws an error if a project config file is not found', () => {

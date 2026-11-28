@@ -3,56 +3,63 @@
  * Exports methods that MUST be used when writing to the console.
  */
 
-import consolaGlobalInstance, { type ConsolaInstance } from 'consola';
-import getTerminalColors from './terminalColors.js';
+import { log as render } from '@clack/prompts';
+import { dim } from 'colorette';
+import {
+  getRendererOutput,
+  isInteractiveOutput,
+  stripAnsi,
+} from './session.js';
 
 export type LogMethod =
   'info' | 'error' | 'warn' | 'debug' | 'verbose' | 'success';
 
-const withColor =
-  (logger: ConsolaInstance['log']) =>
-  (method: LogMethod, message: string): void => {
-    const { bold, cyan, dim, green, red, yellow } = getTerminalColors();
-    const logMethodColorMap: {
-      [name in LogMethod]: (value: string) => string;
-    } = {
-      info: cyan,
-      error: (value: string) => bold(red(value)),
-      warn: (value: string) => bold(yellow(value)),
-      debug: dim,
-      verbose: dim,
-      success: green,
-    };
-
-    logger(logMethodColorMap[method](message));
-  };
-
 /**
  * Lib function that allows for info, error, warn, debug, verbose, and success messages
- * to be written to the console with consistent methods and colors. This function
+ * to be written to the console with consistent symbols and colors. This function
  * only writes log output and never exits the process.
+ *
+ * @remarks Terminal output shares the session gutter. Warnings and errors go
+ * to stderr, and other messages go to stdout.
  *
  * @param method method that should be used to log, such as 'error', or 'warn'.
  * @param message string containing message to be logged.
+ * @param outputs destination streams.
  */
-export default function log(method: LogMethod, message: string): void {
-  // @TODO: add support for --verbose flag, and suppress verbose messages
-  // by default when --verbose is false or void.
-
-  // emit log message based off of method.
-  switch (method) {
-    case 'error':
-      withColor(consolaGlobalInstance.error)(method, message);
-      break;
-    case 'info':
-      withColor(consolaGlobalInstance.info)(method, message);
-      break;
-    case 'warn':
-      withColor(consolaGlobalInstance.warn)(method, message);
-      break;
-    default:
-      withColor(consolaGlobalInstance.log)(method, message);
+export default function log(
+  method: LogMethod,
+  message: string,
+  {
+    stdout,
+    stderr,
+  }: {
+    stdout: NodeJS.WriteStream;
+    stderr: NodeJS.WriteStream;
+  } = process,
+): void {
+  const stream = method === 'error' || method === 'warn' ? stderr : stdout;
+  // Piped or redirected output is read by scripts, so it gets plain lines with
+  // no gutter, no symbols, and no color.
+  if (!isInteractiveOutput(stream)) {
+    stream.write(`${stripAnsi(message)}\n`);
+    return;
   }
 
-  return;
+  const options = { output: getRendererOutput(stream) };
+  switch (method) {
+    case 'error':
+      render.error(message, options);
+      return;
+    case 'warn':
+      render.warn(message, options);
+      return;
+    case 'info':
+      render.info(message, options);
+      return;
+    case 'success':
+      render.success(message, options);
+      return;
+    default:
+      render.message(dim(message), options);
+  }
 }

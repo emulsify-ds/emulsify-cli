@@ -66,6 +66,12 @@ export type Components = {
    * Array of all components that are dependencies of the current component
    */
   dependency?: string[];
+  /**
+   * npm package names mapped to the semver ranges this component needs
+   */
+  npmDependencies?: {
+    [k: string]: string;
+  };
   [k: string]: unknown;
 }[];
 /**

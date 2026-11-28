@@ -8,6 +8,7 @@ jest.mock('../../util/cache/cloneIntoCache', () => jest.fn());
 jest.mock('../../lib/log', () => jest.fn());
 
 import type { EmulsifySystem } from '@emulsify-cli/config';
+import CliError from '../../lib/CliError.js';
 import { EMULSIFY_SYSTEM_CONFIG_FILE } from '../../lib/constants.js';
 import log from '../../lib/log.js';
 import getJsonFromCachedFile from '../../util/cache/getJsonFromCachedFile.js';
@@ -123,7 +124,7 @@ describe('withEmulsifySystem', () => {
     getEmulsifyConfigMock.mockResolvedValueOnce({
       ...projectConfig,
       system: {
-        repository: 'https://github.com/example/.git',
+        repository: 'file://%',
         checkout: 'main',
       },
     });
@@ -152,6 +153,17 @@ describe('withEmulsifySystem', () => {
 
     await expect(withEmulsifySystem('install components')).rejects.toThrow(
       'The system specified in your project configuration is not clone-able, or has an invalid checkout value.',
+    );
+  });
+
+  it('preserves clone timeout guidance for component commands', async () => {
+    const timeout = new CliError(
+      `Cloning repository "${projectConfig.system.repository}" timed out. Check your network connection and repository access, then retry.`,
+    );
+    cloneSystemMock.mockRejectedValueOnce(timeout);
+
+    await expect(withEmulsifySystem('install components')).rejects.toBe(
+      timeout,
     );
   });
 
@@ -184,6 +196,29 @@ describe('withEmulsifySystem', () => {
     expect(error).toMatchObject({
       message:
         'The cached copy of the compound system is invalid. Run "emulsify cache clear" and retry this command to re-clone it. To reinstall the system instead, run "emulsify system detach" followed by "emulsify system install".',
+    });
+  });
+
+  it.each([
+    ['direct validation', [variant]],
+    [
+      'validation after skipping an unsupported variant',
+      [{ ...variant, platform: 'eleventy' }, variant],
+    ],
+  ])('preserves the upgrade error during %s', async (_case, variants) => {
+    const { version }: { version: string } = jest.requireActual(
+      '../../../package.json',
+    );
+    getJsonFromCachedFileMock.mockResolvedValueOnce({
+      ...system,
+      variants,
+      minimumCliVersion: '999.0.0',
+    });
+
+    await expect(withEmulsifySystem('list components')).rejects.toMatchObject({
+      name: 'CliError',
+      exitCode: 1,
+      message: `The "compound" system requires Emulsify CLI 999.0.0 or newer. You are running ${version}. Upgrade with: npm i -g @emulsify/cli@latest`,
     });
   });
 

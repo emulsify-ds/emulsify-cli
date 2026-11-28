@@ -5,11 +5,23 @@
 jest.mock('../lib/log', () => jest.fn());
 jest.mock('../util/project/getEmulsifyConfig', () => jest.fn());
 jest.mock('../util/project/unsetEmulsifyConfig', () => jest.fn());
-jest.mock('@inquirer/prompts');
+// The prompt library ships ESM only, so a factory keeps it out of the CommonJS
+// test runtime while still exposing the cancellation helper prompts rely on.
+jest.mock('@clack/prompts', () => {
+  const cancelSymbol = Symbol('clack:cancel');
 
-import { confirm } from '@inquirer/prompts';
+  return {
+    __esModule: true,
+    CANCEL_SYMBOL: cancelSymbol,
+    isCancel: (value: unknown) => value === cancelSymbol,
+    confirm: jest.fn(),
+  };
+});
+
+import { CANCEL_SYMBOL, confirm } from '@clack/prompts';
 
 import log from '../lib/log.js';
+import { PromptCancelledError } from '../util/prompt/index.js';
 import getEmulsifyConfig from '../util/project/getEmulsifyConfig.js';
 import unsetEmulsifyConfig from '../util/project/unsetEmulsifyConfig.js';
 import systemDetach from './systemDetach.js';
@@ -72,7 +84,7 @@ describe('systemDetach', () => {
     setStdinIsTTY(true);
     confirmMock.mockResolvedValueOnce(true);
 
-    await systemDetach();
+    const summary = await systemDetach();
 
     expect(confirmMock).toHaveBeenCalledTimes(1);
     expect(confirmMock).toHaveBeenCalledWith(
@@ -82,8 +94,7 @@ describe('systemDetach', () => {
     );
     expect(unsetEmulsifyConfigMock).toHaveBeenCalledTimes(1);
     expect(unsetEmulsifyConfigMock).toHaveBeenCalledWith('system', 'variant');
-    expect(logMock).toHaveBeenCalledWith(
-      'success',
+    expect(summary).toBe(
       'Detached the fixture-system system at main. All component files were left in place.',
     );
     expect(logMock).toHaveBeenCalledWith(
@@ -95,12 +106,11 @@ describe('systemDetach', () => {
   it('uses --yes in a non-interactive terminal without opening a prompt', async () => {
     setStdinIsTTY(undefined);
 
-    await systemDetach({ yes: true });
+    const summary = await systemDetach({ yes: true });
 
     expect(confirmMock).not.toHaveBeenCalled();
     expect(unsetEmulsifyConfigMock).toHaveBeenCalledWith('system', 'variant');
-    expect(logMock).toHaveBeenCalledWith(
-      'success',
+    expect(summary).toBe(
       'Detached the fixture-system system at main. All component files were left in place.',
     );
   });
@@ -139,15 +149,23 @@ describe('systemDetach', () => {
     setStdinIsTTY(true);
     confirmMock.mockResolvedValueOnce(false);
 
-    await systemDetach();
+    await expect(systemDetach()).resolves.toBe(
+      'System detach cancelled. No project files were changed.',
+    );
 
     expect(confirmMock).toHaveBeenCalledTimes(1);
     expectNoConfigMutation();
-    expect(logMock).toHaveBeenCalledTimes(1);
-    expect(logMock).toHaveBeenCalledWith(
-      'info',
-      'System detach cancelled. No project files were changed.',
-    );
+  });
+
+  it('propagates confirmation cancellation without writing configuration', async () => {
+    setStdinIsTTY(true);
+    confirmMock.mockResolvedValueOnce(CANCEL_SYMBOL);
+
+    const detachment = systemDetach();
+
+    await expect(detachment).rejects.toBeInstanceOf(PromptCancelledError);
+    await expect(detachment).rejects.toHaveProperty('exitCode', 130);
+    expectNoConfigMutation();
   });
 
   it('fails before prompting or writing in a non-interactive terminal without --yes', async () => {
@@ -182,6 +200,7 @@ describe('systemDetach', () => {
   it.each([
     'https://github.com/example/.git',
     'https://github.com/example/fixture-system',
+    'https://github.com/example/...git',
   ])(
     'uses a safe label when the configured repository name cannot be parsed: %s',
     async (repository) => {
@@ -193,12 +212,10 @@ describe('systemDetach', () => {
         },
       });
 
-      await systemDetach({ yes: true });
-
-      expect(logMock).toHaveBeenCalledWith(
-        'success',
+      await expect(systemDetach({ yes: true })).resolves.toBe(
         'Detached the configured component system at main. All component files were left in place.',
       );
+      expect(unsetEmulsifyConfigMock).toHaveBeenCalledWith('system', 'variant');
     },
   );
 });

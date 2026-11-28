@@ -6,7 +6,7 @@ jest.mock('../fs/findFileInCurrentPath', () => jest.fn());
 
 import { simpleGit } from 'simple-git';
 import { createHash } from 'crypto';
-import { join, resolve } from 'path';
+import { resolve } from 'path';
 import findFileInCurrentPath from '../fs/findFileInCurrentPath.js';
 import getCachedItemCheckout from './getCachedItemCheckout.js';
 
@@ -39,7 +39,7 @@ describe('getCachedItemCheckout', () => {
     ).resolves.toBe('the-current-branch');
 
     expect(simpleGitMock).toHaveBeenCalledWith(
-      join('cache', 'systems', cacheKey, 'compound'),
+      resolve('cache', 'systems', cacheKey, 'compound'),
     );
     expect(gitBranchMock).toHaveBeenCalledTimes(1);
   });

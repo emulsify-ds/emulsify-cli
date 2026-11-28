@@ -4,12 +4,12 @@ import CliError from '../../lib/CliError.js';
 import log from '../../lib/log.js';
 import validateSystemConfig from './validateSystemConfig.js';
 
-const { version }: { version: string } = jest.requireActual(
-  '../../../package.json',
-);
-const [major, minor, patch] = version
-  .split('.')
-  .map((part) => Number.parseInt(part, 10));
+const { version: runningVersion } = jest.requireActual<
+  typeof import('../../../package.json')
+>('../../../package.json');
+const stableVersion = runningVersion.split(/[-+]/, 1)[0];
+const [major, minor, patch] = stableVersion.split('.').map(Number);
+const newerVersion = `${major + 1}.0.0`;
 
 const validSystem = {
   name: 'compound',
@@ -40,7 +40,7 @@ describe('validateSystemConfig', () => {
     jest.clearAllMocks();
   });
 
-  it('returns a typed system configuration when validation succeeds', async () => {
+  it('returns a typed system configuration without a minimum CLI version', async () => {
     await expect(validateSystemConfig(validSystem)).resolves.toEqual({
       valid: true,
       systemConfig: validSystem,
@@ -67,6 +67,7 @@ describe('validateSystemConfig', () => {
               name: 'slider',
               structure: 'base',
               npmDependencies: { swiper: '^12.0.0' },
+              futureComponentSetting: true,
             },
           ],
           directories: [
@@ -101,13 +102,14 @@ describe('validateSystemConfig', () => {
       'system: futureSystemSetting',
       'variant[0] ("drupal"): futureVariantSetting',
       'structure implementation "base": futureStructureSetting',
-      'component "slider": npmDependencies',
+      'component "slider": futureComponentSetting',
       'directory "fonts": futureDirectorySetting',
       'file "config": futureFileSetting',
       'npm i -g @emulsify/cli@latest',
     ]) {
       expect(warning).toContain(detail);
     }
+    expect(warning).not.toContain('npmDependencies');
   });
 
   it('still rejects malformed component fields alongside unknown properties', async () => {
@@ -116,7 +118,9 @@ describe('validateSystemConfig', () => {
       variants: [
         {
           ...validSystem.variants[0],
-          components: [{ name: 'slider', structure: 42, npmDependencies: {} }],
+          components: [
+            { name: 'slider', structure: 42, futureComponentSetting: true },
+          ],
         },
       ],
     });
@@ -134,67 +138,101 @@ describe('validateSystemConfig', () => {
     expect(log).not.toHaveBeenCalled();
   });
 
-  it.each([
-    `${major + 1}.0.0`,
-    `${major}.${minor + 10}.0`,
-    `${major}.${minor}.${patch + 1}-beta.1`,
-  ])(
-    'throws an actionable CliError for minimum CLI version %s',
-    async (minimumCliVersion) => {
-      const result = validateSystemConfig({
-        ...validSystem,
-        minimumCliVersion,
-      });
-
-      await expect(result).rejects.toBeInstanceOf(CliError);
-      await expect(result).rejects.toThrow(
-        `The "compound" system requires Emulsify CLI ${minimumCliVersion} or newer. You are running ${version}. Upgrade with: npm i -g @emulsify/cli@latest`,
-      );
-    },
-  );
-
-  it.each(['0.0.0', version, `${major}.${minor}.${patch}-beta.1`])(
-    'accepts minimum CLI version %s',
-    async (minimumCliVersion) => {
-      const system = { ...validSystem, minimumCliVersion };
-
-      await expect(validateSystemConfig(system)).resolves.toEqual({
-        valid: true,
-        systemConfig: system,
-      });
-      expect(log).not.toHaveBeenCalled();
-    },
-  );
-
-  it('explains how to fix an invalid minimum CLI version', async () => {
-    const result = validateSystemConfig({
-      ...validSystem,
-      minimumCliVersion: '2.5',
-    });
-
-    await expect(result).rejects.toBeInstanceOf(CliError);
-    await expect(result).rejects.toThrow(
-      'invalid minimumCliVersion "2.5". Use a version such as "2.5.0".',
-    );
-  });
-
-  it('returns an Ajv type error for a non-string minimum CLI version', async () => {
+  it('still validates the values of declared npm dependencies', async () => {
     const result = await validateSystemConfig({
       ...validSystem,
-      minimumCliVersion: 2.5,
+      variants: [
+        {
+          ...validSystem.variants[0],
+          components: [
+            {
+              name: 'slider',
+              structure: 'base',
+              npmDependencies: { swiper: 12 },
+            },
+          ],
+        },
+      ],
     });
 
     expect(result).toEqual({
       valid: false,
       errors: expect.arrayContaining([
         expect.objectContaining({
-          instancePath: '/minimumCliVersion',
+          instancePath: '/variants/0/components/0/npmDependencies/swiper',
           keyword: 'type',
-          params: { type: 'string' },
         }),
       ]),
     });
   });
+
+  it.each([
+    newerVersion,
+    `${major}.${minor + 10}.0`,
+    `${major}.${minor}.${patch + 1}-beta.1`,
+  ])(
+    'reports an actionable CliError for minimum CLI version %s',
+    async (minimumCliVersion) => {
+      const validation = validateSystemConfig({
+        ...validSystem,
+        minimumCliVersion,
+      });
+
+      await expect(validation).rejects.toBeInstanceOf(CliError);
+      await expect(validation).rejects.toThrow(
+        `The "compound" system requires Emulsify CLI ${minimumCliVersion} or newer. You are running ${runningVersion}. Upgrade with: npm i -g @emulsify/cli@latest`,
+      );
+    },
+  );
+
+  it.each(['1.0.0', stableVersion, `${stableVersion}-beta.1`])(
+    'accepts the minimum CLI version %s',
+    async (minimumCliVersion) => {
+      const systemConfig = { ...validSystem, minimumCliVersion };
+
+      await expect(validateSystemConfig(systemConfig)).resolves.toEqual({
+        valid: true,
+        systemConfig,
+      });
+    },
+  );
+
+  it('accepts a CLI prerelease with the required major, minor, and patch versions', async () => {
+    await jest.isolateModulesAsync(async () => {
+      jest.doMock('../../../package.json', () => ({
+        version: `${newerVersion}-beta.1`,
+      }));
+      try {
+        const { default: validateConfig } =
+          await import('./validateSystemConfig.js');
+        const systemConfig = {
+          ...validSystem,
+          minimumCliVersion: newerVersion,
+        };
+
+        await expect(validateConfig(systemConfig)).resolves.toEqual({
+          valid: true,
+          systemConfig,
+        });
+      } finally {
+        jest.dontMock('../../../package.json');
+      }
+    });
+  });
+
+  it.each(['^2.5.0', '2.5', 2.5])(
+    'rejects an invalid minimum CLI version %j',
+    async (minimumCliVersion) => {
+      await expect(
+        validateSystemConfig({ ...validSystem, minimumCliVersion }),
+      ).resolves.toEqual({
+        valid: false,
+        errors: expect.arrayContaining([
+          expect.objectContaining({ instancePath: '/minimumCliVersion' }),
+        ]),
+      });
+    },
+  );
 
   it('returns Ajv errors when validation fails', async () => {
     const result = await validateSystemConfig({

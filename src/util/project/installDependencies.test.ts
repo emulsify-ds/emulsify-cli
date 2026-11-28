@@ -1,46 +1,78 @@
-// @ts-nocheck
-// This file is escaping ts checks for now, because the child_process.exec
-// mock fn is selecting a specific exec overload that is incorrect.
-// @TODO: dig into this and figure out how to get typescript to use
-// the correct overload.
-import childproc from 'child_process';
+import { execFile } from 'child_process';
 import installDependencies from './installDependencies.js';
 
-const execMock = jest.spyOn(childproc, 'exec');
+const execFileMock = execFile as unknown as jest.Mock;
+const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+const directory = process.cwd();
 
 describe('installDependencies', () => {
-  it('can execute a script, and resolve the stdout', async () => {
-    expect.assertions(2);
-    execMock.mockImplementationOnce((_a, _b, callback: () => void) =>
-      callback(null, 'done'),
+  afterEach(() => {
+    Object.defineProperty(process, 'platform', platform);
+    execFileMock.mockClear();
+  });
+
+  it.each([
+    [false, ['install']],
+    [true, ['install', '--ignore-scripts']],
+  ])(
+    'runs npm directly on Unix with ignoreScripts=%s and resolves stdout',
+    async (ignoreScripts, args) => {
+      Object.defineProperty(process, 'platform', { value: 'linux' });
+      execFileMock.mockImplementationOnce(
+        (_command, _args, _options, callback) =>
+          callback(null, 'done', 'warning'),
+      );
+      await expect(
+        installDependencies(directory, { ignoreScripts }),
+      ).resolves.toBe('done');
+      expect(execFileMock).toHaveBeenCalledWith(
+        'npm',
+        args,
+        { cwd: directory, maxBuffer: Infinity, timeout: 600_000, shell: false },
+        expect.any(Function),
+      );
+    },
+  );
+
+  it('uses the Windows shell to resolve npm.cmd', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    execFileMock.mockImplementationOnce((_command, _args, _options, callback) =>
+      callback(null, 'done', ''),
     );
     await expect(
-      installDependencies('/home/uname/projects/emulsify'),
+      installDependencies(directory, { ignoreScripts: true }),
     ).resolves.toBe('done');
-    expect(execMock).toHaveBeenCalledWith(
-      'npm install',
-      { cwd: '/home/uname/projects/emulsify' },
+    expect(execFileMock).toHaveBeenCalledWith(
+      'npm install --ignore-scripts',
+      [],
+      { cwd: directory, maxBuffer: Infinity, timeout: 600_000, shell: true },
       expect.any(Function),
     );
   });
 
-  it('can execute a script, and resolve the stderr', async () => {
-    expect.assertions(1);
-    execMock.mockImplementationOnce((_a, _b, callback: () => void) =>
-      callback(null, null, 'well, that went poorly'),
+  it('collects more than 1 MiB of stderr from a successful child', async () => {
+    const { execFile: realExecFile } =
+      jest.requireActual<typeof import('child_process')>('child_process');
+    const outputBytes = 2 * 1024 * 1024;
+    execFileMock.mockImplementationOnce((_command, _args, options, callback) =>
+      realExecFile(
+        process.execPath,
+        ['-e', `process.stderr.write('x'.repeat(${outputBytes}));`],
+        { ...options, shell: false },
+        callback,
+      ),
     );
-    await expect(
-      installDependencies('/home/uname/projects/emulsify'),
-    ).resolves.toBe('well, that went poorly');
+
+    await expect(installDependencies(directory)).resolves.toHaveLength(
+      outputBytes,
+    );
   });
 
-  it('can execute a script, and reject with an error', async () => {
-    expect.assertions(1);
-    execMock.mockImplementationOnce((_a, _b, callback: () => void) =>
-      callback(new Error('well, that went SUPER poorly')),
+  it('rejects with the child error', async () => {
+    const error = new Error('npm exited with status 1');
+    execFileMock.mockImplementationOnce((_command, _args, _options, callback) =>
+      callback(error),
     );
-    await expect(
-      installDependencies('/home/uname/projects/emulsify'),
-    ).rejects.toEqual(Error('well, that went SUPER poorly'));
+    await expect(installDependencies(directory)).rejects.toBe(error);
   });
 });

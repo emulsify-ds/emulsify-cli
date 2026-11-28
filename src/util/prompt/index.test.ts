@@ -1,12 +1,17 @@
+import { CANCEL_SYMBOL } from '@clack/prompts';
 import CliError from '../../lib/CliError.js';
 import {
-  isExitPromptError,
+  PROMPT_CANCELLED_EXIT_CODE,
+  PromptCancelledError,
   isInteractiveTerminal,
+  isPromptCancelledError,
   requireInteractiveTerminal,
   runPrompt,
+  unwrapPromptResult,
 } from './index.js';
 
 const originalStdinIsTTY = process.stdin.isTTY;
+const originalCI = process.env.CI;
 
 function setStdinIsTTY(value: boolean | undefined): void {
   Object.defineProperty(process.stdin, 'isTTY', {
@@ -18,18 +23,26 @@ function setStdinIsTTY(value: boolean | undefined): void {
 describe('prompt utilities', () => {
   afterEach(() => {
     setStdinIsTTY(originalStdinIsTTY);
+    if (originalCI === undefined) delete process.env.CI;
+    else process.env.CI = originalCI;
   });
 
   describe('isInteractiveTerminal', () => {
     it('returns true only when stdin is explicitly a TTY', () => {
-      setStdinIsTTY(true);
-      expect(isInteractiveTerminal()).toBe(true);
+      expect(isInteractiveTerminal({ isTTY: true }, {})).toBe(true);
+      expect(isInteractiveTerminal({ isTTY: false }, {})).toBe(false);
+      expect(isInteractiveTerminal({}, {})).toBe(false);
+    });
 
-      setStdinIsTTY(false);
-      expect(isInteractiveTerminal()).toBe(false);
+    it.each(['true', '1', 'false'])(
+      'disables prompts in a TTY when CI=%s',
+      (CI) => {
+        expect(isInteractiveTerminal({ isTTY: true }, { CI })).toBe(false);
+      },
+    );
 
-      setStdinIsTTY(undefined);
-      expect(isInteractiveTerminal()).toBe(false);
+    it('allows a TTY to prompt when CI is empty', () => {
+      expect(isInteractiveTerminal({ isTTY: true }, { CI: '' })).toBe(true);
     });
   });
 
@@ -58,23 +71,48 @@ describe('prompt utilities', () => {
     });
   });
 
-  describe('isExitPromptError', () => {
-    it("recognizes an Error with Inquirer's cancellation name", () => {
-      const error = new Error('User force closed the prompt');
-      error.name = 'ExitPromptError';
-
-      expect(isExitPromptError(error)).toBe(true);
+  describe('isPromptCancelledError', () => {
+    it('recognizes a cancellation raised by a prompt', () => {
+      expect(isPromptCancelledError(new PromptCancelledError())).toBe(true);
     });
 
     it('rejects other errors and non-Error lookalikes', () => {
-      expect(isExitPromptError(new Error('different failure'))).toBe(false);
-      expect(isExitPromptError({ name: 'ExitPromptError' })).toBe(false);
+      expect(isPromptCancelledError(new Error('different failure'))).toBe(
+        false,
+      );
+      expect(isPromptCancelledError(new CliError('different failure'))).toBe(
+        false,
+      );
+      expect(isPromptCancelledError({ name: 'PromptCancelledError' })).toBe(
+        false,
+      );
+    });
+
+    it('carries the conventional cancellation exit code', () => {
+      expect(new PromptCancelledError()).toMatchObject({
+        exitCode: PROMPT_CANCELLED_EXIT_CODE,
+      });
+      expect(PROMPT_CANCELLED_EXIT_CODE).toBe(130);
+    });
+  });
+
+  describe('unwrapPromptResult', () => {
+    it('returns a submitted value unchanged', () => {
+      expect(unwrapPromptResult('chosen')).toBe('chosen');
+      expect(unwrapPromptResult(false)).toBe(false);
+    });
+
+    it('converts the cancel sentinel into a cancellation error', () => {
+      expect(() => unwrapPromptResult(CANCEL_SYMBOL)).toThrow(
+        PromptCancelledError,
+      );
     });
   });
 
   describe('runPrompt', () => {
     it('returns an explicitly accepted value before checking terminal state', async () => {
-      setStdinIsTTY(false);
+      setStdinIsTTY(true);
+      process.env.CI = 'true';
       const prompt = jest.fn<Promise<string>, []>();
 
       await expect(
@@ -118,6 +156,17 @@ describe('prompt utilities', () => {
       expect(prompt).not.toHaveBeenCalled();
     });
 
+    it('uses the actionable non-interactive error instead of prompting in a CI terminal', async () => {
+      setStdinIsTTY(true);
+      process.env.CI = '1';
+      const prompt = jest.fn<Promise<string>, []>();
+
+      await expect(
+        runPrompt({ prompt, nonInteractive: { error: 'Pass --value.' } }),
+      ).rejects.toMatchObject({ name: 'CliError', message: 'Pass --value.' });
+      expect(prompt).not.toHaveBeenCalled();
+    });
+
     it('uses a safe fallback without prompting in a non-interactive terminal', async () => {
       setStdinIsTTY(undefined);
       const prompt = jest.fn<Promise<boolean>, []>();
@@ -144,19 +193,29 @@ describe('prompt utilities', () => {
       expect(prompt).toHaveBeenCalledTimes(1);
     });
 
-    it('preserves prompt cancellation errors for the top-level handler', async () => {
+    it('turns a cancelled prompt into a cancellation the top-level handler can report', async () => {
       setStdinIsTTY(true);
-      const cancellation = new Error('User force closed the prompt');
-      cancellation.name = 'ExitPromptError';
 
       await expect(
         runPrompt({
-          prompt: async () => {
-            throw cancellation;
-          },
+          prompt: async () => CANCEL_SYMBOL,
           nonInteractive: { error: 'Pass --value.' },
         }),
-      ).rejects.toBe(cancellation);
+      ).rejects.toMatchObject({
+        name: 'PromptCancelledError',
+        exitCode: PROMPT_CANCELLED_EXIT_CODE,
+      });
+    });
+
+    it('turns a cancelled prompt into a cancellation even when a fallback exists', async () => {
+      setStdinIsTTY(true);
+
+      await expect(
+        runPrompt({
+          prompt: async () => CANCEL_SYMBOL,
+          nonInteractive: { value: false },
+        }),
+      ).rejects.toBeInstanceOf(PromptCancelledError);
     });
   });
 });
