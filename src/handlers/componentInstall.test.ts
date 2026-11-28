@@ -9,7 +9,11 @@ jest.mock('../util/cache/cloneIntoCache', () => jest.fn());
 jest.mock('../util/cache/copyItemFromCache', () => jest.fn());
 jest.mock('../util/fs/findFileInCurrentPath', () => jest.fn());
 jest.mock('../util/project/installDependencies', () => jest.fn());
-jest.mock('../lib/session', () => ({ note: jest.fn(), spinner: jest.fn() }));
+jest.mock('../lib/session', () => ({
+  note: jest.fn(),
+  onAbort: jest.fn(),
+  spinner: jest.fn(),
+}));
 // The prompt library is ESM-only, so the mock is built from a factory rather
 // than automocked from the real module.
 jest.mock('@clack/prompts', () => {
@@ -24,13 +28,13 @@ jest.mock('@clack/prompts', () => {
   };
 });
 
-import { existsSync, promises as fs } from 'fs';
+import { existsSync, promises as fs, writeSync } from 'fs';
 import { pathExists, remove } from 'fs-extra';
 import { join, resolve } from 'path';
 import { CANCEL_SYMBOL, confirm, select } from '@clack/prompts';
 import type { EmulsifySystem } from '@emulsify-cli/config';
 import log from '../lib/log.js';
-import { note, spinner } from '../lib/session.js';
+import { note, onAbort, spinner } from '../lib/session.js';
 import CliError from '../lib/CliError.js';
 import {
   EMULSIFY_PROJECT_CONFIG_FILE,
@@ -46,6 +50,8 @@ import componentInstall from './componentInstall.js';
 
 const logMock = log as jest.Mock;
 const noteMock = note as jest.Mock;
+const disposeAbortMock = jest.fn();
+const onAbortMock = jest.mocked(onAbort).mockReturnValue(disposeAbortMock);
 const getEmulsifyConfigMock = getEmulsifyConfig as jest.Mock;
 const getJsonFromCachedFileMock = getJsonFromCachedFile as jest.Mock;
 const cloneIntoCacheMock = cloneIntoCache as jest.Mock;
@@ -970,9 +976,32 @@ describe('componentInstall', () => {
       expect(progress.error).toHaveBeenCalledWith(
         'Unable to install npm packages',
       );
+      expect(disposeAbortMock).toHaveBeenCalledTimes(1);
       expect(fs.rm).not.toHaveBeenCalled();
       expect(remove).not.toHaveBeenCalled();
       expectManifestDependencies({ swiper: '^11.2.0' });
+    });
+
+    it('prints synchronous retry guidance and keeps the manifest if npm is interrupted', async () => {
+      declarePackages({ card: { swiper: '^11.2.0' } });
+      installDependenciesMock.mockImplementationOnce(async () => {
+        const [[cleanup]] = onAbortMock.mock.calls;
+        expectManifestDependencies({ swiper: '^11.2.0' });
+        cleanup();
+        return '';
+      });
+
+      await componentInstall('card', { yes: true });
+
+      expect(writeSync).toHaveBeenCalledWith(
+        process.stderr.fd,
+        expect.stringContaining(
+          `Run npm install --ignore-scripts in ${projectRoot} to finish installing the packages.`,
+        ),
+      );
+      expect(fs.rm).not.toHaveBeenCalled();
+      expectManifestDependencies({ swiper: '^11.2.0' });
+      expect(disposeAbortMock).toHaveBeenCalledTimes(1);
     });
 
     it('skips the package step when a component cannot be copied', async () => {

@@ -6,6 +6,7 @@ jest.mock('../util/fs/executeScript', () => jest.fn());
 jest.mock('../util/project/installDependencies', () => jest.fn());
 jest.mock('../lib/session', () => ({
   note: jest.fn(),
+  onAbort: jest.fn(),
   spinner: jest.fn(),
 }));
 jest.mock('@clack/prompts', () => {
@@ -25,7 +26,7 @@ import { join, resolve } from 'path';
 import { simpleGit as git } from 'simple-git';
 import log from '../lib/log.js';
 import { select, text } from '@clack/prompts';
-import { note, spinner } from '../lib/session.js';
+import { note, onAbort, spinner } from '../lib/session.js';
 import installDependencies from '../util/project/installDependencies.js';
 import getPlatformInfo from '../util/platform/getPlatformInfo.js';
 import loadJsonFile from '../util/fs/loadJsonFile.js';
@@ -55,6 +56,7 @@ const wordpressTarget = join(wordpressThemesDirectory, 'my-theme');
 const existsSyncMock = (fs.existsSync as jest.Mock).mockReturnValue(false);
 const mkdirMock = (fs.promises.mkdir as jest.Mock).mockResolvedValue(undefined);
 const rmMock = (fs.promises.rm as jest.Mock).mockReturnValue(true);
+const rmSyncMock = jest.mocked(fs.rmSync);
 const gitCloneMock = git().clone as jest.Mock;
 const getPlatformInfoMock = (getPlatformInfo as jest.Mock).mockReturnValue({
   root,
@@ -79,6 +81,8 @@ const spinnerMock = {
   isCancelled: false,
 };
 const noteMock = note as jest.Mock;
+const disposeAbortMock = jest.fn();
+const onAbortMock = jest.mocked(onAbort).mockReturnValue(disposeAbortMock);
 const spinnerFactoryMock = (spinner as jest.Mock).mockReturnValue(spinnerMock);
 const textMock = text as jest.Mock;
 const selectMock = select as jest.Mock;
@@ -104,6 +108,9 @@ describe('init', () => {
     existsSyncMock.mockClear();
     mkdirMock.mockClear();
     rmMock.mockClear();
+    rmSyncMock.mockClear();
+    onAbortMock.mockClear();
+    disposeAbortMock.mockClear();
     loadJsonFileMock.mockClear();
     writeJsonFileMock.mockClear();
     installDependenciesMock.mockClear();
@@ -282,17 +289,38 @@ describe('init', () => {
   });
 
   it('never starts the spinner before the target is reserved', async () => {
-    expect.assertions(2);
+    expect.assertions(3);
     existsSyncMock.mockReturnValueOnce(true);
 
     await expect(init('cornflake')).rejects.toThrow(
       'The intended target is already occupied',
     );
     expect(spinnerMock.start).not.toHaveBeenCalled();
+    expect(onAbortMock).not.toHaveBeenCalled();
+  });
+
+  it('registers synchronous cleanup for the reserved target while initialization is running', async () => {
+    gitCloneMock.mockImplementationOnce(async () => {
+      const [[cleanup]] = onAbortMock.mock.calls;
+      cleanup();
+    });
+
+    await init('cornflake');
+
+    const [reservation] = mkdirMock.mock.invocationCallOrder;
+    const [registration] = onAbortMock.mock.invocationCallOrder;
+    const [start] = spinnerMock.start.mock.invocationCallOrder;
+    expect(reservation).toBeLessThan(registration);
+    expect(registration).toBeLessThan(start);
+    expect(rmSyncMock).toHaveBeenCalledWith(
+      defaultTarget,
+      expect.objectContaining({ recursive: true, force: true }),
+    );
+    expect(disposeAbortMock).toHaveBeenCalledTimes(1);
   });
 
   it('stops the spinner before reporting a failure', async () => {
-    expect.assertions(2);
+    expect.assertions(3);
     installDependenciesMock.mockRejectedValueOnce(new Error('npm exploded'));
 
     await expect(init('cornflake')).rejects.toThrow(
@@ -301,6 +329,7 @@ describe('init', () => {
     expect(spinnerMock.error).toHaveBeenCalledWith(
       'Could not finish installing dependencies',
     );
+    expect(disposeAbortMock).toHaveBeenCalledTimes(1);
   });
 
   it('can clone an Emulsify starter based on CLI input, and summarize the result', async () => {
@@ -646,6 +675,7 @@ describe('init', () => {
       `The intended target is already occupied: ${defaultTarget}`,
     );
     expect(gitCloneMock).not.toHaveBeenCalled();
+    expect(onAbortMock).not.toHaveBeenCalled();
     expect(rmMock).not.toHaveBeenCalled();
   });
 

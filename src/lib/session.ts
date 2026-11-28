@@ -16,6 +16,7 @@ import {
   spinner as createSpinner,
   type SpinnerResult,
 } from '@clack/prompts';
+import { PROMPT_CANCELLED_EXIT_CODE } from '../util/prompt/index.js';
 
 /**
  * Matches SGR and other ANSI escape sequences.
@@ -29,6 +30,15 @@ const ANSI_PATTERN = new RegExp(
 );
 
 let sessionIsOpen = false;
+const abortCleanups = new Set<() => void>();
+
+/** Register synchronous work to run if Ctrl-C aborts an active spinner. */
+export function onAbort(cleanup: () => void): () => void {
+  abortCleanups.add(cleanup);
+  return () => {
+    abortCleanups.delete(cleanup);
+  };
+}
 
 /**
  * Remove ANSI escape sequences from a string.
@@ -181,6 +191,11 @@ function writeLine(stream: NodeJS.WriteStream, message?: string): void {
   }
 }
 
+type SpinnerProcess = Pick<NodeJS.Process, 'stdout' | 'stderr' | 'exitCode'> & {
+  on(event: 'exit', listener: (code: number) => void): void;
+  off(event: 'exit', listener: (code: number) => void): void;
+};
+
 /**
  * Create a spinner bound to the current session.
  *
@@ -191,17 +206,59 @@ function writeLine(stream: NodeJS.WriteStream, message?: string): void {
  *
  * @returns a spinner whose `message` updates the active phase.
  */
-export function spinner(): SpinnerResult {
-  if (isInteractiveOutput()) {
-    return createSpinner({ indicator: 'timer' });
+export function spinner(runtime: SpinnerProcess = process): SpinnerResult {
+  if (isInteractiveOutput(runtime.stdout)) {
+    const progress = createSpinner({
+      indicator: 'timer',
+      output: runtime.stdout,
+    });
+    const abortOnExit = (code: number) => {
+      runtime.off('exit', abortOnExit);
+      if (code !== 0) return;
+
+      // Clack's raw-mode Ctrl-C exits with 0. Only a spinner that is still
+      // active treats that exit as cancellation, and exit callbacks must be sync.
+      runtime.exitCode = PROMPT_CANCELLED_EXIT_CODE;
+      const cleanups = [...abortCleanups];
+      abortCleanups.clear();
+      for (const cleanup of cleanups) {
+        try {
+          cleanup();
+        } catch (error) {
+          writeLine(runtime.stderr, String(error));
+        }
+      }
+    };
+    const finish =
+      (end: SpinnerResult['stop']): SpinnerResult['stop'] =>
+      (message) => {
+        runtime.off('exit', abortOnExit);
+        end(message);
+      };
+
+    return {
+      start(message) {
+        runtime.off('exit', abortOnExit);
+        progress.start(message);
+        runtime.on('exit', abortOnExit);
+      },
+      stop: finish(progress.stop),
+      cancel: finish(progress.cancel),
+      error: finish(progress.error),
+      clear: finish(progress.clear),
+      message: progress.message,
+      get isCancelled() {
+        return progress.isCancelled;
+      },
+    };
   }
 
   return {
-    start: (message) => writeLine(process.stdout, message),
-    stop: (message) => writeLine(process.stdout, message),
-    message: (message) => writeLine(process.stdout, message),
-    cancel: (message) => writeLine(process.stderr, message),
-    error: (message) => writeLine(process.stderr, message),
+    start: (message) => writeLine(runtime.stdout, message),
+    stop: (message) => writeLine(runtime.stdout, message),
+    message: (message) => writeLine(runtime.stdout, message),
+    cancel: (message) => writeLine(runtime.stderr, message),
+    error: (message) => writeLine(runtime.stderr, message),
     clear: () => undefined,
     isCancelled: false,
   };
@@ -214,4 +271,5 @@ export function spinner(): SpinnerResult {
  */
 export function resetSessionForTesting(): void {
   sessionIsOpen = false;
+  abortCleanups.clear();
 }

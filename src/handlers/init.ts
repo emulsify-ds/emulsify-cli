@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { existsSync, promises as fs } from 'fs';
+import { existsSync, promises as fs, rmSync } from 'fs';
 import { simpleGit } from 'simple-git';
 import { select, text } from '@clack/prompts';
 
@@ -23,7 +23,7 @@ import executeScript from '../util/fs/executeScript.js';
 import getInitSuccessMessageForPlatform from '../util/platform/getInitSuccessMessageForPlatform.js';
 import log from '../lib/log.js';
 import CliError from '../lib/CliError.js';
-import { note, spinner } from '../lib/session.js';
+import { note, onAbort, spinner } from '../lib/session.js';
 import { isPlatform } from '../util/platform/platformCompatibility.js';
 import { runPrompt } from '../util/prompt/index.js';
 
@@ -233,6 +233,15 @@ export default async function init(
   // The spinner only runs once every value is validated and the target is
   // reserved, so no failure above this point can leave it spinning.
   const progress = spinner();
+  const unregisterAbort = onAbort(() => {
+    try {
+      rmSync(target, { recursive: true, force: true });
+    } catch (error) {
+      throw new CliError(
+        `Unable to remove the incomplete target "${target}" after cancellation: ${String(error)}. Remove it manually before retrying.`,
+      );
+    }
+  });
 
   try {
     progress.start(`Cloning ${repository}`);
@@ -300,6 +309,8 @@ export default async function init(
     // an indicator that is still spinning.
     progress.error(`Could not finish ${phase}`);
     throw await rollbackFailedInitialization(target, phase, e);
+  } finally {
+    unregisterAbort();
   }
 
   // The filesystem transaction is complete. Keep display-only work outside

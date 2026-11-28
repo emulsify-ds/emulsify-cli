@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import {
   cancel as renderCancel,
   intro as renderIntro,
@@ -12,6 +13,7 @@ import {
   getDiagnosticOutput,
   isSessionOpen,
   note,
+  onAbort,
   resetSessionForTesting,
   spinner,
   startSession,
@@ -118,7 +120,10 @@ describe('session framing', () => {
   it('creates a spinner that reports elapsed time rather than a fake total', () => {
     spinner();
 
-    expect(spinnerMock).toHaveBeenCalledWith({ indicator: 'timer' });
+    expect(spinnerMock).toHaveBeenCalledWith({
+      indicator: 'timer',
+      output: process.stdout,
+    });
   });
 
   describe('outside a terminal', () => {
@@ -205,5 +210,110 @@ describe('session framing', () => {
 
       stderrWrite.mockRestore();
     });
+  });
+});
+
+describe('spinner cancellation', () => {
+  function createRuntime() {
+    const stdout = { fd: 1, isTTY: true, write: jest.fn() };
+    const stderr = { fd: 2, isTTY: true, write: jest.fn() };
+    return Object.assign(new EventEmitter(), {
+      stdout: stdout as unknown as NodeJS.Process['stdout'],
+      stderr: stderr as unknown as NodeJS.Process['stderr'],
+      exitCode: undefined as number | undefined,
+    });
+  }
+
+  afterEach(() => {
+    resetSessionForTesting();
+  });
+
+  it('sets exit status 130 and runs active cleanups on a zero-code exit', () => {
+    const runtime = createRuntime();
+    const cleanup = jest.fn();
+    const disposedCleanup = jest.fn();
+    const dispose = onAbort(disposedCleanup);
+    onAbort(cleanup);
+    const progress = spinner(runtime);
+    expect(runtime.listenerCount('exit')).toBe(0);
+
+    dispose();
+    progress.start('Cloning the starter');
+    runtime.emit('exit', 0);
+
+    expect(runtime.exitCode).toBe(130);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(disposedCleanup).not.toHaveBeenCalled();
+  });
+
+  it.each(['stop', 'cancel', 'error', 'clear'] as const)(
+    'detaches the listener after %s and preserves a later successful exit',
+    (end) => {
+      const runtime = createRuntime();
+      const cleanup = jest.fn();
+      onAbort(cleanup);
+      const progress = spinner(runtime);
+
+      progress.start('Cloning the starter');
+      expect(runtime.listenerCount('exit')).toBe(1);
+      progress[end]();
+      expect(runtime.listenerCount('exit')).toBe(0);
+      runtime.emit('exit', 0);
+
+      expect(runtime.exitCode).toBeUndefined();
+      expect(cleanup).not.toHaveBeenCalled();
+    },
+  );
+
+  it('releases listeners after nested and sequential spinners', () => {
+    const runtime = createRuntime();
+    const outer = spinner(runtime);
+    const inner = spinner(runtime);
+
+    outer.start();
+    inner.start();
+    inner.stop();
+    expect(runtime.listenerCount('exit')).toBe(1);
+    outer.stop();
+    expect(runtime.listenerCount('exit')).toBe(0);
+
+    inner.start();
+    expect(runtime.listenerCount('exit')).toBe(1);
+    inner.stop();
+    expect(runtime.listenerCount('exit')).toBe(0);
+  });
+
+  it('runs each abort cleanup once when two spinners are active', () => {
+    const runtime = createRuntime();
+    const cleanup = jest.fn();
+    const failingCleanup = jest.fn(() => {
+      throw new Error('Could not clean up');
+    });
+    onAbort(failingCleanup);
+    onAbort(cleanup);
+
+    spinner(runtime).start();
+    spinner(runtime).start();
+    runtime.emit('exit', 0);
+
+    expect(runtime.exitCode).toBe(130);
+    expect(failingCleanup).toHaveBeenCalledTimes(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(runtime.stderr.write).toHaveBeenCalledWith(
+      'Error: Could not clean up\n',
+    );
+  });
+
+  it('preserves a nonzero exit code while a spinner is active', () => {
+    const runtime = createRuntime();
+    const cleanup = jest.fn();
+    onAbort(cleanup);
+
+    spinner(runtime).start();
+    runtime.exitCode = 1;
+    runtime.emit('exit', 1);
+
+    expect(runtime.exitCode).toBe(1);
+    expect(cleanup).not.toHaveBeenCalled();
   });
 });

@@ -1,9 +1,10 @@
 import { dirname } from 'path';
+import { writeSync } from 'fs';
 import { confirm } from '@clack/prompts';
 import type { Components } from '@emulsify-cli/config';
 import CliError from '../../lib/CliError.js';
 import log from '../../lib/log.js';
-import { note, spinner } from '../../lib/session.js';
+import { note, onAbort, spinner } from '../../lib/session.js';
 import { runPrompt } from '../prompt/index.js';
 import {
   classifyComponentNpmDependencies,
@@ -226,17 +227,21 @@ export async function applyComponentNpmInstall(
   }
 
   const progress = spinner();
-  progress.start('Installing npm packages');
+  const retry = `Run npm install --ignore-scripts in ${plan.root} to finish installing the packages.`;
+  const unregisterAbort = onAbort(() => {
+    writeSync(process.stderr.fd, `${retry}\n`);
+  });
   try {
+    progress.start('Installing npm packages');
     await installDependencies(plan.root, { ignoreScripts: true });
   } catch (error) {
     progress.error('Unable to install npm packages');
     const output = (
       error instanceof Error ? error.message : String(error)
     ).trim();
-    throw new CliError(
-      `npm install failed:\n${output}\nRun npm install --ignore-scripts in ${plan.root} to finish installing the packages.`,
-    );
+    throw new CliError(`npm install failed:\n${output}\n${retry}`);
+  } finally {
+    unregisterAbort();
   }
   progress.stop(
     `Installed ${additions.size} npm package${additions.size === 1 ? '' : 's'} with npm`,

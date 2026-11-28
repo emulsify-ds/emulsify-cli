@@ -22,6 +22,7 @@ jest.mock('../util/fs/executeScript', () => jest.fn());
 jest.mock('../lib/session', () => ({
   __esModule: true,
   note: jest.fn(),
+  onAbort: jest.fn(() => () => undefined),
   spinner: jest.fn(),
 }));
 // The prompt library ships ESM only, so a factory keeps it out of the CommonJS
